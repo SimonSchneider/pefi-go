@@ -1,0 +1,11 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/pefi.Account*/ -}}
+<div class="element-container" id="account-{{.ID}}">
+    <p class="name">
+        {{.Name}}
+    </p>
+    <div class="group">
+        <button class="icon-button" hx-get="/accounts/{{.ID}}/edit" hx-target="body" hx-swap="beforeend">
+            <img src="/static/public/icons/pencil.svg" alt="edit"/>
+        </button>
+    </div>
+</div>

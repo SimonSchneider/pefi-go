@@ -1,0 +1,11 @@
+<nav class="nav">
+    <ul class="nav-left"></ul>
+    <h1>{{ index . "name" }}</h1>
+    <ul class="nav-right">
+        <li>
+            <button class="icon-button" hx-get="{{ index . "create-url" }}" hx-target="body" hx-swap="beforeend">
+                <img alt="create user" src="/static/public/icons/plus.svg"/>
+            </button>
+        </li>
+    </ul>
+</nav>

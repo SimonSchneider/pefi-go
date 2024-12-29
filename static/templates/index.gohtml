@@ -1,0 +1,21 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/pefi.Index*/ -}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark"/>
+    <link rel="stylesheet" href="/static/public/styles.css">
+    <script src="/static/public/htmx.min.js"></script>
+    <script src="/static/public/hyperscript.min.js"></script>
+    <link rel="icon" href="/static/public/favicon.webp">
+    <title>PeFi</title>
+</head>
+<body>
+<main>
+    {{ template "accountList.gohtml" .Accounts }}
+    {{ template "userList.gohtml" .Users }}
+    {{ template "sseTest.gohtml" }}
+</main>
+</body>
+</html>

@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "query.sql"
+    schema: "../static/migrations"
+    gen:
+      go:
+        package: "pdb"
+        out: "../internal/pdb"

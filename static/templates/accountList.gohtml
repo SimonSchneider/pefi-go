@@ -1,0 +1,11 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/pefi.AccountsList*/ -}}
+<div class="header">
+    {{ template "header.gohtml" dict "name" "Account" "create-url" "/accounts/new" }}
+</div>
+<div id="account-list-container" class="container">
+    {{range .Accounts}}
+        {{ template "account.gohtml" . }}
+    {{else}}
+        <p>No accounts found</p>
+    {{end}}
+</div>

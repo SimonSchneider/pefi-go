@@ -1,0 +1,11 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/pefi.UsersList*/ -}}
+<div class="header">
+    {{ template "header.gohtml" dict "name" "Users" "create-url" "/users/new" }}
+</div>
+<div id="user-list-container" class="container">
+    {{range .Users}}
+        {{ template "user.gohtml" . }}
+    {{else}}
+        <p>No users found</p>
+    {{end}}
+</div>

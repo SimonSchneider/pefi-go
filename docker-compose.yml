@@ -1,0 +1,7 @@
+services:
+  chore-tracker:
+    image: ghcr.io/simonschneider/pefi:main
+    volumes:
+      - ./tmp-db:/db
+    ports:
+      - "8888:80"
