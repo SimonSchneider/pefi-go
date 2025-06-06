@@ -7,6 +7,7 @@
     <meta name="color-scheme" content="light dark"/>
     <link rel="stylesheet" href="/static/public/styles.css">
     <script src="/static/public/htmx.min.js"></script>
+    <script src="/static/public/d3.v7.min.js"></script>
     <script src="/static/public/hyperscript.min.js"></script>
     <link rel="icon" href="/static/public/favicon.webp">
     <title>PeFi</title>
@@ -15,7 +16,9 @@
 <main>
     {{ template "accountList.gohtml" .Accounts }}
     {{ template "userList.gohtml" .Users }}
-    {{ template "sseTest.gohtml" }}
+    <button class="icon-button" hx-get="/charts/" hx-target="#chartscripts" hx-swap="beforeend">Hello</button>
+    <div id="chartcontainer"></div>
+    <div id="chartscripts"></div>
 </main>
 </body>
 </html>

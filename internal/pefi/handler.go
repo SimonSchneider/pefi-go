@@ -95,6 +95,8 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider) http.Hand
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
 
+	mux.Handle("GET /charts/", TemplateHandler(tmpl, "chart.gohtml", nil))
+
 	mux.Handle("POST /accounts/{$}", HandlerUpsertAccount(db, tmpl))
 	mux.Handle("GET /accounts/{$}", HandlerListAccounts(db, tmpl))
 	mux.Handle("GET /accounts/{id}/edit", HandlerEditAccount(db, tmpl))
