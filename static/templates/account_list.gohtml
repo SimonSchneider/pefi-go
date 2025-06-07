@@ -1,0 +1,20 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/core.AccountsList*/ -}}
+<header>
+    {{ template "account_list.nav_header.gohtml" . }}
+</header>
+<div class="container">
+    <div class="list-container" id="container">
+        {{ range .Accounts }}
+            <div class="chore-container" id="account-{{.ID}}">
+                <a class="name" href="/accounts/{{.ID}}">{{.Name}}</a>
+                <div class="group">
+                    <a href="/accounts/{{.ID}}/edit?prev={{ $.RequestDetails.CurrPath }}" class="icon-button button">
+                        <img src="/static/public/icons/pencil.svg" alt="edit"/>
+                    </a>
+                </div>
+            </div>
+        {{ else }}
+            <p>No accounts found</p>
+        {{ end }}
+    </div>
+</div>

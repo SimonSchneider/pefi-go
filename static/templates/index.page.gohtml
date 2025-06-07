@@ -1,0 +1,13 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/core.Index*/ -}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{ template "head.gohtml" "Pefigo Dashboard" }}
+</head>
+<body>
+<main>
+    {{ template "account_list.gohtml" .Accounts }}
+    {{ template "userList.gohtml" .Users }}
+</main>
+</body>
+</html>

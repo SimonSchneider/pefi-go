@@ -1,0 +1,30 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/core.AccountEditView*/ -}}
+{{ if .IsEdit }}
+    <form id="delete-form" method="post" action="/accounts/{{.Account.ID}}/delete?next={{.PrevPath}}">
+    </form>
+{{ end }}
+<form method="post" action="/accounts/{{if .IsEdit }}?next={{.PrevPath}}{{end}}">
+    <input type="hidden" name="id" value="{{.Account.ID}}"/>
+    <div class="modal-body">
+        <fieldset role="group" class="group column nogap">
+            <input autofocus id="new-account-name-input" aria-label="name" type="text"
+                   placeholder="name"
+                   value="{{.Account.Name}}"
+                   name="name"/>
+        </fieldset>
+    </div>
+    <div class="modal-footer">
+        {{if .IsEdit}}
+            <button type="submit" form="delete-form" class="reset button" aria-label="Delete">
+                Delete
+            </button>
+        {{end}}
+        <button class="button" type="submit">
+            {{if .IsEdit}}
+                Save
+            {{else}}
+                Create
+            {{end}}
+        </button>
+    </div>
+</form>

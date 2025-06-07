@@ -1,0 +1,30 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/core.AccountView*/ -}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{ template "head.gohtml" "Account" }}
+</head>
+<body>
+<header>
+    {{ template "account.nav_header.gohtml" . }}
+</header>
+<main>
+    <div class="container" id="container">
+        <div class="list-container">
+            {{ range .Snapshots }}
+                <div class="chore-container">
+                    <p class="name">{{.Balance}}</p>
+                    <p class="secondary-text">{{.Date}}</p>
+                    <div class="group">
+                        <a href="/accounts/{{.AccountID}}/snapshots/{{.Date}}/edit?prev={{ $.RequestDetails.CurrPath }}"
+                           class="icon-button button">
+                            <img src="/static/public/icons/pencil.svg" alt="edit"/>
+                        </a>
+                    </div>
+                </div>
+            {{ end }}
+        </div>
+    </div>
+</main>
+</body>
+</html>

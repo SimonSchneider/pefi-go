@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/SimonSchneider/goslu/sid"
-	"github.com/SimonSchneider/goslu/sqlu"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"net/http"
 	"time"
@@ -37,9 +36,9 @@ type Account struct {
 
 func accountFromDB(a pdb.Account) Account {
 	return Account{
-		ID:        a.ID,
-		Name:      a.Name,
-		Type:      a.Type,
+		ID:   a.ID,
+		Name: a.Name,
+		//Type:      a.Type,
 		OwnerID:   a.OwnerID.String,
 		CreatedAt: time.UnixMilli(a.CreatedAt),
 		UpdatedAt: time.UnixMilli(a.UpdatedAt),
@@ -100,18 +99,18 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 	}
 	if inp.ID != "" {
 		acc, err = q.UpdateAccount(ctx, pdb.UpdateAccountParams{
-			ID:        inp.ID,
-			Name:      inp.Name,
-			Type:      inp.Type,
-			OwnerID:   sqlu.NullString(inp.OwnerID),
+			ID:   inp.ID,
+			Name: inp.Name,
+			//Type:      inp.Type,
+			//OwnerID:   sqlu.NullString(inp.OwnerID),
 			UpdatedAt: time.Now().UnixMilli(),
 		})
 	} else {
 		acc, err = q.CreateAccount(ctx, pdb.CreateAccountParams{
-			ID:        sid.MustNewString(15),
-			Name:      inp.Name,
-			Type:      inp.Type,
-			OwnerID:   sqlu.NullString(inp.OwnerID),
+			ID:   sid.MustNewString(15),
+			Name: inp.Name,
+			//Type:      inp.Type,
+			//OwnerID:   sqlu.NullString(inp.OwnerID),
 			CreatedAt: time.Now().UnixMilli(),
 			UpdatedAt: time.Now().UnixMilli(),
 		})
