@@ -199,3 +199,7 @@ func (u Value) Pow(cfg *Config, v Value) Value {
 		return math.Pow(a, b)
 	})
 }
+
+func (u Value) Zero() bool {
+	return u.Distribution == DistFixed && u.Parameters["value"] == 0
+}

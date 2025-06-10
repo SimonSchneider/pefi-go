@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/templ"
 	"io"
 	"net/http"
@@ -64,6 +65,26 @@ func (v *View) IndexPage(w http.ResponseWriter, r *http.Request, d IndexView) er
 	d.Accounts.RequestDetails = rd
 	d.Users.RequestDetails = rd
 	return v.p.ExecuteTemplate(w, "index.page.gohtml", d)
+}
+
+type TableRow struct {
+	Date      date.Date
+	Snapshots []AccountSnapshot
+}
+
+type TableView struct {
+	*RequestDetails
+	Accounts []Account
+	Rows     []TableRow
+}
+
+func (v *View) TablePage(w http.ResponseWriter, r *http.Request, d TableView) error {
+	d.RequestDetails = &RequestDetails{req: r}
+	return v.p.ExecuteTemplate(w, "table.page.gohtml", d)
+}
+
+func (v *View) SnapshotTableCell(w http.ResponseWriter, r *http.Request, d AccountSnapshot) error {
+	return v.p.ExecuteTemplate(w, "table_cell.partial.gohtml", d)
 }
 
 type AccountEditView struct {

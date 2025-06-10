@@ -510,6 +510,7 @@ input {
 input:focus {
     background-color: var(--color-accent);
     outline: 1px solid var(--color-bold);
+    z-index: 10;
 }
 
 input[type="submit"] {

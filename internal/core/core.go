@@ -8,7 +8,7 @@ import (
 )
 
 type AccountID string
-type YieldModelID string
+type InterestModelID string
 type TransferTemplateID string
 
 type Account struct {
@@ -24,16 +24,18 @@ type AccountSnapshot struct {
 	Balance   uncertain.Value
 }
 
-type YieldModel struct {
-	ID          YieldModelID
-	AccountID   AccountID
-	AnnualRate  uncertain.Value
-	Compounding string
-	StartDate   date.Date
-	EndDate     *date.Date // optional
+type InterestModel struct {
+	ID                   InterestModelID
+	AccountID            AccountID
+	AnnualRate           uncertain.Value
+	Compounding          string
+	PaymentDate          date.Cron
+	DestinationAccountID AccountID // optional, if not set, interest is added to the same account
+	StartDate            date.Date
+	EndDate              *date.Date // optional
 }
 
-func (i YieldModel) AppliesTo(day date.Date) bool {
+func (i InterestModel) IsActiveOn(day date.Date) bool {
 	// Check if the interest model applies to the given day
 	if i.StartDate.After(day) {
 		return false
@@ -41,6 +43,10 @@ func (i YieldModel) AppliesTo(day date.Date) bool {
 	if i.EndDate != nil && i.EndDate.Before(day) {
 		return false
 	}
+	return true
+}
+
+func (i InterestModel) CompoundsOn(day date.Date) bool {
 	if i.Compounding == "daily" {
 		return true // Daily compounding applies to every day
 	} else if i.Compounding == "monthly" {
@@ -55,19 +61,23 @@ func (i YieldModel) AppliesTo(day date.Date) bool {
 	return false // For any other compounding type, we assume it does not apply
 }
 
-func addYield(ucfg *uncertain.Config, v uncertain.Value, r uncertain.Value, mult float64) uncertain.Value {
-	return v.Mul(ucfg, uncertain.NewFixed(1.0).Add(ucfg, r).Pow(ucfg, uncertain.NewFixed(mult))) // Daily compounding
+func (i InterestModel) PaysOutOn(d date.Date) bool {
+	return i.PaymentDate.Matches(d)
 }
 
-func (i YieldModel) AddTo(ucfg *uncertain.Config, v uncertain.Value) uncertain.Value {
-	// Calculate the yield based on the annual rate and return it
+func calculateInterest(ucfg *uncertain.Config, v uncertain.Value, r uncertain.Value, mult float64) uncertain.Value {
+	return v.Mul(ucfg, r.Add(ucfg, uncertain.NewFixed(1)).Pow(ucfg, uncertain.NewFixed(mult)).Sub(ucfg, uncertain.NewFixed(1))) // Daily compounding
+}
+
+func (i InterestModel) Calculate(ucfg *uncertain.Config, v uncertain.Value) uncertain.Value {
+	// Calculate the interest based on the annual rate and return it
 	switch i.Compounding {
 	case "daily":
-		return addYield(ucfg, v, i.AnnualRate, 1.0/365.0) // Daily compounding
+		return calculateInterest(ucfg, v, i.AnnualRate, 1.0/365.0) // Daily compounding
 	case "monthly":
-		return addYield(ucfg, v, i.AnnualRate, 1.0/12.0) // Monthly compounding
+		return calculateInterest(ucfg, v, i.AnnualRate, 1.0/12.0) // Monthly compounding
 	case "yearly":
-		return addYield(ucfg, v, i.AnnualRate, 1.0) // Yearly compounding
+		return calculateInterest(ucfg, v, i.AnnualRate, 1.0) // Yearly compounding
 	default:
 		panic("Unknown compounding compounding")
 	}
@@ -76,9 +86,8 @@ func (i YieldModel) AddTo(ucfg *uncertain.Config, v uncertain.Value) uncertain.V
 type TransferAmountType string
 
 const (
-	AmountFixed     TransferAmountType = "fixed"
-	AmountPercent   TransferAmountType = "percent"
-	AmountRemainder TransferAmountType = "remainder"
+	AmountFixed   TransferAmountType = "fixed"
+	AmountPercent TransferAmountType = "percent"
 )
 
 type TransferTemplate struct {
@@ -91,7 +100,7 @@ type TransferTemplate struct {
 	AmountType    TransferAmountType
 	AmountFixed   TransferFixed
 	AmountPercent TransferPercent
-	Priority      int       // lower number = happens earlier
+	Priority      int64     // lower number = happens earlier
 	Recurrence    date.Cron // e.g. "*-*-25"
 
 	EffectiveFrom date.Date
@@ -106,13 +115,13 @@ type TransferPercent struct {
 	Percent float64 // e.g. 0.1 for 10%
 }
 
-type ModeledAccount struct {
+type AccountModel struct {
 	Account
-	YieldModels []YieldModel
-	Snapshots   []AccountSnapshot
+	InterestModels []InterestModel
+	Snapshots      []AccountSnapshot
 }
 
-func (a *ModeledAccount) GetBalanceOn(date date.Date) uncertain.Value {
+func (a *AccountModel) GetBalanceOn(date date.Date) uncertain.Value {
 	foundSnapshot := sort.Search(len(a.Snapshots), func(i int) bool {
 		return a.Snapshots[i].Date.After(date)
 	})
@@ -124,21 +133,44 @@ func (a *ModeledAccount) GetBalanceOn(date date.Date) uncertain.Value {
 }
 
 type ModeledAccountWithBalance struct {
-	*ModeledAccount
-	Balance uncertain.Value
+	*AccountModel
+	Balance         uncertain.Value
+	AccruedInterest map[InterestModelID]uncertain.Value // This is the interest accrued so far, not yet applied to the balance
 }
 
-func (m *ModeledAccountWithBalance) ApplyYield(ucfg *uncertain.Config, date date.Date) {
-	for _, yield := range m.YieldModels {
-		if yield.AppliesTo(date) {
-			// Apply yield logic here, e.g., calculate yield based on the balance and annual rate
-			// This is a placeholder for actual yield calculation logic
-			m.Balance = yield.AddTo(ucfg, m.Balance)
+func (m *ModeledAccountWithBalance) ApplyInterest(ucfg *uncertain.Config, accounts map[AccountID]*ModeledAccountWithBalance, date date.Date) {
+	for _, interest := range m.InterestModels {
+		if interest.IsActiveOn(date) {
+			if interest.CompoundsOn(date) {
+				accruedInterest := m.AccruedInterest[interest.ID]
+				if accruedInterest.Distribution == "" {
+					accruedInterest = uncertain.NewFixed(0.0) // Initialize if not set
+				}
+				totalBalance := m.Balance.Add(ucfg, accruedInterest)
+				dailyInterest := interest.Calculate(ucfg, totalBalance)
+				m.AccruedInterest[interest.ID] = accruedInterest.Add(ucfg, dailyInterest)
+			}
+		}
+		accruedInterest := m.AccruedInterest[interest.ID]
+		if !accruedInterest.Zero() && interest.PaysOutOn(date) {
+			if interest.DestinationAccountID == "" {
+				// If no destination account is specified, add interest to the same account
+				m.Balance = m.Balance.Add(ucfg, accruedInterest)
+			} else {
+				// If a destination account is specified, add interest to that account
+				if destAccount, ok := accounts[interest.DestinationAccountID]; ok {
+					destAccount.Balance = destAccount.Balance.Add(ucfg, accruedInterest)
+				} else {
+					panic("Could not find account with ID " + interest.DestinationAccountID)
+				}
+			}
+			// Reset accrued interest after payout
+			delete(m.AccruedInterest, interest.ID)
 		}
 	}
 }
 
-func makeAccountWithBalance(accounts []*ModeledAccount, date date.Date) map[AccountID]*ModeledAccountWithBalance {
+func makeAccountWithBalance(accounts []*AccountModel, date date.Date) map[AccountID]*ModeledAccountWithBalance {
 	accountsWithBalance := make(map[AccountID]*ModeledAccountWithBalance)
 	for _, account := range accounts {
 		lastSnapshot := AccountSnapshot{Balance: uncertain.NewFixed(0.0), AccountID: account.ID}
@@ -148,15 +180,25 @@ func makeAccountWithBalance(accounts []*ModeledAccount, date date.Date) map[Acco
 			}
 		}
 		accountsWithBalance[account.ID] = &ModeledAccountWithBalance{
-			ModeledAccount: account,
-			Balance:        lastSnapshot.Balance,
+			AccountModel:    account,
+			Balance:         lastSnapshot.Balance,
+			AccruedInterest: make(map[InterestModelID]uncertain.Value),
 		}
 	}
 	return accountsWithBalance
 }
 
 func applyDailyTransfers(ucfg *uncertain.Config, accounts map[AccountID]*ModeledAccountWithBalance, transfers []TransferTemplate) {
-	// Apply transfers for this day
+	// TODO: transfers of equal priority should be applied at the same time
+	// All transfers in the same priority will run simultaneously and % will be based on balance before the priority group
+	// We could have a flag to allow transfers to draw money from the target account if the source account is negative
+	// ie. A1=-100, A2=200,
+	// T1: A1 -> A2, 50% -> A1=-50, A2=150
+	// T2: A2 -> A1, 50% -> A1= 25, A2= 75
+
+	// TODO: Do we need to support transfers which can understand if the destination account requires money?
+	// For example we have a negative account and want to transfer money to it if it is negative but not if it is positive. (doesn't this solve the above question too?)
+	// This is useful for loan payments and fill ups of salary accounts from saving accounts if they can't cover basic expenses.
 	for _, transfer := range transfers {
 		fromAccount, okFrom := accounts[transfer.FromAccountID]
 		toAccount, okTo := accounts[transfer.ToAccountID]
@@ -168,9 +210,6 @@ func applyDailyTransfers(ucfg *uncertain.Config, accounts map[AccountID]*Modeled
 			amount = transfer.AmountFixed.Amount
 		case AmountPercent:
 			amount = uncertain.NewFixed(fromAccount.Balance.Sample(ucfg) * transfer.AmountPercent.Percent)
-		case AmountRemainder:
-			// In this case the from Account balance will become fixed to 0 so remember to set the balance correctly to fixed(0)
-			amount = fromAccount.Balance // Remainder is the entire balance
 		default:
 			continue // Unknown amount type
 		}
@@ -185,7 +224,7 @@ func applyDailyTransfers(ucfg *uncertain.Config, accounts map[AccountID]*Modeled
 	}
 }
 
-func RunPrediction(ucfg *uncertain.Config, from, to date.Date, snapshotCron date.Cron, accounts []*ModeledAccount, transfers []TransferTemplate) error {
+func RunPrediction(ucfg *uncertain.Config, from, to date.Date, snapshotCron date.Cron, accounts []*AccountModel, transfers []TransferTemplate) error {
 	dailyTransfers := make([]TransferTemplate, 0)
 	accountsWithBalance := makeAccountWithBalance(accounts, from)
 	for day := range date.Iter(from, to, date.Day) {
@@ -200,15 +239,14 @@ func RunPrediction(ucfg *uncertain.Config, from, to date.Date, snapshotCron date
 			applyDailyTransfers(ucfg, accountsWithBalance, dailyTransfers)
 		}
 
-		// Apply yield for each account on this day
+		// Apply interest for each account on this day
 		for _, account := range accountsWithBalance {
-			account.ApplyYield(ucfg, day)
+			account.ApplyInterest(ucfg, accountsWithBalance, day)
 		}
-
 		if snapshotCron.Matches(day) {
 			// Create a balance snapshot for each account
 			for i, account := range accountsWithBalance {
-				accountsWithBalance[i].ModeledAccount.Snapshots = append(account.Snapshots, AccountSnapshot{
+				accountsWithBalance[i].AccountModel.Snapshots = append(account.Snapshots, AccountSnapshot{
 					AccountID: account.ID,
 					Date:      day,
 					Balance:   account.Balance,

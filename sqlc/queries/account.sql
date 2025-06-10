@@ -32,6 +32,12 @@ SELECT *
 FROM account_snapshot
 WHERE account_id = ?;
 
+-- name: GetSnapshotsByAccounts :many
+SELECT *
+FROM account_snapshot
+WHERE account_id IN (sqlc.slice('ids'))
+ORDER BY date, account_id;
+
 -- name: GetSnapshot :one
 SELECT *
 FROM account_snapshot

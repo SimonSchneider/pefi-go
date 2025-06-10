@@ -30,6 +30,57 @@ func HandlerIndexPage(db *sql.DB, view *View) http.Handler {
 	})
 }
 
+func HandlerTable(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accounts, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		ids := make([]string, len(accounts))
+		for i, acc := range accounts {
+			ids[i] = string(acc.ID)
+		}
+		// Snapshots are ordered by date
+		snapshots, err := ListAccountsSnapshots(ctx, db, ids)
+		if err != nil {
+			return fmt.Errorf("listing account snapshots: %w", err)
+		}
+		type DateIDKey struct {
+			Date date.Date
+			ID   AccountID
+		}
+		dates := make([]date.Date, 0)
+		snaps := make(map[DateIDKey]AccountSnapshot)
+		for _, s := range snapshots {
+			snaps[DateIDKey{Date: s.Date, ID: s.AccountID}] = s
+			if len(dates) == 0 || dates[len(dates)-1] != s.Date {
+				dates = append(dates, s.Date)
+			}
+		}
+		rows := make([]TableRow, 0)
+		for _, d := range dates {
+			rows = append(rows, TableRow{
+				Date:      d,
+				Snapshots: make([]AccountSnapshot, 0, len(accounts)),
+			})
+			for _, acc := range accounts {
+				if snap, ok := snaps[DateIDKey{Date: d, ID: acc.ID}]; ok {
+					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, snap)
+				} else {
+					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, AccountSnapshot{
+						AccountID: acc.ID,
+						Date:      d,
+					})
+				}
+			}
+		}
+		return view.TablePage(w, r, TableView{
+			Accounts: accounts,
+			Rows:     rows,
+		})
+	})
+}
+
 func HandlerAccountUpsert(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		var inp AccountInput
@@ -61,7 +112,7 @@ func HandlerAccountPage(db *sql.DB, view *View) http.Handler {
 		if err != nil {
 			return fmt.Errorf("getting account: %w", err)
 		}
-		snapshots, err := ListAccountSnapshots(ctx, db, acc.ID)
+		snapshots, err := ListAccountSnapshots(ctx, db, string(acc.ID))
 		if err != nil {
 			return fmt.Errorf("listing account snapshots: %w", err)
 		}
@@ -90,18 +141,22 @@ func HandlerAccountNewPage(view *View) http.Handler {
 	})
 }
 
-func HandlerAccountSnapshotUpsert(db *sql.DB) http.Handler {
+func HandlerAccountSnapshotUpsert(db *sql.DB, view *View) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		var inp AccountSnapshotInput
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
 		accID := r.PathValue("id")
-		_, err := UpsertAccountSnapshot(ctx, db, accID, inp)
+		s, err := UpsertAccountSnapshot(ctx, db, accID, inp)
 		if err != nil {
-			return fmt.Errorf("upserting account: %w", err)
+			return fmt.Errorf("upserting snapshot: %w", err)
 		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", accID))
+		if r.Header.Get("HX-Request") == "true" {
+			return view.SnapshotTableCell(w, r, s)
+		} else {
+			shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", accID))
+		}
 		return nil
 	})
 }
@@ -202,8 +257,18 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 
 	mux.Handle("GET /accounts/{id}/snapshots/new", HandlerAccountSnapshotNewPage(db, view))
 	mux.Handle("GET /accounts/{id}/snapshots/{date}/edit", HandlerAccountSnapshotEditPage(db, view))
-	mux.Handle("POST /accounts/{id}/snapshots/", HandlerAccountSnapshotUpsert(db))
+	mux.Handle("POST /accounts/{id}/snapshots/", HandlerAccountSnapshotUpsert(db, view))
+	mux.Handle("POST /accounts/{id}/snapshots/{date}/", HandlerAccountSnapshotUpsert(db, view))
 	mux.Handle("POST /accounts/{id}/snapshots/delete", HandlerAccountSnapshotDelete(db))
+
+	mux.Handle("GET /tables/{$}", HandlerTable(db, view))
+
+	mux.Handle("POST /sleep/{$}", srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		// Simulate a long-running operation
+		time.Sleep(1 * time.Second)
+		w.WriteHeader(200)
+		return nil
+	}))
 
 	// OLD
 	mux.Handle("GET /charts/", TemplateHandler(tmpl, "chart.gohtml", nil))

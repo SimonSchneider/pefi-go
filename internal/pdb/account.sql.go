@@ -7,6 +7,7 @@ package pdb
 
 import (
 	"context"
+	"strings"
 )
 
 const createAccount = `-- name: CreateAccount :one
@@ -124,6 +125,46 @@ WHERE account_id = ?
 
 func (q *Queries) GetSnapshotsByAccount(ctx context.Context, accountID string) ([]AccountSnapshot, error) {
 	rows, err := q.db.QueryContext(ctx, getSnapshotsByAccount, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AccountSnapshot
+	for rows.Next() {
+		var i AccountSnapshot
+		if err := rows.Scan(&i.AccountID, &i.Date, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSnapshotsByAccounts = `-- name: GetSnapshotsByAccounts :many
+SELECT account_id, date, balance
+FROM account_snapshot
+WHERE account_id IN (/*SLICE:ids*/?)
+ORDER BY date, account_id
+`
+
+func (q *Queries) GetSnapshotsByAccounts(ctx context.Context, ids []string) ([]AccountSnapshot, error) {
+	query := getSnapshotsByAccounts
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

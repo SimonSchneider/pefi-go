@@ -55,7 +55,11 @@ func parseUncertainValue(val string) (uncertain.Value, error) {
 }
 
 func (a *AccountSnapshotInput) FromForm(r *http.Request) error {
-	if err := shttp.Parse(&a.Date, date.ParseDate, r.FormValue("date"), 0); err != nil {
+	dateStr := r.PathValue("date")
+	if dateStr == "" {
+		dateStr = r.FormValue("date")
+	}
+	if err := shttp.Parse(&a.Date, date.ParseDate, dateStr, 0); err != nil {
 		return fmt.Errorf("parsing date: %w", err)
 	}
 	if err := shttp.Parse(&a.Balance, parseUncertainValue, r.FormValue("balance"), uncertain.NewFixed(0)); err != nil {
@@ -91,8 +95,12 @@ func DeleteAccountSnapshot(ctx context.Context, db *sql.DB, id string, date date
 	return nil
 }
 
-func ListAccountSnapshots(ctx context.Context, db *sql.DB, id AccountID) ([]AccountSnapshot, error) {
-	snapshots, err := pdb.New(db).GetSnapshotsByAccount(ctx, string(id))
+func ListAccountSnapshots(ctx context.Context, db *sql.DB, id string) ([]AccountSnapshot, error) {
+	return ListAccountsSnapshots(ctx, db, []string{id})
+}
+
+func ListAccountsSnapshots(ctx context.Context, db *sql.DB, ids []string) ([]AccountSnapshot, error) {
+	snapshots, err := pdb.New(db).GetSnapshotsByAccounts(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list account snapshots: %w", err)
 	}
