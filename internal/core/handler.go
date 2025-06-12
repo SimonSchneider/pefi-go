@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
@@ -427,6 +426,9 @@ func HandlerCharts(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
 
 // Creates a SSE subscription handler for chart data.
 func HandlerChartsDataSub(db *sql.DB) http.Handler {
+	type SetupEvent struct {
+		Max int64 `json:"max"`
+	}
 	type SSEEvent struct {
 		ID         string
 		Day        int64
@@ -436,17 +438,11 @@ func HandlerChartsDataSub(db *sql.DB) http.Handler {
 	}
 	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), 10_000)
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		// This is a placeholder for the actual SSE subscription handler
-		// In a real application, you would implement the logic to stream chart data
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.WriteHeader(http.StatusOK)
 		startDate := date.Today()
 		endDate := startDate.Add(365 * 10)
-		if _, err := fmt.Fprintf(w, "event: setup\ndata: {\"max\": %d}\n\n", endDate.ToStdTime().UnixMilli()); err != nil {
-			return fmt.Errorf("writing setup event: %w", err)
-		}
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
+		sse := srvu.SSEResponse(w)
+		if err := sse.SendNamedJson("setup", SetupEvent{Max: endDate.ToStdTime().UnixMilli()}); err != nil {
+			return fmt.Errorf("sending SSE response: %w", err)
 		}
 		if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, "*-*-25", entities, transfers, func(accountID string, day date.Date, balance uncertain.Value) error {
 			// This is where you would send the data to the SSE client
@@ -458,24 +454,11 @@ func HandlerChartsDataSub(db *sql.DB) http.Handler {
 				LowerBound: q(0.1),
 				UpperBound: q(0.9),
 			}
-			data, err := json.Marshal(event)
-			if err != nil {
-				return fmt.Errorf("marshalling SSE event: %w", err)
-			}
-			if _, err := fmt.Fprintf(w, "event: balanceSnapshot\ndata: %s\n\n", data); err != nil {
-				return fmt.Errorf("writing SSE event: %w", err)
-			}
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
-			}
-			return nil
+			return sse.SendNamedJson("balanceSnapshot", event)
 		}); err != nil {
 			return fmt.Errorf("running prediction for SSE: %w", err)
 		}
-		if _, err := fmt.Fprintf(w, "event: close\ndata:\n\n"); err != nil {
-			return fmt.Errorf("writing close event: %w", err)
-		}
-		return nil
+		return sse.SendEventWithoutData("close")
 	})
 }
 
