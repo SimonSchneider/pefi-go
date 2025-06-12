@@ -3,11 +3,14 @@ package core
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/goslu/templ"
+	"github.com/SimonSchneider/pefigo/internal/finance"
+	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"io/fs"
 	"net/http"
 	"time"
@@ -38,7 +41,7 @@ func HandlerTable(db *sql.DB, view *View) http.Handler {
 		}
 		ids := make([]string, len(accounts))
 		for i, acc := range accounts {
-			ids[i] = string(acc.ID)
+			ids[i] = acc.ID
 		}
 		// Snapshots are ordered by date
 		snapshots, err := ListAccountsSnapshots(ctx, db, ids)
@@ -47,7 +50,7 @@ func HandlerTable(db *sql.DB, view *View) http.Handler {
 		}
 		type DateIDKey struct {
 			Date date.Date
-			ID   AccountID
+			ID   string
 		}
 		dates := make([]date.Date, 0)
 		snaps := make(map[DateIDKey]AccountSnapshot)
@@ -148,12 +151,24 @@ func HandlerAccountSnapshotUpsert(db *sql.DB, view *View) http.Handler {
 			return fmt.Errorf("decoding input: %w", err)
 		}
 		accID := r.PathValue("id")
-		s, err := UpsertAccountSnapshot(ctx, db, accID, inp)
-		if err != nil {
-			return fmt.Errorf("upserting snapshot: %w", err)
+		var snap AccountSnapshot
+		if inp.EmptyBalance {
+			if err := DeleteAccountSnapshot(ctx, db, accID, inp.Date); err != nil {
+				return fmt.Errorf("deleting existing snapshot: %w", err)
+			}
+			snap = AccountSnapshot{
+				AccountID: accID,
+				Date:      inp.Date,
+			}
+		} else {
+			s, err := UpsertAccountSnapshot(ctx, db, accID, inp)
+			if err != nil {
+				return fmt.Errorf("upserting snapshot: %w", err)
+			}
+			snap = s
 		}
 		if r.Header.Get("HX-Request") == "true" {
-			return view.SnapshotTableCell(w, r, s)
+			return view.SnapshotTableCell(w, r, snap)
 		} else {
 			shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", accID))
 		}
@@ -243,6 +258,227 @@ func HandleListUsers(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
 	})
 }
 
+func Must[T any](v T, err error) T {
+	if err != nil {
+		panic(fmt.Errorf("must: %w", err))
+	}
+	return v
+}
+
+var entities = []finance.Entity{
+	{
+		ID:   "checking",
+		Name: "Checking",
+		Snapshots: []finance.BalanceSnapshot{
+			{Balance: uncertain.NewFixed(500), Date: date.Today().Add(-30)},
+			{Balance: uncertain.NewFixed(1000), Date: date.Today()},
+		},
+	},
+	{
+		ID:   "savings",
+		Name: "Savings",
+		Snapshots: []finance.BalanceSnapshot{
+			{Balance: uncertain.NewFixed(800_000), Date: date.Today().Add(-30)},
+			{Balance: uncertain.NewFixed(810_000), Date: date.Today()},
+		},
+		//GrowthModel: &finance.LogNormalGrowth{
+		//	AnnualRate:       uncertain.NewUniform(0.0, 0.02),
+		//	AnnualVolatility: uncertain.NewFixed(0.01),
+		//},
+		GrowthModel: &finance.LogNormalGrowth{
+			AnnualRate:       uncertain.NewUniform(0.04, 0.08),
+			AnnualVolatility: uncertain.NewUniform(0.06, 0.12),
+		},
+	},
+	{
+		ID:   "realEstate",
+		Name: "Real Estate",
+		Snapshots: []finance.BalanceSnapshot{
+			{Balance: uncertain.NewUniform(3_800_000, 4_100_000), Date: date.Today()}}, //.Add(-1 * date.Year)
+		GrowthModel: &finance.LogNormalGrowth{
+			AnnualRate:       uncertain.NewUniform(0.03, 0.06),
+			AnnualVolatility: uncertain.NewUniform(0.1, 0.2),
+		},
+	},
+	//{
+	//	ID:   "plantStocks",
+	//	Name: "Plant stocks",
+	//	Snapshots: []finance.BalanceSnapshot{
+	//		{Balance: uncertain.NewFixed(2_437_000), Date: date.Today().Add(-1 * date.Year)},
+	//	},
+	//	GrowthModel: &finance.LogNormalGrowth{
+	//		AnnualRate:       uncertain.NewUniform(0.2, 0.5),
+	//		AnnualVolatility: uncertain.NewUniform(0.3, 0.5),
+	//	},
+	//},
+	{
+		ID:   "mortgage",
+		Name: "Mortgage",
+		BalanceLimit: finance.BalanceLimit{
+			Upper: uncertain.NewFixed(0),
+		},
+		Snapshots: []finance.BalanceSnapshot{
+			{Balance: uncertain.NewFixed(-1_300_000), Date: date.Today()},
+		},
+		GrowthModel: &finance.FixedGrowth{
+			AnnualRate: uncertain.NewUniform(0.012, 0.045), // Negative growth for debt
+		},
+		CashFlow: &finance.CashFlowModel{
+			Frequency:     "*-*-25",
+			DestinationID: "checking", // Assume mortgage payments go to checking account
+		},
+	},
+}
+
+var transfers = []finance.TransferTemplate{
+	{
+		ID:            "savings",
+		Name:          "Savings Transfer",
+		FromAccountID: "checking",
+		ToAccountID:   "savings",
+		AmountType:    finance.AmountPercent,
+		AmountPercent: finance.TransferPercent{
+			Percent: 0.2,
+		},
+		Priority:   0,
+		Recurrence: "*-*-25",
+		Enabled:    true,
+	},
+	{
+		ID:            "extraMortgagePayment",
+		Name:          "extraMortgage Transfer",
+		FromAccountID: "checking",
+		ToAccountID:   "mortgage",
+		AmountType:    finance.AmountPercent,
+		AmountPercent: finance.TransferPercent{
+			Percent: 0.8,
+		},
+		Priority:   0,
+		Recurrence: "*-*-25",
+		Enabled:    true,
+	},
+	{
+		ID:            "finalSavings",
+		Name:          "Final Savings",
+		FromAccountID: "checking",
+		ToAccountID:   "savings",
+		AmountType:    finance.AmountPercent,
+		AmountPercent: finance.TransferPercent{
+			Percent: 1,
+		},
+		Priority:   1,
+		Recurrence: "*-*-25",
+		Enabled:    true,
+	},
+	{
+		ID:            "salary",
+		Name:          "Salary",
+		FromAccountID: "",
+		ToAccountID:   "checking",
+		AmountType:    finance.AmountFixed,
+		AmountFixed: finance.TransferFixed{
+			Amount: uncertain.NewFixed(60_000),
+		},
+		Priority:   2,
+		Recurrence: "*-*-25",
+		Enabled:    true,
+	},
+	{
+		ID:            "fixedCosts",
+		Name:          "Fixed Costs Transfer",
+		FromAccountID: "checking",
+		ToAccountID:   "",
+		AmountType:    finance.AmountFixed,
+		AmountFixed: finance.TransferFixed{
+			Amount: uncertain.NewFixed(30_000),
+		},
+		Priority:   3,
+		Recurrence: "*-*-25",
+		Enabled:    true,
+	},
+	{
+		ID:            "mortgagePayment",
+		Name:          "Mortgage Payment",
+		FromAccountID: "checking",
+		ToAccountID:   "mortgage",
+		AmountType:    finance.AmountFixed,
+		AmountFixed: finance.TransferFixed{
+			Amount: uncertain.NewFixed(10_000),
+		},
+		Priority:   4,
+		Recurrence: "*-*-25",
+		Enabled:    true,
+	},
+}
+
+type ChartDataView struct {
+	Entities []finance.Entity
+}
+
+func HandlerCharts(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		// This is a placeholder for the actual chart handler
+		// In a real application, you would implement the logic to fetch and return chart data
+		return tmpl.ExecuteTemplate(w, "chart.gohtml", ChartDataView{
+			Entities: entities,
+		})
+	})
+}
+
+// Creates a SSE subscription handler for chart data.
+func HandlerChartsDataSub(db *sql.DB) http.Handler {
+	type SSEEvent struct {
+		ID         string
+		Day        int64
+		Balance    float64
+		LowerBound float64
+		UpperBound float64
+	}
+	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), 10_000)
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		// This is a placeholder for the actual SSE subscription handler
+		// In a real application, you would implement the logic to stream chart data
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		startDate := date.Today()
+		endDate := startDate.Add(365 * 10)
+		if _, err := fmt.Fprintf(w, "event: setup\ndata: {\"max\": %d}\n\n", endDate.ToStdTime().UnixMilli()); err != nil {
+			return fmt.Errorf("writing setup event: %w", err)
+		}
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, "*-*-25", entities, transfers, func(accountID string, day date.Date, balance uncertain.Value) error {
+			// This is where you would send the data to the SSE client
+			q := balance.Quantiles()
+			event := SSEEvent{
+				ID:         accountID,
+				Day:        day.ToStdTime().UnixMilli(),
+				Balance:    balance.Mean(),
+				LowerBound: q(0.1),
+				UpperBound: q(0.9),
+			}
+			data, err := json.Marshal(event)
+			if err != nil {
+				return fmt.Errorf("marshalling SSE event: %w", err)
+			}
+			if _, err := fmt.Fprintf(w, "event: balanceSnapshot\ndata: %s\n\n", data); err != nil {
+				return fmt.Errorf("writing SSE event: %w", err)
+			}
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("running prediction for SSE: %w", err)
+		}
+		if _, err := fmt.Fprintf(w, "event: close\ndata:\n\n"); err != nil {
+			return fmt.Errorf("writing close event: %w", err)
+		}
+		return nil
+	})
+}
+
 func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *View) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
@@ -271,7 +507,8 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	}))
 
 	// OLD
-	mux.Handle("GET /charts/", TemplateHandler(tmpl, "chart.gohtml", nil))
+	mux.Handle("GET /charts/{$}", HandlerCharts(db, tmpl))
+	mux.Handle("GET /charts/sub", HandlerChartsDataSub(db))
 
 	mux.Handle("POST /users/{$}", HandlerUpsertUser(db, tmpl))
 	mux.Handle("GET /users/{$}", HandleListUsers(db, tmpl))

@@ -52,7 +52,8 @@ Accounts
   Transactions (used for prediction and spliting salary)
   InterestModels (used for prediction)
 
-Time machine allows you to run forward to a date and run prediction based on future transactions and interest models with
+Time machine allows you to run forward to a date and run prediction based on future transactions and interest models
+with
 the given current balance snapshots.
 
 ## Tasks
@@ -90,3 +91,27 @@ the given current balance snapshots.
 #### Transaction
 
 - CRUD for transaction
+
+## Details
+
+Asset class - (annualReturn, annualVolatility)
+
+- Savings (0-2%, 0%)
+- Funds (4%-8%, 6%-12%)
+- Stocks (7%-10%, 15%-20%)
+- Startup Stocks (20%-100%, 50%-200%)
+- Private Company Stocks (5%-15%, 20%-40%)
+- Real Estate (6%-10%, 10%-20%)
+
+## Stuff
+
+account = 300
+transfer of max 80
+
+loan limit is 0
+loan = -200  -> transfer 80   min(80, (0-(-200))) -> min(80, 200)
+loan = -70   -> transfer 70   min(80, (0-(-70)))  -> min(80, 70)
+
+account limit is 100
+account = 10 -> transfer 80   min(80, (100-10))   -> min(80, 90)
+account = 30 -> transfer 70   min(80, (100-30))   -> min(80, 70)

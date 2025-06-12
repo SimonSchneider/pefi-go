@@ -13,6 +13,19 @@ import (
 	"time"
 )
 
+type Account struct {
+	ID        string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type AccountSnapshot struct {
+	AccountID string
+	Date      date.Date
+	Balance   uncertain.Value
+}
+
 type AccountInput struct {
 	ID   string
 	Name string
@@ -26,7 +39,7 @@ func (a *AccountInput) FromForm(r *http.Request) error {
 
 func accountFromDB(a pdb.Account) Account {
 	return Account{
-		ID:        AccountID(a.ID),
+		ID:        a.ID,
 		Name:      a.Name,
 		CreatedAt: time.UnixMilli(a.CreatedAt),
 		UpdatedAt: time.UnixMilli(a.UpdatedAt),
@@ -42,8 +55,9 @@ func GetAccount(ctx context.Context, db *sql.DB, id string) (Account, error) {
 }
 
 type AccountSnapshotInput struct {
-	Date    date.Date
-	Balance uncertain.Value
+	Date         date.Date
+	Balance      uncertain.Value
+	EmptyBalance bool
 }
 
 func parseUncertainValue(val string) (uncertain.Value, error) {
@@ -62,7 +76,10 @@ func (a *AccountSnapshotInput) FromForm(r *http.Request) error {
 	if err := shttp.Parse(&a.Date, date.ParseDate, dateStr, 0); err != nil {
 		return fmt.Errorf("parsing date: %w", err)
 	}
-	if err := shttp.Parse(&a.Balance, parseUncertainValue, r.FormValue("balance"), uncertain.NewFixed(0)); err != nil {
+	balanceStr := r.FormValue("balance")
+	if balanceStr == "" {
+		a.EmptyBalance = true
+	} else if err := shttp.Parse(&a.Balance, parseUncertainValue, balanceStr, uncertain.NewFixed(0)); err != nil {
 		return fmt.Errorf("parsing balance: %w", err)
 	}
 	return nil
@@ -82,7 +99,7 @@ func UpsertAccountSnapshot(ctx context.Context, db *sql.DB, accountID string, in
 
 func accountSnapshotFromDB(s pdb.AccountSnapshot) AccountSnapshot {
 	return AccountSnapshot{
-		AccountID: AccountID(s.AccountID),
+		AccountID: s.AccountID,
 		Date:      date.Date(s.Date),
 		Balance:   uncertain.NewFixed(s.Balance),
 	}
@@ -111,7 +128,7 @@ func ListAccountsSnapshots(ctx context.Context, db *sql.DB, ids []string) ([]Acc
 	return snapshotList, nil
 }
 
-func GetAccountSnapshot(ctx context.Context, db *sql.DB, id AccountID, date date.Date) (AccountSnapshot, error) {
+func GetAccountSnapshot(ctx context.Context, db *sql.DB, id string, date date.Date) (AccountSnapshot, error) {
 	s, err := pdb.New(db).GetSnapshot(ctx, pdb.GetSnapshotParams{
 		AccountID: string(id),
 		Date:      int64(date),

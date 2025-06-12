@@ -1,0 +1,142 @@
+{{- /*gotype: github.com/SimonSchneider/chore-tracker/internal/chore.ChartDataView*/ -}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{ template "head.gohtml" "Chores Settings" }}
+    <script src="/static/public/echarts.min.js"></script>
+</head>
+<body>
+<header>
+</header>
+<main>
+    <div id="main" style="width: 100%; height:900px;"></div>
+    <script>
+        const myChart = echarts.init(document.getElementById('main'), null, {
+            // renderer: 'svg'
+        });
+        window.addEventListener('resize', function () {
+            myChart.resize();
+        });
+
+        const series = {
+            {{ range .Entities }}
+            '{{ .ID }}': {
+                name: '{{ .ID }}',
+                type: 'line',
+                data: [{{ range .Snapshots }} [{{ .Date.ToStdTime.UnixMilli }}, {{.Balance.Mean}}], {{ end}}],
+                showSymbol: false,
+                smooth: true,
+            },
+            '{{.ID }}_min': {
+                name: '{{ .ID }} Min',
+                type: 'line',
+                data: [],
+                lineStyle: {opacity: 0},
+                stack: '{{.ID}}-confidence-band',
+                showSymbol: false,
+                smooth: true,
+            },
+            '{{.ID }}_max': {
+                name: '{{ .ID }} Max',
+                type: 'line',
+                data: [],
+                lineStyle: {opacity: 0},
+                stack: '{{.ID}}-confidence-band',
+                showSymbol: false,
+                smooth: true,
+                areaStyle: {
+                    color: '#ccc'
+                },
+            },
+            {{ end }}
+        }
+
+        const batchInterval = 100;
+
+        myChart.setOption({
+            grid: {
+                containLabel: true
+            },
+            animationDurationUpdate: batchInterval,
+            tooltip: {
+                order: 'valueDesc',
+                trigger: 'axis',
+                valueFormatter: (value) => `${value.toLocaleString('en-us', {maximumFractionDigits: 0})} kr`,
+            },
+            xAxis: {
+                type: 'time',
+                name: 'Date',
+                nameLocation: 'middle',
+                nameGap: 30,
+            },
+            yAxis: {
+                type: 'value',
+                name: 'Balance',
+                nameLocation: 'middle',
+                nameGap: 100,
+                axisLabel: {formatter: '{value} kr'},
+            },
+            dataZoom: [
+                {
+                    type: 'inside',   // Enables zooming with mouse wheel and drag
+                    xAxisIndex: 0     // Applies to first xAxis
+                },
+                {
+                    type: 'slider',   // Optional: visible slider below the chart
+                    xAxisIndex: 0
+                }
+            ],
+            series: [
+                ...Object.values(series),
+                {
+                    name: 'Today',
+                    type: 'line',
+                    markLine: {
+                        symbol: ['none', 'none'],
+                        data: [
+                            {
+                                xAxis: new Date(),
+                                lineStyle: {
+                                    color: '#ff0000',
+                                    type: 'dashed',
+                                },
+                                label: {
+                                    formatter: 'Today',
+                                    color: '#ff0000',
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        });
+
+        const evtSource = new EventSource('/charts/sub');
+        const runUpdateBatch = () => {
+            myChart.setOption({
+                series: Object.values(series),
+            });
+        }
+        const interval = setInterval(runUpdateBatch, batchInterval);
+
+        evtSource.addEventListener('setup', function (event) {
+            myChart.setOption({
+                xAxis: {max: JSON.parse(event.data).max}
+            })
+        })
+        evtSource.addEventListener('balanceSnapshot', function (event) {
+            const dataPoint = JSON.parse(event.data);
+            (series[dataPoint.ID].data || []).push([dataPoint.Day, dataPoint.Balance]);
+            (series[`${dataPoint.ID}_min`].data || []).push([dataPoint.Day, dataPoint.LowerBound]);
+            (series[`${dataPoint.ID}_max`].data || []).push([dataPoint.Day, dataPoint.UpperBound-dataPoint.LowerBound]);
+        });
+        evtSource.addEventListener('close', function (event) {
+            evtSource.close();
+            clearInterval(interval);
+            runUpdateBatch();
+        });
+    </script>
+</main>
+</body>
+</html>
+

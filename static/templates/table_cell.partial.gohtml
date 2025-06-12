@@ -6,4 +6,9 @@
        class="table-cell table-input"
        name="balance"
        style="grid-column: i{{ .AccountID }};grid-row: d{{ .Date }};"
-       value="{{printf "%.f" .Balance.Mean}}"/>
+        {{ if .Balance.Valid }}
+            value="{{printf "%.f" .Balance.Mean}}"
+        {{ else }}
+            value=""
+        {{ end }}
+/>
