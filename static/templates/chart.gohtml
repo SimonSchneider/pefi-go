@@ -17,6 +17,7 @@
         window.addEventListener('resize', function () {
             myChart.resize();
         });
+        const batchInterval = 100;
 
         const series = {
             {{ range .Entities }}
@@ -26,6 +27,7 @@
                 data: [{{ range .Snapshots }} [{{ .Date.ToStdTime.UnixMilli }}, {{.Balance.Mean}}], {{ end}}],
                 showSymbol: false,
                 smooth: true,
+                group: '{{ .ID }}',
             },
             '{{.ID }}_min': {
                 name: '{{ .ID }} Min',
@@ -35,6 +37,10 @@
                 stack: '{{.ID}}-confidence-band',
                 showSymbol: false,
                 smooth: true,
+                group: '{{ .ID }}',
+                label: {
+                    show: false,
+                }
             },
             '{{.ID }}_max': {
                 name: '{{ .ID }} Max',
@@ -47,13 +53,22 @@
                 areaStyle: {
                     color: '#ccc'
                 },
+                group: '{{ .ID }}',
+                label: {
+                    show: false,
+                },
             },
             {{ end }}
         }
 
-        const batchInterval = 100;
-
         myChart.setOption({
+            legend: {
+                data: [...new Set(Object.values(series).map(v => v.group))],
+                selectedMode: 'multiple',
+                type: 'scroll',
+                orient: 'vertical',
+                right: 10,
+            },
             grid: {
                 containLabel: true
             },
@@ -111,28 +126,32 @@
             ]
         });
 
-        const evtSource = new EventSource('/charts/sub');
-        const runUpdateBatch = () => {
-            myChart.setOption({
-                series: Object.values(series),
-            });
-        }
-        const interval = setInterval(runUpdateBatch, batchInterval);
-
-        evtSource.addEventListener('setup', function (event) {
-            myChart.setOption({
-                xAxis: {max: JSON.parse(event.data).max}
+        myChart.on('legendselectchanged', function (params) {
+            Object.values(series).forEach(v => {
+                myChart.dispatchAction({
+                    type: params.selected[v.group] ? 'legendSelect' : 'legendUnSelect',
+                    name: v.name
+                });
             })
-        })
-        evtSource.addEventListener('balanceSnapshot', function (event) {
-            const dataPoint = JSON.parse(event.data);
-            (series[dataPoint.ID].data || []).push([dataPoint.Day, dataPoint.Balance]);
-            (series[`${dataPoint.ID}_min`].data || []).push([dataPoint.Day, dataPoint.LowerBound]);
-            (series[`${dataPoint.ID}_max`].data || []).push([dataPoint.Day, dataPoint.UpperBound-dataPoint.LowerBound]);
         });
-        evtSource.addEventListener('close', function (event) {
+
+        const addPointToSeries = (seriesName, day, balance) => (series[seriesName].data || []).push([day, balance]);
+        const addDataPoint = (dataPoint) => {
+            addPointToSeries(dataPoint.ID, dataPoint.Day, dataPoint.Balance);
+            addPointToSeries(`${dataPoint.ID}_min`, dataPoint.Day, dataPoint.LowerBound);
+            addPointToSeries(`${dataPoint.ID}_max`, dataPoint.Day, dataPoint.UpperBound - dataPoint.LowerBound);
+        }
+        const runUpdateBatch = () => myChart.setOption({series: Object.values(series)});
+        const intervalUpdate = setInterval(runUpdateBatch, batchInterval);
+
+        const evtSource = new EventSource('/charts/sub');
+        evtSource.addEventListener('setup', (event) => myChart.setOption({
+            xAxis: {max: JSON.parse(event.data).max}
+        }));
+        evtSource.addEventListener('balanceSnapshot', (event) => addDataPoint(JSON.parse(event.data)));
+        evtSource.addEventListener('close', (event) => {
             evtSource.close();
-            clearInterval(interval);
+            clearInterval(intervalUpdate);
             runUpdateBatch();
         });
     </script>
