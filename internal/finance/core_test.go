@@ -97,6 +97,15 @@ func mks[T any](accounts ...T) []T {
 
 func runPredict(accounts []finance.Entity, transfers []finance.TransferTemplate) (map[string]uncertain.Value, error) {
 	m := make(map[string]finance.BalanceSnapshot)
+	snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
+		if s, ok := m[accountID]; !ok || s.Date < day {
+			m[accountID] = finance.BalanceSnapshot{
+				Date:    day,
+				Balance: balance,
+			}
+		}
+		return nil
+	})
 	err := finance.RunPrediction(
 		context.Background(),
 		uncertain.NewConfig(time.Now().UnixMilli(), 2_000),
@@ -105,15 +114,7 @@ func runPredict(accounts []finance.Entity, transfers []finance.TransferTemplate)
 		"*-*-01",
 		accounts,
 		transfers,
-		func(accountID string, day date.Date, balance uncertain.Value) error {
-			if s, ok := m[accountID]; !ok || s.Date < day {
-				m[accountID] = finance.BalanceSnapshot{
-					Date:    day,
-					Balance: balance,
-				}
-			}
-			return nil
-		},
+		finance.CompositeRecorder{SnapshotRecorder: snapshotRecorder},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run prediction: %w", err)

@@ -10,6 +10,52 @@
 </header>
 <main>
     <div class="container" id="container">
+        <div>
+            <p>Balance Limit {{or .Account.BalanceUpperLimit "N/A"}}</p>
+            <p>Cash Flow Frequency {{ or .Account.CashFlowFrequency "N/A" }}</p>
+            <p>Cash Flow Destination {{ or .Account.CashFlowDestinationID "N/A" }}</p>
+        </div>
+        <header>
+            <nav class="nav">
+                <ul class="nav-left">
+                </ul>
+                <h1>Growth Models</h1>
+                <ul class="nav-right">
+                    <li>
+                        <div class="group">
+                            <a draggable="false" href="/accounts/{{.Account.ID}}/growth-model/new?prev={{.CurrPath}}"
+                               class="icon-button button">
+                                <img draggable="false" alt="create chore" src="/static/public/icons/plus.svg"
+                                     width="24"
+                                     height="24"/>
+                            </a>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+        <div class="list-container">
+            {{/*            TODO*/}}
+        </div>
+        <header>
+            <nav class="nav">
+                <ul class="nav-left">
+                </ul>
+                <h1>Snapshots</h1>
+                <ul class="nav-right">
+                    <li>
+                        <div class="group">
+                            <a draggable="false" href="/accounts/{{.Account.ID}}/snapshots/new?prev={{.CurrPath}}"
+                               class="icon-button button">
+                                <img draggable="false" alt="create chore" src="/static/public/icons/plus.svg"
+                                     width="24"
+                                     height="24"/>
+                            </a>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+        </header>
         <div class="list-container">
             {{ range .Snapshots }}
                 <div class="chore-container">

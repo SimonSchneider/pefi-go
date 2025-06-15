@@ -3,12 +3,14 @@ package core
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/goslu/templ"
 	"github.com/SimonSchneider/pefigo/internal/finance"
+	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"io/fs"
 	"net/http"
@@ -245,217 +247,221 @@ func HandlerEditUser(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
 	})
 }
 
-func HandleDeleteUser(db *sql.DB) http.Handler {
+func HandlerDeleteUser(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		return DeleteUser(ctx, db, r.PathValue("id"))
 	})
 }
 
-func HandleListUsers(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
+func HandlerListUsers(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		return Respond(ListUsers(ctx, db))(tmpl, w, "userList.gohtml")
 	})
 }
 
-func Must[T any](v T, err error) T {
-	if err != nil {
-		panic(fmt.Errorf("must: %w", err))
+func HandlerImport(db *sql.DB) http.Handler {
+	dbi := pdb.New(db)
+	type ImportSnapshot struct {
+		Date    *date.Date `json:"date"`
+		Balance float64    `json:"balance"`
 	}
-	return v
-}
-
-var entities = []finance.Entity{
-	{
-		ID:   "checking",
-		Name: "Checking",
-		Snapshots: []finance.BalanceSnapshot{
-			{Balance: uncertain.NewFixed(500), Date: date.Today().Add(-30)},
-			{Balance: uncertain.NewFixed(1000), Date: date.Today()},
-		},
-	},
-	{
-		ID:   "savings",
-		Name: "Savings",
-		Snapshots: []finance.BalanceSnapshot{
-			{Balance: uncertain.NewFixed(800_000), Date: date.Today().Add(-30)},
-			{Balance: uncertain.NewFixed(810_000), Date: date.Today()},
-		},
-		//GrowthModel: &finance.LogNormalGrowth{
-		//	AnnualRate:       uncertain.NewUniform(0.0, 0.02),
-		//	AnnualVolatility: uncertain.NewFixed(0.01),
-		//},
-		GrowthModel: &finance.LogNormalGrowth{
-			AnnualRate:       uncertain.NewUniform(0.04, 0.08),
-			AnnualVolatility: uncertain.NewUniform(0.06, 0.12),
-		},
-	},
-	{
-		ID:   "realEstate",
-		Name: "Real Estate",
-		Snapshots: []finance.BalanceSnapshot{
-			{Balance: uncertain.NewUniform(3_800_000, 4_100_000), Date: date.Today()}}, //.Add(-1 * date.Year)
-		GrowthModel: &finance.LogNormalGrowth{
-			AnnualRate:       uncertain.NewUniform(0.03, 0.06),
-			AnnualVolatility: uncertain.NewUniform(0.1, 0.2),
-		},
-	},
-	//{
-	//	ID:   "plantStocks",
-	//	Name: "Plant stocks",
-	//	Snapshots: []finance.BalanceSnapshot{
-	//		{Balance: uncertain.NewFixed(2_437_000), Date: date.Today().Add(-1 * date.Year)},
-	//	},
-	//	GrowthModel: &finance.LogNormalGrowth{
-	//		AnnualRate:       uncertain.NewUniform(0.2, 0.5),
-	//		AnnualVolatility: uncertain.NewUniform(0.3, 0.5),
-	//	},
-	//},
-	{
-		ID:   "mortgage",
-		Name: "Mortgage",
-		BalanceLimit: finance.BalanceLimit{
-			Upper: uncertain.NewFixed(0),
-		},
-		Snapshots: []finance.BalanceSnapshot{
-			{Balance: uncertain.NewFixed(-1_300_000), Date: date.Today()},
-		},
-		GrowthModel: &finance.FixedGrowth{
-			AnnualRate: uncertain.NewUniform(0.012, 0.045), // Negative growth for debt
-		},
-		CashFlow: &finance.CashFlowModel{
-			Frequency:     "*-*-25",
-			DestinationID: "checking", // Assume mortgage payments go to checking account
-		},
-	},
-}
-
-var transfers = []finance.TransferTemplate{
-	{
-		ID:            "savings",
-		Name:          "Savings Transfer",
-		FromAccountID: "checking",
-		ToAccountID:   "savings",
-		AmountType:    finance.AmountPercent,
-		AmountPercent: finance.TransferPercent{
-			Percent: 0.2,
-		},
-		Priority:   0,
-		Recurrence: "*-*-25",
-		Enabled:    true,
-	},
-	{
-		ID:            "extraMortgagePayment",
-		Name:          "extraMortgage Transfer",
-		FromAccountID: "checking",
-		ToAccountID:   "mortgage",
-		AmountType:    finance.AmountPercent,
-		AmountPercent: finance.TransferPercent{
-			Percent: 0.8,
-		},
-		Priority:   0,
-		Recurrence: "*-*-25",
-		Enabled:    true,
-	},
-	{
-		ID:            "finalSavings",
-		Name:          "Final Savings",
-		FromAccountID: "checking",
-		ToAccountID:   "savings",
-		AmountType:    finance.AmountPercent,
-		AmountPercent: finance.TransferPercent{
-			Percent: 1,
-		},
-		Priority:   1,
-		Recurrence: "*-*-25",
-		Enabled:    true,
-	},
-	{
-		ID:            "salary",
-		Name:          "Salary",
-		FromAccountID: "",
-		ToAccountID:   "checking",
-		AmountType:    finance.AmountFixed,
-		AmountFixed: finance.TransferFixed{
-			Amount: uncertain.NewFixed(60_000),
-		},
-		Priority:   2,
-		Recurrence: "*-*-25",
-		Enabled:    true,
-	},
-	{
-		ID:            "fixedCosts",
-		Name:          "Fixed Costs Transfer",
-		FromAccountID: "checking",
-		ToAccountID:   "",
-		AmountType:    finance.AmountFixed,
-		AmountFixed: finance.TransferFixed{
-			Amount: uncertain.NewFixed(30_000),
-		},
-		Priority:   3,
-		Recurrence: "*-*-25",
-		Enabled:    true,
-	},
-	{
-		ID:            "mortgagePayment",
-		Name:          "Mortgage Payment",
-		FromAccountID: "checking",
-		ToAccountID:   "mortgage",
-		AmountType:    finance.AmountFixed,
-		AmountFixed: finance.TransferFixed{
-			Amount: uncertain.NewFixed(10_000),
-		},
-		Priority:   4,
-		Recurrence: "*-*-25",
-		Enabled:    true,
-	},
-}
-
-type ChartDataView struct {
-	Entities []finance.Entity
-}
-
-func HandlerCharts(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
+	type ImportAccount struct {
+		ID        string           `json:"id"`
+		Name      string           `json:"name"`
+		Snapshots []ImportSnapshot `json:"snapshots"`
+	}
+	type ImportData struct {
+		Accounts []ImportAccount `json:"accounts"`
+	}
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		// This is a placeholder for the actual chart handler
-		// In a real application, you would implement the logic to fetch and return chart data
-		return tmpl.ExecuteTemplate(w, "chart.gohtml", ChartDataView{
-			Entities: entities,
-		})
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return nil
+		}
+		var imp ImportData
+		if err := json.NewDecoder(r.Body).Decode(&imp); err != nil {
+			return fmt.Errorf("decoding import data: %w", err)
+		}
+		accs := make([]Account, 0, len(imp.Accounts))
+		snapshots := make([]AccountSnapshot, 0)
+		for _, a := range imp.Accounts {
+			var currDate date.Date
+			for _, s := range a.Snapshots {
+				if s.Date == nil && currDate == 0 {
+					return fmt.Errorf("missing date for snapshot")
+				}
+				if s.Date != nil {
+					currDate = *s.Date
+				} else {
+					t := currDate.ToStdTime()
+					y, m, d := t.Date()
+					if m == 12 {
+						y++
+						m = 1
+					} else {
+						m++
+					}
+					parsed, err := date.ParseDate(fmt.Sprintf("%04d-%02d-%02d", y, m, d))
+					if err != nil {
+						return fmt.Errorf("parsing date from snapshot: %w", err)
+					}
+					currDate = parsed
+				}
+				balance := uncertain.NewFixed(s.Balance)
+				snapshots = append(snapshots, AccountSnapshot{
+					AccountID: a.ID,
+					Date:      currDate,
+					Balance:   balance,
+				})
+			}
+			accs = append(accs, Account{
+				ID:   a.ID,
+				Name: a.Name,
+			})
+		}
+		for _, a := range accs {
+			fmt.Printf("creating account: %s (%s)\n", a.ID, a.Name)
+			if _, err := dbi.CreateAccount(ctx, pdb.CreateAccountParams{
+				ID:        a.ID,
+				Name:      a.Name,
+				CreatedAt: time.Now().UnixMilli(),
+				UpdatedAt: time.Now().UnixMilli(),
+			}); err != nil {
+				return fmt.Errorf("creating account: %w", err)
+			}
+		}
+		for _, s := range snapshots {
+			balance, err := s.Balance.Encode()
+			if err != nil {
+				return fmt.Errorf("encoding balance for snapshot (%s, %s): %w", s.AccountID, s.Date, err)
+			}
+			if _, err := dbi.UpsertSnapshot(ctx, pdb.UpsertSnapshotParams{
+				AccountID: s.AccountID,
+				Date:      int64(s.Date),
+				Balance:   balance,
+			}); err != nil {
+				return fmt.Errorf("creating account snapshot (%s): %w", s.AccountID, err)
+			}
+		}
+		return nil
 	})
 }
 
-// Creates a SSE subscription handler for chart data.
-func HandlerChartsDataSub(db *sql.DB) http.Handler {
+func HandlerCharts(tmpl templ.TemplateProvider) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return tmpl.ExecuteTemplate(w, "chart.gohtml", nil)
+	})
+}
+
+func HandlerChartsDataStream(db *sql.DB) http.Handler {
+	q := pdb.New(db)
+	type SSEBalanceSnapshot struct {
+		ID         string  `json:"id"`
+		Day        int64   `json:"day"`
+		Balance    float64 `json:"balance"`
+		LowerBound float64 `json:"lowerBound"`
+		UpperBound float64 `json:"upperBound"`
+	}
+	type SSEFinancialEntity struct {
+		ID        string               `json:"id"`
+		Name      string               `json:"name"`
+		Snapshots []SSEBalanceSnapshot `json:"snapshots"`
+	}
 	type SetupEvent struct {
-		Max int64 `json:"max"`
+		Max      int64                `json:"max"`
+		Entities []SSEFinancialEntity `json:"entities"`
 	}
-	type SSEEvent struct {
-		ID         string
-		Day        int64
-		Balance    float64
-		LowerBound float64
-		UpperBound float64
-	}
-	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), 10_000)
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		startDate := date.Today()
 		endDate := startDate.Add(365 * 10)
+		samples := 2_000
+		quantile := 0.8
+		snapshotInterval := date.Cron("*-*-25")
+
+		q1, q2 := (1-quantile)/2, (1+quantile)/2
+
+		entities := make([]finance.Entity, len(staticEntities))
+		copy(entities, staticEntities)
+		accs, err := q.ListAccounts(ctx)
+		if err != nil {
+			return fmt.Errorf("listing accounts for SSE: %w", err)
+		}
+		for _, acc := range accs {
+			snaps, err := q.GetSnapshotsByAccount(ctx, acc.ID)
+			if err != nil {
+				return fmt.Errorf("getting snapshots for account %s: %w", acc.ID, err)
+			}
+			var balanceLimit finance.BalanceLimit
+			if acc.BalanceUpperLimit != nil {
+				balanceLimit = finance.BalanceLimit{
+					Upper: uncertain.NewFixed(*acc.BalanceUpperLimit),
+				}
+			}
+			entity := finance.Entity{
+				ID:           acc.ID,
+				Name:         acc.Name,
+				BalanceLimit: balanceLimit,
+				Snapshots:    make([]finance.BalanceSnapshot, 0, len(snaps)),
+			}
+			if acc.CashFlowFrequency != nil || acc.CashFlowDestinationID != nil {
+				entity.CashFlow = &finance.CashFlowModel{
+					Frequency:     date.Cron(orDefault(acc.CashFlowFrequency)),
+					DestinationID: orDefault(acc.CashFlowDestinationID),
+				}
+			}
+			for _, snap := range snaps {
+				balance, err := uncertain.Decode(snap.Balance)
+				if err != nil {
+					return fmt.Errorf("decoding balance for snapshot (%s, %s): %w", acc.ID, date.Date(snap.Date), err)
+				}
+				entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
+					Date:    date.Date(snap.Date),
+					Balance: balance,
+				})
+			}
+			if len(entity.Snapshots) > 0 {
+				entities = append(entities, entity)
+			}
+		}
+
+		sssEntities := make([]SSEFinancialEntity, len(entities))
+		for i, e := range entities {
+			sssEntities[i] = SSEFinancialEntity{
+				ID:   e.ID,
+				Name: e.Name,
+			}
+			for _, s := range e.Snapshots {
+				q := s.Balance.Quantiles()
+				sssEntities[i].Snapshots = append(sssEntities[i].Snapshots, SSEBalanceSnapshot{
+					ID:         e.ID,
+					Day:        s.Date.ToStdTime().UnixMilli(),
+					Balance:    s.Balance.Mean(),
+					LowerBound: q(q1),
+					UpperBound: q(q2),
+				})
+			}
+		}
+
+		ucfg := uncertain.NewConfig(time.Now().UnixMilli(), samples)
 		sse := srvu.SSEResponse(w)
-		if err := sse.SendNamedJson("setup", SetupEvent{Max: endDate.ToStdTime().UnixMilli()}); err != nil {
+		if err := sse.SendNamedJson("setup", SetupEvent{
+			Max:      endDate.ToStdTime().UnixMilli(),
+			Entities: sssEntities,
+		}); err != nil {
 			return fmt.Errorf("sending SSE response: %w", err)
 		}
-		if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, "*-*-25", entities, transfers, func(accountID string, day date.Date, balance uncertain.Value) error {
-			// This is where you would send the data to the SSE client
+		snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
 			q := balance.Quantiles()
-			event := SSEEvent{
+			event := SSEBalanceSnapshot{
 				ID:         accountID,
 				Day:        day.ToStdTime().UnixMilli(),
 				Balance:    balance.Mean(),
-				LowerBound: q(0.1),
-				UpperBound: q(0.9),
+				LowerBound: q(q1),
+				UpperBound: q(q2),
 			}
 			return sse.SendNamedJson("balanceSnapshot", event)
-		}); err != nil {
+		})
+		if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, snapshotInterval, entities, transfers, finance.CompositeRecorder{SnapshotRecorder: snapshotRecorder}); err != nil {
 			return fmt.Errorf("running prediction for SSE: %w", err)
 		}
 		return sse.SendEventWithoutData("close")
@@ -489,16 +495,18 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 		return nil
 	}))
 
-	// OLD
-	mux.Handle("GET /charts/{$}", HandlerCharts(db, tmpl))
-	mux.Handle("GET /charts/sub", HandlerChartsDataSub(db))
+	mux.Handle("GET /charts/{$}", HandlerCharts(tmpl))
+	mux.Handle("GET /charts/stream", HandlerChartsDataStream(db))
 
+	// OLD
 	mux.Handle("POST /users/{$}", HandlerUpsertUser(db, tmpl))
-	mux.Handle("GET /users/{$}", HandleListUsers(db, tmpl))
+	mux.Handle("GET /users/{$}", HandlerListUsers(db, tmpl))
 	mux.Handle("GET /users/{id}/edit", HandlerEditUser(db, tmpl))
-	mux.Handle("DELETE /users/{id}", HandleDeleteUser(db))
+	mux.Handle("DELETE /users/{id}", HandlerDeleteUser(db))
 	mux.Handle("GET /users/{id}", HandlerGetUser(db, tmpl))
 	mux.Handle("GET /users/new", TemplateHandler(tmpl, "userModal.gohtml", EmptyUser()))
+
+	mux.Handle("POST /import/{$}", HandlerImport(db))
 
 	return mux
 }

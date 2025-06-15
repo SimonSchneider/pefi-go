@@ -11,6 +11,18 @@
                    placeholder="name"
                    value="{{.Account.Name}}"
                    name="name"/>
+            <input id="new-account-balance-upper-limit-input" aria-label="balance upper limit" type="number"
+                   placeholder="balance upper limit"
+                   value="{{.Account.BalanceUpperLimit}}"
+                   name="balance_upper_limit"/>
+            <input id="cash-flow-frequency-input" aria-label="cash flow frequency" type="text"
+                   placeholder="cash flow frequency"
+                   value="{{.Account.CashFlowFrequency}}"
+                   name="cash_flow_frequency"/>
+            <input id="cash-flow-destination-input" aria-label="cash flow destination" type="text"
+                   placeholder="cash flow destination"
+                   value="{{.Account.CashFlowDestinationID}}"
+                   name="cash_flow_destination_id"/>
         </fieldset>
     </div>
     <div class="modal-footer">

@@ -12,22 +12,28 @@ import (
 
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO account
-    (id, name, created_at, updated_at)
-VALUES (?, ?, ?, ?)
-RETURNING id, name, owner_id, created_at, updated_at
+(id, name, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 `
 
 type CreateAccountParams struct {
-	ID        string
-	Name      string
-	CreatedAt int64
-	UpdatedAt int64
+	ID                    string
+	Name                  string
+	BalanceUpperLimit     *float64
+	CashFlowFrequency     *string
+	CashFlowDestinationID *string
+	CreatedAt             int64
+	UpdatedAt             int64
 }
 
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (Account, error) {
 	row := q.db.QueryRowContext(ctx, createAccount,
 		arg.ID,
 		arg.Name,
+		arg.BalanceUpperLimit,
+		arg.CashFlowFrequency,
+		arg.CashFlowDestinationID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -38,6 +44,9 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BalanceUpperLimit,
+		&i.CashFlowFrequency,
+		&i.CashFlowDestinationID,
 	)
 	return i, err
 }
@@ -46,7 +55,7 @@ const deleteAccount = `-- name: DeleteAccount :one
 DELETE
 FROM account
 WHERE id = ?
-RETURNING id, name, owner_id, created_at, updated_at
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 `
 
 func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error) {
@@ -58,6 +67,9 @@ func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error)
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BalanceUpperLimit,
+		&i.CashFlowFrequency,
+		&i.CashFlowDestinationID,
 	)
 	return i, err
 }
@@ -80,7 +92,7 @@ func (q *Queries) DeleteSnapshot(ctx context.Context, arg DeleteSnapshotParams) 
 }
 
 const getAccount = `-- name: GetAccount :one
-SELECT id, name, owner_id, created_at, updated_at
+SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 FROM account
 WHERE id = ?
 `
@@ -94,6 +106,9 @@ func (q *Queries) GetAccount(ctx context.Context, id string) (Account, error) {
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BalanceUpperLimit,
+		&i.CashFlowFrequency,
+		&i.CashFlowDestinationID,
 	)
 	return i, err
 }
@@ -187,7 +202,7 @@ func (q *Queries) GetSnapshotsByAccounts(ctx context.Context, ids []string) ([]A
 }
 
 const listAccounts = `-- name: ListAccounts :many
-SELECT id, name, owner_id, created_at, updated_at
+SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 FROM account
 ORDER BY name, id
 `
@@ -207,6 +222,9 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.BalanceUpperLimit,
+			&i.CashFlowFrequency,
+			&i.CashFlowDestinationID,
 		); err != nil {
 			return nil, err
 		}
@@ -223,20 +241,33 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE account
-SET name       = ?,
-    updated_at = ?
+SET name                = ?,
+    updated_at          = ?,
+    balance_upper_limit = ?,
+    cash_flow_frequency = ?,
+    cash_flow_destination_id = ?
 WHERE id = ?
-RETURNING id, name, owner_id, created_at, updated_at
+    RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 `
 
 type UpdateAccountParams struct {
-	Name      string
-	UpdatedAt int64
-	ID        string
+	Name                  string
+	UpdatedAt             int64
+	BalanceUpperLimit     *float64
+	CashFlowFrequency     *string
+	CashFlowDestinationID *string
+	ID                    string
 }
 
 func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (Account, error) {
-	row := q.db.QueryRowContext(ctx, updateAccount, arg.Name, arg.UpdatedAt, arg.ID)
+	row := q.db.QueryRowContext(ctx, updateAccount,
+		arg.Name,
+		arg.UpdatedAt,
+		arg.BalanceUpperLimit,
+		arg.CashFlowFrequency,
+		arg.CashFlowDestinationID,
+		arg.ID,
+	)
 	var i Account
 	err := row.Scan(
 		&i.ID,
@@ -244,6 +275,9 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BalanceUpperLimit,
+		&i.CashFlowFrequency,
+		&i.CashFlowDestinationID,
 	)
 	return i, err
 }
@@ -260,7 +294,7 @@ RETURNING account_id, date, balance
 type UpsertSnapshotParams struct {
 	AccountID string
 	Date      int64
-	Balance   float64
+	Balance   string
 }
 
 func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) (AccountSnapshot, error) {

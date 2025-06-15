@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS account
 CREATE TABLE IF NOT EXISTS account_snapshot
 (
     account_id TEXT    NOT NULL,
-    date        INTEGER NOT NULL,
-    balance     FLOAT NOT NULL,
+    date       INTEGER NOT NULL,
+    balance    TEXT    NOT NULL,
     FOREIGN KEY (account_id) REFERENCES account (id) ON DELETE CASCADE,
     PRIMARY KEY (account_id, date)
 );

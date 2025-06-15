@@ -13,9 +13,9 @@
                    placeholder="date"
                    value="{{.Snapshot.Date}}"
                    name="date"/>
-            <input id="new-account-balance-input" aria-label="balance" type="number"
+            <input id="new-account-balance-input" aria-label="balance" type="text"
                    placeholder="balance"
-                   value="{{.Snapshot.Balance.Mean}}"
+                   value="{{.Snapshot.Balance.SafeEncode}}"
                    name="balance"/>
         </fieldset>
     </div>

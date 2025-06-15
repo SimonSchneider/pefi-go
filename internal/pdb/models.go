@@ -4,22 +4,33 @@
 
 package pdb
 
-import (
-	"database/sql"
-)
-
 type Account struct {
-	ID        string
-	Name      string
-	OwnerID   sql.NullString
-	CreatedAt int64
-	UpdatedAt int64
+	ID                    string
+	Name                  string
+	OwnerID               *string
+	CreatedAt             int64
+	UpdatedAt             int64
+	BalanceUpperLimit     *float64
+	CashFlowFrequency     *string
+	CashFlowDestinationID *string
 }
 
 type AccountSnapshot struct {
 	AccountID string
 	Date      int64
-	Balance   float64
+	Balance   string
+}
+
+type GrowthModel struct {
+	ID               string
+	AccountID        string
+	ModelType        string
+	AnnualGrowthRate string
+	AnnualVolatility string
+	StartDate        int64
+	EndDate          *int64
+	CreatedAt        int64
+	UpdatedAt        int64
 }
 
 type User struct {

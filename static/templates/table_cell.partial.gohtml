@@ -7,7 +7,7 @@
        name="balance"
        style="grid-column: i{{ .AccountID }};grid-row: d{{ .Date }};"
         {{ if .Balance.Valid }}
-            value="{{printf "%.f" .Balance.Mean}}"
+            value="{{.Balance.SimpleEncode}}"
         {{ else }}
             value=""
         {{ end }}

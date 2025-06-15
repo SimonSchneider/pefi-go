@@ -11,13 +11,23 @@ import (
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"net/http"
 	"time"
+	"unicode"
 )
 
+type UncertainValue struct {
+	Distribution uncertain.DistributionType `json:"distribution"`
+	Parameters   map[string]float64         `json:"parameters"`
+	Samples      []float64                  `json:"samples"`
+}
+
 type Account struct {
-	ID        string
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                    string
+	Name                  string
+	BalanceUpperLimit     *float64
+	CashFlowFrequency     string
+	CashFlowDestinationID string
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 type AccountSnapshot struct {
@@ -27,22 +37,52 @@ type AccountSnapshot struct {
 }
 
 type AccountInput struct {
-	ID   string
-	Name string
+	ID                    string
+	Name                  string
+	BalanceUpperLimit     *float64
+	CashFlowFrequency     string
+	CashFlowDestinationID string
+}
+
+func parseNullableFloat(val string) (*float64, error) {
+	if val == "" {
+		return nil, nil
+	}
+	f, err := shttp.ParseFloat(val)
+	if err != nil {
+		return nil, fmt.Errorf("parsing float: %w", err)
+	}
+	return &f, nil
 }
 
 func (a *AccountInput) FromForm(r *http.Request) error {
 	a.ID = r.FormValue("id")
 	a.Name = r.FormValue("name")
+	if err := shttp.Parse(&a.BalanceUpperLimit, parseNullableFloat, r.FormValue("balance_upper_limit"), nil); err != nil {
+		return fmt.Errorf("parsing balance limit: %w", err)
+	}
+	a.CashFlowFrequency = r.FormValue("cash_flow_frequency")
+	a.CashFlowDestinationID = r.FormValue("cash_flow_destination_id")
 	return nil
+}
+
+func orDefault[T any](val *T) T {
+	if val == nil {
+		var zero T
+		return zero
+	}
+	return *val
 }
 
 func accountFromDB(a pdb.Account) Account {
 	return Account{
-		ID:        a.ID,
-		Name:      a.Name,
-		CreatedAt: time.UnixMilli(a.CreatedAt),
-		UpdatedAt: time.UnixMilli(a.UpdatedAt),
+		ID:                    a.ID,
+		Name:                  a.Name,
+		BalanceUpperLimit:     a.BalanceUpperLimit,
+		CashFlowFrequency:     orDefault(a.CashFlowFrequency),
+		CashFlowDestinationID: orDefault(a.CashFlowDestinationID),
+		CreatedAt:             time.UnixMilli(a.CreatedAt),
+		UpdatedAt:             time.UnixMilli(a.UpdatedAt),
 	}
 }
 
@@ -61,11 +101,20 @@ type AccountSnapshotInput struct {
 }
 
 func parseUncertainValue(val string) (uncertain.Value, error) {
-	f, err := shttp.ParseFloat(val)
-	if err != nil {
-		return uncertain.Value{}, fmt.Errorf("parsing uncertain value: %w", err)
+	if unicode.IsDigit(rune(val[0])) || (len(val) > 1 && val[0] == '-' && unicode.IsDigit(rune(val[1]))) {
+		// If the value is a simple float, return a fixed uncertain value
+		f, err := shttp.ParseFloat(val)
+		if err != nil {
+			return uncertain.Value{}, fmt.Errorf("parsing float: %w", err)
+		}
+		return uncertain.NewFixed(f), nil
 	}
-	return uncertain.NewFixed(f), nil
+	// Otherwise, parse it as an uncertain value
+	var value uncertain.Value
+	if err := value.Decode(val); err != nil {
+		return uncertain.Value{}, fmt.Errorf("decoding uncertain value: %w", err)
+	}
+	return value, nil
 }
 
 func (a *AccountSnapshotInput) FromForm(r *http.Request) error {
@@ -86,10 +135,14 @@ func (a *AccountSnapshotInput) FromForm(r *http.Request) error {
 }
 
 func UpsertAccountSnapshot(ctx context.Context, db *sql.DB, accountID string, inp AccountSnapshotInput) (AccountSnapshot, error) {
+	balance, err := inp.Balance.Encode()
+	if err != nil {
+		return AccountSnapshot{}, fmt.Errorf("encoding balance: %w", err)
+	}
 	s, err := pdb.New(db).UpsertSnapshot(ctx, pdb.UpsertSnapshotParams{
 		AccountID: accountID,
 		Date:      int64(inp.Date),
-		Balance:   inp.Balance.Mean(),
+		Balance:   balance,
 	})
 	if err != nil {
 		return AccountSnapshot{}, fmt.Errorf("failed to upsert account: %w", err)
@@ -98,10 +151,14 @@ func UpsertAccountSnapshot(ctx context.Context, db *sql.DB, accountID string, in
 }
 
 func accountSnapshotFromDB(s pdb.AccountSnapshot) AccountSnapshot {
+	var balance uncertain.Value
+	if err := balance.Decode(s.Balance); err != nil {
+		panic(fmt.Errorf("decoding balance: %w", err))
+	}
 	return AccountSnapshot{
 		AccountID: s.AccountID,
 		Date:      date.Date(s.Date),
-		Balance:   uncertain.NewFixed(s.Balance),
+		Balance:   balance,
 	}
 }
 
@@ -139,6 +196,14 @@ func GetAccountSnapshot(ctx context.Context, db *sql.DB, id string, date date.Da
 	return accountSnapshotFromDB(s), nil
 }
 
+func withDefaultNull[T comparable](val T) *T {
+	var zero T
+	if val == zero {
+		return nil
+	}
+	return &val
+}
+
 func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, error) {
 	var (
 		q   = pdb.New(db)
@@ -147,16 +212,22 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 	)
 	if inp.ID != "" {
 		acc, err = q.UpdateAccount(ctx, pdb.UpdateAccountParams{
-			ID:        inp.ID,
-			Name:      inp.Name,
-			UpdatedAt: time.Now().UnixMilli(),
+			ID:                    inp.ID,
+			Name:                  inp.Name,
+			BalanceUpperLimit:     inp.BalanceUpperLimit,
+			CashFlowFrequency:     withDefaultNull(inp.CashFlowFrequency),
+			CashFlowDestinationID: withDefaultNull(inp.CashFlowDestinationID),
+			UpdatedAt:             time.Now().UnixMilli(),
 		})
 	} else {
 		acc, err = q.CreateAccount(ctx, pdb.CreateAccountParams{
-			ID:        sid.MustNewString(15),
-			Name:      inp.Name,
-			CreatedAt: time.Now().UnixMilli(),
-			UpdatedAt: time.Now().UnixMilli(),
+			ID:                    sid.MustNewString(15),
+			Name:                  inp.Name,
+			BalanceUpperLimit:     inp.BalanceUpperLimit,
+			CashFlowFrequency:     withDefaultNull(inp.CashFlowFrequency),
+			CashFlowDestinationID: withDefaultNull(inp.CashFlowDestinationID),
+			CreatedAt:             time.Now().UnixMilli(),
+			UpdatedAt:             time.Now().UnixMilli(),
 		})
 	}
 	if err != nil {

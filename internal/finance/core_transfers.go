@@ -1,6 +1,7 @@
 package finance
 
 import (
+	"fmt"
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"math"
@@ -38,7 +39,7 @@ type TransferPercent struct {
 	Percent float64 // e.g. 0.1 for 10%
 }
 
-func applyDailyTransfers(ucfg *uncertain.Config, accounts map[string]*ModeledEntity, transfers []TransferTemplate) {
+func applyDailyTransfers(ucfg *uncertain.Config, accounts map[string]*ModeledEntity, transfers []TransferTemplate, day date.Date, recorder TransferRecorder) error {
 	// TODO: transfers of equal priority should be applied at the same time
 	// All transfers in the same priority will run simultaneously and % will be based on balance before the priority group
 	// We could have a flag to allow transfers to draw money from the target account if the source account is negative
@@ -90,6 +91,10 @@ func applyDailyTransfers(ucfg *uncertain.Config, accounts map[string]*ModeledEnt
 			})
 		}
 
+		if err := recorder.OnTransfer(transfer.FromAccountID, transfer.ToAccountID, day, amount); err != nil {
+			return fmt.Errorf("failed to record transfer %s from %s to %s on %s: %w", transfer.ID, transfer.FromAccountID, transfer.ToAccountID, day, err)
+		}
+
 		if okFrom {
 			// Perform the transfer
 			fromAccount.balance = fromAccount.balance.Sub(ucfg, amount)
@@ -98,4 +103,5 @@ func applyDailyTransfers(ucfg *uncertain.Config, accounts map[string]*ModeledEnt
 			toAccount.balance = toAccount.balance.Add(ucfg, amount)
 		}
 	}
+	return nil
 }

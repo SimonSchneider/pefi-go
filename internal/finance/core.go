@@ -2,80 +2,15 @@ package finance
 
 import (
 	"context"
+	"fmt"
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"math"
 	"sort"
 )
 
 type BalanceSnapshot struct {
 	Date    date.Date
 	Balance uncertain.Value
-}
-
-type GrowthModel interface {
-	IsActiveOn(date date.Date) bool
-	Apply(ucfg *uncertain.Config, totalBalance uncertain.Value) (delta uncertain.Value)
-}
-
-type TimeFrameGrowth struct {
-	StartDate date.Date
-	EndDate   *date.Date // optional
-
-}
-
-func (i *TimeFrameGrowth) IsActiveOn(day date.Date) bool {
-	// Check if the interest model applies to the given day
-	if i.StartDate.After(day) {
-		return false
-	}
-	if i.EndDate != nil && i.EndDate.Before(day) {
-		return false
-	}
-	return true
-}
-
-type FixedGrowth struct {
-	TimeFrameGrowth
-	AnnualRate uncertain.Value // Annual growth rate, e.g. 0.05 for 5%
-}
-
-func (i *FixedGrowth) Apply(ucfg *uncertain.Config, totalBalance uncertain.Value) uncertain.Value {
-	dailyGrowthFactor := i.AnnualRate.Add(ucfg, uncertain.NewFixed(1)).Pow(ucfg, uncertain.NewFixed(1.0/365.0))
-	return totalBalance.Mul(ucfg, dailyGrowthFactor.Sub(ucfg, uncertain.NewFixed(1)))
-}
-
-type LogNormalGrowth struct {
-	TimeFrameGrowth
-	AnnualRate       uncertain.Value
-	AnnualVolatility uncertain.Value // Optional, can be used for more complex models
-}
-
-func (i *LogNormalGrowth) Apply(ucfg *uncertain.Config, totalBalance uncertain.Value) uncertain.Value {
-	dailyMu := i.AnnualRate.Mul(ucfg, uncertain.NewFixed(1.0/365.0))
-	dailySigma := i.AnnualVolatility.Mul(ucfg, uncertain.NewFixed(1.0/math.Sqrt(365)))
-	if !i.AnnualVolatility.Valid() {
-		dailySigma = uncertain.NewFixed(0.0) // If no volatility is set, use 0
-	}
-
-	// Daily log return is normally distributed: N(dailyMu, dailySigma)
-	dailyLogReturn := uncertain.NewMapped(
-		func(cfg *uncertain.Config) float64 {
-			mu := dailyMu.Sample(cfg)
-			sigma := dailySigma.Sample(cfg)
-			return cfg.RNG.NormFloat64()*sigma + mu
-		},
-	)
-
-	// Convert to growth factor: exp(log_return) - 1
-	dailyGrowth := dailyLogReturn.Exp().Sub(ucfg, uncertain.NewFixed(1))
-
-	// Apply daily growth to total balance
-	//return totalBalance.Mul(ucfg, dailyGrowth.Add(ucfg, uncertain.NewFixed(1)))
-	return totalBalance.Mul(ucfg, dailyGrowth)
-
-	// Calculate the interest based on the annual rate and return it
-	//return totalBalance.Mul(ucfg, i.AnnualRate.Add(ucfg, uncertain.NewFixed(1)).Pow(ucfg, uncertain.NewFixed(1.0/365.0)).Sub(ucfg, uncertain.NewFixed(1))) // Daily compounding
 }
 
 type CashFlowModel struct {
@@ -158,7 +93,7 @@ func (fe *ModeledEntity) ApplyAppreciation(ucfg *uncertain.Config, entities map[
 	}
 }
 
-func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Date, snapshotCron date.Cron, financialEntities []Entity, transfers []TransferTemplate, onSnapshot func(accountID string, day date.Date, balance uncertain.Value) error) error {
+func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Date, snapshotCron date.Cron, financialEntities []Entity, transfers []TransferTemplate, recorder Recorder) error {
 	dailyTransfers := make([]TransferTemplate, 0)
 	fes := make(map[string]*ModeledEntity)
 	earliestDate := from
@@ -181,7 +116,9 @@ func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Da
 				dailyTransfers = append(dailyTransfers, transfer)
 			}
 			if len(dailyTransfers) > 0 {
-				applyDailyTransfers(ucfg, fes, dailyTransfers)
+				if err := applyDailyTransfers(ucfg, fes, dailyTransfers, day, recorder); err != nil {
+					return fmt.Errorf("failed to apply daily transfers: %w", err)
+				}
 			}
 		}
 
@@ -198,8 +135,8 @@ func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Da
 		if snapshotCron.Matches(day) {
 			for _, fe := range fes {
 				if fe.lastSnapshotDate.Before(day) {
-					if err := onSnapshot(fe.ID, day, fe.balance); err != nil {
-						return err
+					if err := recorder.OnSnapshot(fe.ID, day, fe.balance); err != nil {
+						return fmt.Errorf("failed to record snapshot for %s: %w", fe.ID, err)
 					}
 					fe.lastSnapshotDate = day
 				}
