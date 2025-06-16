@@ -5,13 +5,13 @@ WHERE id = ?;
 
 -- name: UpdateAccount :one
 UPDATE account
-SET name                = ?,
-    updated_at          = ?,
-    balance_upper_limit = ?,
-    cash_flow_frequency = ?,
+SET name                     = ?,
+    updated_at               = ?,
+    balance_upper_limit      = ?,
+    cash_flow_frequency      = ?,
     cash_flow_destination_id = ?
 WHERE id = ?
-    RETURNING *;
+RETURNING *;
 
 -- name: DeleteAccount :one
 DELETE
@@ -60,3 +60,26 @@ DELETE
 FROM account_snapshot
 WHERE account_id = ?
   AND date = ?;
+
+-- name: GetGrowthModelsByAccount :many
+SELECT *
+FROM growth_model
+WHERE account_id = ?;
+
+-- name: GetGrowthModel :one
+SELECT *
+FROM growth_model
+WHERE id = ?;
+
+-- name: UpsertGrowthModel :one
+INSERT OR
+REPLACE
+INTO growth_model
+(id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: DeleteGrowthModel :exec
+DELETE
+FROM growth_model
+WHERE id = ?;

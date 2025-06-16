@@ -1,0 +1,55 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/core.AccountGrowthModelView*/ -}}
+{{ if .IsEdit }}
+    <form id="delete-form" method="post"
+          action="/growth-models/delete?next={{.PrevPath}}">
+        <input type="hidden" name="id" value="{{.GrowthModel.ID}}"/>
+    </form>
+{{ end }}
+<form method="post" action="/growth-models/{{if .IsEdit }}?next={{.PrevPath}}{{end}}">
+    <div class="modal-body">
+        {{ if .IsEdit }}
+            <input type="hidden"
+                   value="{{.GrowthModel.ID}}"
+                   name="id"/>
+        {{end}}
+        <input type="hidden"
+               value="{{.GrowthModel.AccountID}}"
+               name="account_id"/>
+        <fieldset role="group" class="group column nogap">
+            <input aria-label="type" type="text"
+                   placeholder="type"
+                   value="{{.GrowthModel.Type}}"
+                   name="type"/>
+            <input aria-label="annual growth rate" type="text"
+                   placeholder="annual growth rate"
+                   value="{{.GrowthModel.AnnualRate.SafeEncode}}"
+                   name="annual_rate"/>
+            <input aria-label="annual volatility" type="text"
+                   placeholder="annual volatility"
+                   value="{{.GrowthModel.AnnualVolatility.SafeEncode}}"
+                   name="annual_volatility"/>
+            <input aria-label="start date" type="text"
+                   placeholder="start date"
+                   value="{{or .GrowthModel.StartDate ""}}"
+                   name="start_date"/>
+            <input aria-label="end date" type="text"
+                   placeholder="end date"
+                   value="{{or .GrowthModel.EndDate ""}}"
+                   name="end_date"/>
+        </fieldset>
+    </div>
+    <div class="modal-footer">
+        {{if .IsEdit}}
+            <button type="submit" form="delete-form" class="reset button" aria-label="Delete">
+                Delete
+            </button>
+        {{end}}
+        <button class="button" type="submit">
+            {{if .IsEdit}}
+                Save
+            {{else}}
+                Create
+            {{end}}
+        </button>
+    </div>
+</form>

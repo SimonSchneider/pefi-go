@@ -121,10 +121,26 @@ func (v *View) AccountSnapshotEditPage(w http.ResponseWriter, r *http.Request, d
 	return v.p.ExecuteTemplate(w, "account_snapshot_edit.page.gohtml", d)
 }
 
+type AccountGrowthModelView struct {
+	*RequestDetails
+	Account     Account
+	GrowthModel GrowthModel
+}
+
+func (c AccountGrowthModelView) IsEdit() bool {
+	return c.GrowthModel.ID != ""
+}
+
+func (v *View) AccountGrowthModelEditPage(w http.ResponseWriter, r *http.Request, d AccountGrowthModelView) error {
+	d.RequestDetails = &RequestDetails{req: r}
+	return v.p.ExecuteTemplate(w, "account_growth_model_edit.page.gohtml", d)
+}
+
 type AccountView struct {
 	*RequestDetails
-	Account   Account
-	Snapshots []AccountSnapshot
+	Account      Account
+	Snapshots    []AccountSnapshot
+	GrowthModels []GrowthModel
 }
 
 func (v *View) AccountPage(w http.ResponseWriter, r *http.Request, d AccountView) error {

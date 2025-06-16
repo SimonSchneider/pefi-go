@@ -210,7 +210,7 @@ func (u Value) isFixed() bool {
 func (u Value) operate(cfg *Config, v Value, op func(a, b float64) float64) Value {
 	// Both fixed: operate directly
 	if u.isFixed() && v.isFixed() {
-		result := op(u.Fixed.Value, u.Fixed.Value)
+		result := op(u.Fixed.Value, v.Fixed.Value)
 		return NewFixed(result)
 	}
 

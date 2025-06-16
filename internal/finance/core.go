@@ -68,7 +68,7 @@ func (fe *ModeledEntity) ApplyGrowth(ucfg *uncertain.Config, date date.Date) {
 		fe.accruedAppreciation = uncertain.NewFixed(0.0) // Initialize if not set
 	}
 	totalBalance := fe.balance.Add(ucfg, fe.accruedAppreciation)
-	dailyGrowth := fe.GrowthModel.Apply(ucfg, totalBalance)
+	dailyGrowth := fe.GrowthModel.Apply(ucfg, date, totalBalance)
 	fe.accruedAppreciation = fe.accruedAppreciation.Add(ucfg, dailyGrowth)
 }
 

@@ -74,6 +74,17 @@ func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error)
 	return i, err
 }
 
+const deleteGrowthModel = `-- name: DeleteGrowthModel :exec
+DELETE
+FROM growth_model
+WHERE id = ?
+`
+
+func (q *Queries) DeleteGrowthModel(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteGrowthModel, id)
+	return err
+}
+
 const deleteSnapshot = `-- name: DeleteSnapshot :exec
 DELETE
 FROM account_snapshot
@@ -111,6 +122,68 @@ func (q *Queries) GetAccount(ctx context.Context, id string) (Account, error) {
 		&i.CashFlowDestinationID,
 	)
 	return i, err
+}
+
+const getGrowthModel = `-- name: GetGrowthModel :one
+SELECT id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
+FROM growth_model
+WHERE id = ?
+`
+
+func (q *Queries) GetGrowthModel(ctx context.Context, id string) (GrowthModel, error) {
+	row := q.db.QueryRowContext(ctx, getGrowthModel, id)
+	var i GrowthModel
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.ModelType,
+		&i.AnnualGrowthRate,
+		&i.AnnualVolatility,
+		&i.StartDate,
+		&i.EndDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getGrowthModelsByAccount = `-- name: GetGrowthModelsByAccount :many
+SELECT id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
+FROM growth_model
+WHERE account_id = ?
+`
+
+func (q *Queries) GetGrowthModelsByAccount(ctx context.Context, accountID string) ([]GrowthModel, error) {
+	rows, err := q.db.QueryContext(ctx, getGrowthModelsByAccount, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrowthModel
+	for rows.Next() {
+		var i GrowthModel
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.ModelType,
+			&i.AnnualGrowthRate,
+			&i.AnnualVolatility,
+			&i.StartDate,
+			&i.EndDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getSnapshot = `-- name: GetSnapshot :one
@@ -241,13 +314,13 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE account
-SET name                = ?,
-    updated_at          = ?,
-    balance_upper_limit = ?,
-    cash_flow_frequency = ?,
+SET name                     = ?,
+    updated_at               = ?,
+    balance_upper_limit      = ?,
+    cash_flow_frequency      = ?,
     cash_flow_destination_id = ?
 WHERE id = ?
-    RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 `
 
 type UpdateAccountParams struct {
@@ -278,6 +351,54 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.BalanceUpperLimit,
 		&i.CashFlowFrequency,
 		&i.CashFlowDestinationID,
+	)
+	return i, err
+}
+
+const upsertGrowthModel = `-- name: UpsertGrowthModel :one
+INSERT OR
+REPLACE
+INTO growth_model
+(id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
+`
+
+type UpsertGrowthModelParams struct {
+	ID               string
+	AccountID        string
+	ModelType        string
+	AnnualGrowthRate string
+	AnnualVolatility string
+	StartDate        int64
+	EndDate          *int64
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+func (q *Queries) UpsertGrowthModel(ctx context.Context, arg UpsertGrowthModelParams) (GrowthModel, error) {
+	row := q.db.QueryRowContext(ctx, upsertGrowthModel,
+		arg.ID,
+		arg.AccountID,
+		arg.ModelType,
+		arg.AnnualGrowthRate,
+		arg.AnnualVolatility,
+		arg.StartDate,
+		arg.EndDate,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i GrowthModel
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.ModelType,
+		&i.AnnualGrowthRate,
+		&i.AnnualVolatility,
+		&i.StartDate,
+		&i.EndDate,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

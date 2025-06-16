@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/goslu/templ"
@@ -120,9 +121,14 @@ func HandlerAccountPage(db *sql.DB, view *View) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing account snapshots: %w", err)
 		}
+		growthModels, err := ListAccountGrowthModels(ctx, db, string(acc.ID))
+		if err != nil {
+			return fmt.Errorf("listing account growth models: %w", err)
+		}
 		return view.AccountPage(w, r, AccountView{
-			Account:   acc,
-			Snapshots: snapshots,
+			Account:      acc,
+			Snapshots:    snapshots,
+			GrowthModels: growthModels,
 		})
 	})
 }
@@ -201,6 +207,54 @@ func HandlerAccountSnapshotNewPage(db *sql.DB, view *View) http.Handler {
 			Account:  acc,
 			Snapshot: AccountSnapshot{Date: date.Today()},
 		})
+	})
+}
+
+func HandlerAccountGrowthModelNewPage(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		acc, err := GetAccount(ctx, db, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting account for creation: %w", err)
+		}
+		return view.AccountGrowthModelEditPage(w, r, AccountGrowthModelView{
+			Account: acc,
+			GrowthModel: GrowthModel{
+				ID:        sid.MustNewString(32),
+				AccountID: acc.ID,
+			},
+		})
+	})
+}
+
+func HandlerAccountGrowthModelEditPage(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		gm, err := GetGrowthModel(ctx, db, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting account for creation: %w", err)
+		}
+		acc, err := GetAccount(ctx, db, gm.AccountID)
+		if err != nil {
+			return fmt.Errorf("getting account for growth model edit: %w", err)
+		}
+		return view.AccountGrowthModelEditPage(w, r, AccountGrowthModelView{
+			Account:     acc,
+			GrowthModel: gm,
+		})
+	})
+}
+
+func HandlerAccountGrowthModelUpsert(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp AccountGrowthModelInput
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := UpsertAccountGrowthModel(ctx, db, inp)
+		if err != nil {
+			return fmt.Errorf("upserting account growth model: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", inp.AccountID))
+		return nil
 	})
 }
 
@@ -387,9 +441,13 @@ func HandlerChartsDataStream(db *sql.DB) http.Handler {
 			return fmt.Errorf("listing accounts for SSE: %w", err)
 		}
 		for _, acc := range accs {
-			snaps, err := q.GetSnapshotsByAccount(ctx, acc.ID)
+			snaps, err := ListAccountSnapshots(ctx, db, acc.ID)
 			if err != nil {
 				return fmt.Errorf("getting snapshots for account %s: %w", acc.ID, err)
+			}
+			gms, err := ListAccountGrowthModels(ctx, db, acc.ID)
+			if err != nil {
+				return fmt.Errorf("getting growth models for account %s: %w", acc.ID, err)
 			}
 			var balanceLimit finance.BalanceLimit
 			if acc.BalanceUpperLimit != nil {
@@ -410,14 +468,34 @@ func HandlerChartsDataStream(db *sql.DB) http.Handler {
 				}
 			}
 			for _, snap := range snaps {
-				balance, err := uncertain.Decode(snap.Balance)
-				if err != nil {
-					return fmt.Errorf("decoding balance for snapshot (%s, %s): %w", acc.ID, date.Date(snap.Date), err)
-				}
 				entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
-					Date:    date.Date(snap.Date),
-					Balance: balance,
+					Date:    snap.Date,
+					Balance: snap.Balance,
 				})
+			}
+			fgms := make([]finance.GrowthModel, 0, len(gms))
+			for _, gm := range gms {
+				if gm.Type == "fixed" {
+					fgms = append(fgms, &finance.FixedGrowth{
+						TimeFrameGrowth: finance.TimeFrameGrowth{
+							StartDate: gm.StartDate,
+							EndDate:   gm.EndDate,
+						},
+						AnnualRate: gm.AnnualRate,
+					})
+				} else if gm.Type == "lognormal" {
+					fgms = append(fgms, &finance.LogNormalGrowth{
+						TimeFrameGrowth: finance.TimeFrameGrowth{
+							StartDate: gm.StartDate,
+							EndDate:   gm.EndDate,
+						},
+						AnnualRate:       gm.AnnualRate,
+						AnnualVolatility: gm.AnnualVolatility,
+					})
+				}
+			}
+			if len(fgms) == 1 {
+				entity.GrowthModel = finance.NewGrowthCombined(fgms...)
 			}
 			if len(entity.Snapshots) > 0 {
 				entities = append(entities, entity)
@@ -485,6 +563,10 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("POST /accounts/{id}/snapshots/", HandlerAccountSnapshotUpsert(db, view))
 	mux.Handle("POST /accounts/{id}/snapshots/{date}/", HandlerAccountSnapshotUpsert(db, view))
 	mux.Handle("POST /accounts/{id}/snapshots/delete", HandlerAccountSnapshotDelete(db))
+
+	mux.Handle("GET /accounts/{id}/growth-models/new", HandlerAccountGrowthModelNewPage(db, view))
+	mux.Handle("GET /growth-models/{id}/edit", HandlerAccountGrowthModelEditPage(db, view))
+	mux.Handle("POST /growth-models/", HandlerAccountGrowthModelUpsert(db))
 
 	mux.Handle("GET /tables/{$}", HandlerTable(db, view))
 
