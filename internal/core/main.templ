@@ -1,0 +1,149 @@
+package core
+
+templ Page(name string, child templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en" data-theme="light">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content="light dark"/>
+			<link rel="stylesheet" href="/static/public/styles-tw.css"/>
+			<title>{ name }</title>
+		</head>
+		<body class="bg-base-100">
+			@child
+		</body>
+	</html>
+}
+
+templ NavItem(href string, iconPath string, name string, activePath string) {
+	<li>
+		<a href={ href } class={
+			templ.KV("flex items-center gap-3 px-4 py-3 rounded-lg transition-colors", true),
+			templ.KV("bg-primary text-primary-content hover:bg-primary-focus", href == activePath),
+			templ.KV("text-base-content hover:text-base-content hover:bg-base-300", href != activePath),
+		}>
+			<img src={ iconPath } alt="" class="w-5 h-5" />
+			<span>{ name }</span>
+		</a>
+	</li>
+}
+
+templ UserSection() {
+    <div class="p-4 border-t border-base-300">
+        <div class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-base-300 transition-colors cursor-pointer">
+            <div class="avatar placeholder">
+                <div class="bg-neutral text-neutral-content rounded-full w-10">
+                    <span class="text-sm">U</span>
+                </div>
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-medium text-base-content">User</p>
+                <p class="text-xs text-base-content/70">user@example.com</p>
+            </div>
+            <svg class="w-4 h-4 text-base-content/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </div>
+    </div>
+}
+
+templ Sidebar(page string) {
+	<aside class="w-64 bg-base-200 border-r border-base-300 flex flex-col h-full">
+		<!-- App Header -->
+		<div class="p-6 border-b border-base-300">
+			<div class="flex items-center gap-3">
+				<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+					<span class="text-primary-content font-bold text-xl">P</span>
+				</div>
+				<div>
+					<h1 class="text-xl font-bold text-base-content">Pefigo</h1>
+					<p class="text-sm text-base-content/70">Financial Modeling</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Navigation -->
+		<nav class="flex-1 p-4">
+			<ul class="space-y-2">
+				@NavItem("/templ/app", "/static/public/icons/home.svg", "Dashboard", page)
+				@NavItem("/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page)
+				@NavItem("/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page)
+				@NavItem("/templ/graph", "/static/public/icons/trending-up.svg", "Graph", page)
+			</ul>
+		</nav>
+
+		@UserSection()
+	</aside>
+}
+
+templ Header(title string) {
+    <header class="h-16 bg-base-100 border-b border-base-300 flex items-center justify-between px-6">
+        <div class="flex items-center gap-4">
+            <h2 class="text-xl font-semibold text-base-content">{ title }</h2>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <!-- Search -->
+            <div class="form-control">
+                <div class="input-group">
+                    <input type="text" placeholder="Search..." class="input input-bordered w-64" />
+                    <button class="btn btn-square btn-ghost">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Notifications -->
+            <button class="btn btn-ghost btn-circle">
+                <div class="indicator">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="badge badge-xs badge-primary indicator-item"></span>
+                </div>
+            </button>
+
+            <!-- Theme Toggle -->
+            <button class="btn btn-ghost btn-circle">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+}
+
+templ Layout(page string, header templ.Component, child templ.Component) {
+    <div class="flex h-screen w-full bg-base-100">
+		@Sidebar(page)
+
+		<main class="flex-1 flex flex-col">
+			@header
+			
+			<!-- Main Content Area -->
+			<div class="flex-1 p-6 overflow-auto bg-base-50">
+				<!-- Content will be injected here -->
+				@child
+			</div>
+		</main>
+	</div>
+}
+
+templ DashboardContent() {
+    <div class="prose max-w-none">
+        <h3>Welcome to Pefigo</h3>
+        <p>Your financial modeling dashboard is ready. Select a page from the sidebar to get started.</p>
+    </div>
+}
+
+templ App() {
+	@Layout("/templ/app", Header("Dashboard"), DashboardContent())
+}
+
+templ PageGraph() {
+    @Layout("/templ/graph", Header("Graph"), GraphContent())
+}

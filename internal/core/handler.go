@@ -5,6 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/fs"
+	"net/http"
+	"time"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/srvu"
@@ -12,9 +16,6 @@ import (
 	"github.com/SimonSchneider/goslu/templ"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"io/fs"
-	"net/http"
-	"time"
 )
 
 func HandlerIndexPage(db *sql.DB, view *View) http.Handler {
@@ -532,9 +533,24 @@ func HandlerTransferTemplateDelete(db *sql.DB) http.Handler {
 	})
 }
 
+func RootPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return NewTemplView(ctx, w, r).Render(Page("App", App()))
+	})
+}
+
+func GraphPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return NewTemplView(ctx, w, r).Render(Page("Graph", PageGraph()))
+	})
+}
+
 func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *View) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
+
+	mux.Handle("GET /templ/app", RootPage())
+	mux.Handle("GET /templ/graph", GraphPage())
 
 	mux.Handle("GET /{$}", HandlerIndexPage(db, view))
 
