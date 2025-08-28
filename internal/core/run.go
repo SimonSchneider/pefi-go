@@ -42,6 +42,19 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, 
 				"mkSlice": func(args ...interface{}) []interface{} {
 					return args
 				},
+				"mul": func(args ...interface{}) float64 {
+					result := 1.0
+					for _, arg := range args {
+						if f, ok := arg.(float64); ok {
+							result *= f
+						} else if i, ok := arg.(int); ok {
+							result *= float64(i)
+						} else {
+							panic("illegal arg to mul function")
+						}
+					}
+					return result
+				},
 				"dict": func(args ...interface{}) map[string]interface{} {
 					if len(args)%2 != 0 {
 						panic("illegal number of args to dict function")

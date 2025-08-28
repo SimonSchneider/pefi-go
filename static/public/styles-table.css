@@ -1,0 +1,64 @@
+
+.table-wrapper {
+    overflow: auto;
+    height: 100vh;
+    width: 100vw;
+}
+
+.table-account-row {
+    margin: 0;
+    padding: 1rem 0 0;
+    background: white;
+    grid-row: header;
+    text-wrap: wrap;
+    z-index: 100;
+    position: sticky;
+    top: 0;
+    align-self: stretch;
+    justify-self: stretch;
+    text-align: center;
+}
+
+.table-account-row > p {
+    margin: 0.5rem;
+}
+
+.table-date-column {
+    display: flex;
+    align-items: stretch;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    background: white;
+    position: sticky;
+    left: 0;
+    text-align: left;
+    grid-column: date;
+    border-radius: 0;
+    z-index: 50;
+}
+
+.table-date-column > input {
+    text-align: left;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box; /* ← Critical fix */
+}
+
+.table-cell {
+    text-align: right;
+    width: unset;
+}
+
+.table-input.htmx-request {
+    background-color: lightblue;
+}
+
+.table-input {
+    border-radius: 0;
+    height: 100%;
+    font-family: 'Andale Mono', monospace;
+    padding: 0.3rem;
+    box-sizing: border-box; /* ← Critical fix */
+}

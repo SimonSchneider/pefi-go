@@ -73,7 +73,7 @@ var staticEntities = []finance.Entity{
 	},
 }
 
-var transfers = []finance.TransferTemplate{
+var staticTransfers = []finance.TransferTemplate{
 	{
 		ID:            "savings",
 		Name:          "Savings Transfer",

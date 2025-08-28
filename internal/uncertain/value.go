@@ -12,10 +12,10 @@ import (
 
 type Config struct {
 	RNG     *rand.Rand
-	Samples int
+	Samples int64
 }
 
-func NewConfig(seed int64, samples int) *Config {
+func NewConfig(seed, samples int64) *Config {
 	return &Config{
 		RNG:     rand.New(rand.NewSource(seed)),
 		Samples: samples,
@@ -178,6 +178,14 @@ func (u Value) Quantiles() func(q float64) float64 {
 			}
 			return u.Uniform.Min + p*(u.Uniform.Max-u.Uniform.Min)
 		}
+	case DistNormal:
+		return func(p float64) float64 {
+			if p < 0 || p > 1 {
+				panic("Quantiles: p must be in [0, 1]")
+			}
+			// Use the inverse CDF of the normal distribution
+			return u.Normal.Mean + u.Normal.Stddev*math.Sqrt(2)*math.Erfinv(2*p-1)
+		}
 	default:
 		panic("Unknown Distribution")
 	}
@@ -224,7 +232,7 @@ func (u Value) operate(cfg *Config, v Value, op func(a, b float64) float64) Valu
 
 	// Both variable: sample both
 	res := make([]float64, cfg.Samples)
-	for i := 0; i < cfg.Samples; i++ {
+	for i := 0; i < int(cfg.Samples); i++ {
 		res[i] = op(u.Sample(cfg), v.Sample(cfg))
 	}
 	return Value{
@@ -235,7 +243,7 @@ func (u Value) operate(cfg *Config, v Value, op func(a, b float64) float64) Valu
 
 func (u Value) sampleWithFixed(cfg *Config, fixed float64, op func(a, b float64) float64) Value {
 	res := make([]float64, cfg.Samples)
-	for i := 0; i < cfg.Samples; i++ {
+	for i := 0; i < int(cfg.Samples); i++ {
 		res[i] = op(u.Sample(cfg), fixed)
 	}
 	return Value{

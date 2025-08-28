@@ -16,7 +16,7 @@ func (r *RequestDetails) CurrPath() string {
 }
 
 func (r *RequestDetails) PrevPath() string {
-	return r.req.URL.Query().Get("prev")
+	return r.req.FormValue("prev")
 }
 
 type HtmlTemplateProvider struct {
@@ -55,14 +55,16 @@ type UserListView struct {
 
 type IndexView struct {
 	*RequestDetails
-	Accounts AccountsListView
-	Users    UserListView
+	Accounts  AccountsListView
+	Transfers TransferTemplatesView
+	Users     UserListView
 }
 
 func (v *View) IndexPage(w http.ResponseWriter, r *http.Request, d IndexView) error {
 	rd := &RequestDetails{req: r}
 	d.RequestDetails = rd
 	d.Accounts.RequestDetails = rd
+	d.Transfers.RequestDetails = rd
 	d.Users.RequestDetails = rd
 	return v.p.ExecuteTemplate(w, "index.page.gohtml", d)
 }
@@ -89,7 +91,8 @@ func (v *View) SnapshotTableCell(w http.ResponseWriter, r *http.Request, d Accou
 
 type AccountEditView struct {
 	*RequestDetails
-	Account Account
+	Account  Account
+	Accounts []Account
 }
 
 func (c AccountEditView) IsEdit() bool {
@@ -146,4 +149,50 @@ type AccountView struct {
 func (v *View) AccountPage(w http.ResponseWriter, r *http.Request, d AccountView) error {
 	d.RequestDetails = &RequestDetails{req: r}
 	return v.p.ExecuteTemplate(w, "account.page.gohtml", d)
+}
+
+type TransferTemplatesView struct {
+	*RequestDetails
+	Transfers []TransferTemplate
+}
+
+type TransferTemplateEditView struct {
+	*RequestDetails
+	TransferTemplate TransferTemplate
+	Accounts         []Account
+}
+
+func (c TransferTemplateEditView) IsEdit() bool {
+	return c.TransferTemplate.ID != ""
+}
+
+func (v *View) TransferTemplateEditPage(w http.ResponseWriter, r *http.Request, d TransferTemplateEditView) error {
+	d.RequestDetails = &RequestDetails{req: r}
+	return v.p.ExecuteTemplate(w, "transfer_template_edit.page.gohtml", d)
+}
+
+type TransferTemplateView struct {
+	*RequestDetails
+	TransferTemplate TransferTemplate
+}
+
+func (v *View) TransferTemplatePage(w http.ResponseWriter, r *http.Request, d TransferTemplateView) error {
+	d.RequestDetails = &RequestDetails{req: r}
+	return v.p.ExecuteTemplate(w, "transfer_template.page.gohtml", d)
+}
+
+type TransferTableRow struct {
+	*RequestDetails
+	Transfer TransferTemplate
+	Accounts []Account
+}
+
+type TransferTableView struct {
+	*RequestDetails
+	Rows []TransferTableRow
+}
+
+func (v *View) TransferTablePage(w http.ResponseWriter, r *http.Request, d TransferTableView) error {
+	d.RequestDetails = &RequestDetails{req: r}
+	return v.p.ExecuteTemplate(w, "transfer_template_table.page.gohtml", d)
 }

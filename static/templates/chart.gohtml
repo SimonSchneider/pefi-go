@@ -179,7 +179,7 @@
             })
         });
 
-        const evtSource = new EventSource('/charts/stream');
+        const evtSource = new EventSource('/charts/stream{{.Query}}');
         evtSource.addEventListener('setup', (event) => {
             const data = JSON.parse(event.data);
             data.entities.forEach(e => {

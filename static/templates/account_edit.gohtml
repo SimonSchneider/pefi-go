@@ -19,10 +19,13 @@
                    placeholder="cash flow frequency"
                    value="{{.Account.CashFlowFrequency}}"
                    name="cash_flow_frequency"/>
-            <input id="cash-flow-destination-input" aria-label="cash flow destination" type="text"
-                   placeholder="cash flow destination"
-                   value="{{.Account.CashFlowDestinationID}}"
-                   name="cash_flow_destination_id"/>
+            <select aria-label="cash flow destination" name="cash_flow_destination_id">
+                <option value="">Select a destination</option>
+                {{ range .Accounts }}
+                    <option value="{{.ID}}"
+                            {{ if eq .ID $.Account.CashFlowDestinationID }}selected{{ end }}>{{.Name}}</option>
+                {{ end }}
+            </select>
         </fieldset>
     </div>
     <div class="modal-footer">

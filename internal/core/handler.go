@@ -10,7 +10,6 @@ import (
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/goslu/templ"
-	"github.com/SimonSchneider/pefigo/internal/finance"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"io/fs"
@@ -24,13 +23,18 @@ func HandlerIndexPage(db *sql.DB, view *View) http.Handler {
 		if err != nil {
 			return err
 		}
+		trans, err := ListTransferTemplates(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing transfer templates: %w", err)
+		}
 		users, err := ListUsers(ctx, db)
 		if err != nil {
 			return err
 		}
 		return view.IndexPage(w, r, IndexView{
-			Accounts: AccountsListView{Accounts: accs},
-			Users:    UserListView{Users: users},
+			Accounts:  AccountsListView{Accounts: accs},
+			Transfers: TransferTemplatesView{Transfers: trans},
+			Users:     UserListView{Users: users},
 		})
 	})
 }
@@ -82,6 +86,32 @@ func HandlerTable(db *sql.DB, view *View) http.Handler {
 		return view.TablePage(w, r, TableView{
 			Accounts: accounts,
 			Rows:     rows,
+		})
+	})
+}
+
+func HandlerTransferTable(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accounts, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		transfers, err := ListTransferTemplates(ctx, db)
+		type DateIDKey struct {
+			Date date.Date
+			ID   string
+		}
+		reqD := &RequestDetails{req: r}
+		rows := make([]TransferTableRow, 0, len(transfers))
+		for _, t := range transfers {
+			rows = append(rows, TransferTableRow{
+				RequestDetails: reqD,
+				Transfer:       t,
+				Accounts:       accounts,
+			})
+		}
+		return view.TransferTablePage(w, r, TransferTableView{
+			Rows: rows,
 		})
 	})
 }
@@ -139,15 +169,26 @@ func HandlerAccountEditPage(db *sql.DB, view *View) http.Handler {
 		if err != nil {
 			return fmt.Errorf("getting account for edit: %w", err)
 		}
+		accs, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts for edit page: %w", err)
+		}
 		return view.AccountEditPage(w, r, AccountEditView{
-			Account: account,
+			Account:  account,
+			Accounts: accs,
 		})
 	})
 }
 
-func HandlerAccountNewPage(view *View) http.Handler {
+func HandlerAccountNewPage(db *sql.DB, view *View) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return view.AccountCreatePage(w, r, AccountEditView{})
+		accs, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts for new account page: %w", err)
+		}
+		return view.AccountCreatePage(w, r, AccountEditView{
+			Accounts: accs,
+		})
 	})
 }
 
@@ -374,7 +415,6 @@ func HandlerImport(db *sql.DB) http.Handler {
 			})
 		}
 		for _, a := range accs {
-			fmt.Printf("creating account: %s (%s)\n", a.ID, a.Name)
 			if _, err := dbi.CreateAccount(ctx, pdb.CreateAccountParams{
 				ID:        a.ID,
 				Name:      a.Name,
@@ -403,146 +443,92 @@ func HandlerImport(db *sql.DB) http.Handler {
 
 func HandlerCharts(tmpl templ.TemplateProvider) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return tmpl.ExecuteTemplate(w, "chart.gohtml", nil)
+		return tmpl.ExecuteTemplate(w, "chart.gohtml", struct{ Query string }{fmt.Sprintf("?%s", r.URL.Query().Encode())})
 	})
 }
 
+type SSEPredictionEventHandler struct {
+	w *srvu.SSESender
+}
+
+func (s *SSEPredictionEventHandler) Setup(e PredictionSetupEvent) error {
+	return s.w.SendNamedJson("setup", e)
+}
+func (s *SSEPredictionEventHandler) Snapshot(e PredictionBalanceSnapshot) error {
+	return s.w.SendNamedJson("balanceSnapshot", e)
+}
+func (s *SSEPredictionEventHandler) Close() error {
+	return s.w.SendEventWithoutData("close")
+}
+
 func HandlerChartsDataStream(db *sql.DB) http.Handler {
-	q := pdb.New(db)
-	type SSEBalanceSnapshot struct {
-		ID         string  `json:"id"`
-		Day        int64   `json:"day"`
-		Balance    float64 `json:"balance"`
-		LowerBound float64 `json:"lowerBound"`
-		UpperBound float64 `json:"upperBound"`
-	}
-	type SSEFinancialEntity struct {
-		ID        string               `json:"id"`
-		Name      string               `json:"name"`
-		Snapshots []SSEBalanceSnapshot `json:"snapshots"`
-	}
-	type SetupEvent struct {
-		Max      int64                `json:"max"`
-		Entities []SSEFinancialEntity `json:"entities"`
-	}
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		startDate := date.Today()
-		endDate := startDate.Add(365 * 10)
-		samples := 2_000
-		quantile := 0.8
-		snapshotInterval := date.Cron("*-*-25")
+		var params PredictionParams
+		if err := srvu.Decode(r, &params, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		if err := RunPrediction(ctx, db, &SSEPredictionEventHandler{w: srvu.SSEResponse(w)}, params); err != nil {
+			return fmt.Errorf("running prediction: %w", err)
+		}
+		return nil
+	})
+}
 
-		q1, q2 := (1-quantile)/2, (1+quantile)/2
-
-		entities := make([]finance.Entity, len(staticEntities))
-		copy(entities, staticEntities)
-		accs, err := q.ListAccounts(ctx)
+func HandlerTransferTemplateUpsertPage(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		id := r.PathValue("id")
+		accs, err := ListAccounts(ctx, db)
 		if err != nil {
-			return fmt.Errorf("listing accounts for SSE: %w", err)
+			return fmt.Errorf("listing accounts for transfer template edit: %w", err)
 		}
-		for _, acc := range accs {
-			snaps, err := ListAccountSnapshots(ctx, db, acc.ID)
+		viewData := TransferTemplateEditView{
+			Accounts: accs,
+		}
+		if id != "" {
+			t, err := GetTransferTemplate(ctx, db, id)
 			if err != nil {
-				return fmt.Errorf("getting snapshots for account %s: %w", acc.ID, err)
+				return fmt.Errorf("getting transfer template for edit: %w", err)
 			}
-			gms, err := ListAccountGrowthModels(ctx, db, acc.ID)
-			if err != nil {
-				return fmt.Errorf("getting growth models for account %s: %w", acc.ID, err)
-			}
-			var balanceLimit finance.BalanceLimit
-			if acc.BalanceUpperLimit != nil {
-				balanceLimit = finance.BalanceLimit{
-					Upper: uncertain.NewFixed(*acc.BalanceUpperLimit),
-				}
-			}
-			entity := finance.Entity{
-				ID:           acc.ID,
-				Name:         acc.Name,
-				BalanceLimit: balanceLimit,
-				Snapshots:    make([]finance.BalanceSnapshot, 0, len(snaps)),
-			}
-			if acc.CashFlowFrequency != nil || acc.CashFlowDestinationID != nil {
-				entity.CashFlow = &finance.CashFlowModel{
-					Frequency:     date.Cron(orDefault(acc.CashFlowFrequency)),
-					DestinationID: orDefault(acc.CashFlowDestinationID),
-				}
-			}
-			for _, snap := range snaps {
-				entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
-					Date:    snap.Date,
-					Balance: snap.Balance,
-				})
-			}
-			fgms := make([]finance.GrowthModel, 0, len(gms))
-			for _, gm := range gms {
-				if gm.Type == "fixed" {
-					fgms = append(fgms, &finance.FixedGrowth{
-						TimeFrameGrowth: finance.TimeFrameGrowth{
-							StartDate: gm.StartDate,
-							EndDate:   gm.EndDate,
-						},
-						AnnualRate: gm.AnnualRate,
-					})
-				} else if gm.Type == "lognormal" {
-					fgms = append(fgms, &finance.LogNormalGrowth{
-						TimeFrameGrowth: finance.TimeFrameGrowth{
-							StartDate: gm.StartDate,
-							EndDate:   gm.EndDate,
-						},
-						AnnualRate:       gm.AnnualRate,
-						AnnualVolatility: gm.AnnualVolatility,
-					})
-				}
-			}
-			if len(fgms) == 1 {
-				entity.GrowthModel = finance.NewGrowthCombined(fgms...)
-			}
-			if len(entity.Snapshots) > 0 {
-				entities = append(entities, entity)
-			}
+			viewData.TransferTemplate = t
 		}
+		return view.TransferTemplateEditPage(w, r, viewData)
+	})
+}
 
-		sssEntities := make([]SSEFinancialEntity, len(entities))
-		for i, e := range entities {
-			sssEntities[i] = SSEFinancialEntity{
-				ID:   e.ID,
-				Name: e.Name,
-			}
-			for _, s := range e.Snapshots {
-				q := s.Balance.Quantiles()
-				sssEntities[i].Snapshots = append(sssEntities[i].Snapshots, SSEBalanceSnapshot{
-					ID:         e.ID,
-					Day:        s.Date.ToStdTime().UnixMilli(),
-					Balance:    s.Balance.Mean(),
-					LowerBound: q(q1),
-					UpperBound: q(q2),
-				})
-			}
+func HandlerTransferTemplatePage(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		t, err := GetTransferTemplate(ctx, db, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting transfer template for show: %w", err)
 		}
-
-		ucfg := uncertain.NewConfig(time.Now().UnixMilli(), samples)
-		sse := srvu.SSEResponse(w)
-		if err := sse.SendNamedJson("setup", SetupEvent{
-			Max:      endDate.ToStdTime().UnixMilli(),
-			Entities: sssEntities,
-		}); err != nil {
-			return fmt.Errorf("sending SSE response: %w", err)
-		}
-		snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
-			q := balance.Quantiles()
-			event := SSEBalanceSnapshot{
-				ID:         accountID,
-				Day:        day.ToStdTime().UnixMilli(),
-				Balance:    balance.Mean(),
-				LowerBound: q(q1),
-				UpperBound: q(q2),
-			}
-			return sse.SendNamedJson("balanceSnapshot", event)
+		return view.TransferTemplatePage(w, r, TransferTemplateView{
+			TransferTemplate: t,
 		})
-		if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, snapshotInterval, entities, transfers, finance.CompositeRecorder{SnapshotRecorder: snapshotRecorder}); err != nil {
-			return fmt.Errorf("running prediction for SSE: %w", err)
+	})
+}
+
+func HandlerTransferTemplateUpsert(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp TransferTemplate
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
 		}
-		return sse.SendEventWithoutData("close")
+		t, err := UpsertTransferTemplate(ctx, db, inp)
+		if err != nil {
+			return fmt.Errorf("upserting transfer template: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfers/%s", t.ID))
+		return nil
+	})
+}
+
+func HandlerTransferTemplateDelete(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := DeleteTransferTemplate(ctx, db, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting transfer template: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/")
+		return nil
 	})
 }
 
@@ -552,7 +538,7 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 
 	mux.Handle("GET /{$}", HandlerIndexPage(db, view))
 
-	mux.Handle("GET /accounts/new", HandlerAccountNewPage(view))
+	mux.Handle("GET /accounts/new", HandlerAccountNewPage(db, view))
 	mux.Handle("GET /accounts/{id}/edit", HandlerAccountEditPage(db, view))
 	mux.Handle("GET /accounts/{id}", HandlerAccountPage(db, view))
 	mux.Handle("POST /accounts/{$}", HandlerAccountUpsert(db))
@@ -567,6 +553,13 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /accounts/{id}/growth-models/new", HandlerAccountGrowthModelNewPage(db, view))
 	mux.Handle("GET /growth-models/{id}/edit", HandlerAccountGrowthModelEditPage(db, view))
 	mux.Handle("POST /growth-models/", HandlerAccountGrowthModelUpsert(db))
+
+	mux.Handle("GET /transfers/new", HandlerTransferTemplateUpsertPage(db, view))
+	mux.Handle("GET /transfers/{id}/edit", HandlerTransferTemplateUpsertPage(db, view))
+	mux.Handle("GET /transfers/{id}", HandlerTransferTemplatePage(db, view))
+	mux.Handle("POST /transfers/{$}", HandlerTransferTemplateUpsert(db))
+	mux.Handle("POST /transfers/{id}/delete", HandlerTransferTemplateDelete(db))
+	mux.Handle("GET /transfers/table/{$}", HandlerTransferTable(db, view))
 
 	mux.Handle("GET /tables/{$}", HandlerTable(db, view))
 

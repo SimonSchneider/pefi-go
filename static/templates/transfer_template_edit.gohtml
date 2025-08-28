@@ -1,0 +1,78 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/core.TransferTemplateEditView*/ -}}
+{{ if .IsEdit }}
+    <form id="delete-form" method="post" action="/transfers/{{.TransferTemplate.ID}}/delete?next={{.PrevPath}}">
+    </form>
+{{ end }}
+<form method="post" action="/transfers/{{if .IsEdit }}?next={{.PrevPath}}{{end}}">
+    <input type="hidden" name="id" value="{{.TransferTemplate.ID}}"/>
+    <div class="modal-body">
+        <fieldset role="group" class="group column nogap">
+            <input autofocus id="new-transfer-template-name-input" aria-label="name" type="text"
+                   placeholder="name"
+                   value="{{.TransferTemplate.Name}}"
+                   name="name"/>
+            <select aria-label="from account id" name="from_account_id">
+                <option value="">Select an account</option>
+                {{ range .Accounts }}
+                    <option value="{{.ID}}"
+                            {{ if eq .ID $.TransferTemplate.FromAccountID }}selected{{ end }}>{{.Name}}</option>
+                {{ end }}
+            </select>
+            <select aria-label="to account id" name="to_account_id">
+                <option value="">Select an account</option>
+                {{ range .Accounts }}
+                    <option value="{{.ID}}"
+                            {{ if eq .ID $.TransferTemplate.ToAccountID }}selected{{ end }}>{{.Name}}</option>
+                {{ end }}
+            </select>
+            <select id="tt-amount-type-input" aria-label="amount-type"
+                    name="amount_type">
+                <option value="fixed" {{if eq .TransferTemplate.AmountType "fixed"}}selected{{end}}>Fixed</option>
+                <option value="percent" {{if eq .TransferTemplate.AmountType "percent"}}selected{{end}}>
+                    Percent
+                </option>
+            </select>
+            <input id="tt-amount-input" aria-label="amount fixed" type="text"
+                   placeholder="amount fixed"
+                   value="{{.TransferTemplate.AmountFixed.SimpleEncode}}"
+                   name="amount_fixed"/>
+            <input id="tt-amount-percentage-input" aria-label="amount percentage" type="text"
+                   placeholder="amount percentage"
+                   value="{{.TransferTemplate.AmountPercent}}"
+                   name="amount_percent"/>
+            <input id="tt-priority-input" aria-label="priority" type="number"
+                   placeholder="priority"
+                   value="{{.TransferTemplate.Priority}}"
+                   name="priority"/>
+            <input id="tt-recurrence-input" aria-label="recurrence" type="text"
+                   placeholder="recurrence"
+                   value="{{.TransferTemplate.Recurrence}}"
+                   name="recurrence"/>
+            <input id="tt-start-date-input" aria-label="start date" type="text"
+                   placeholder="start date"
+                   value="{{or .TransferTemplate.StartDate ""}}"
+                   name="start_date"/>
+            <input id="tt-end-date-input" aria-label="end date" type="text"
+                   placeholder="end date"
+                   value="{{or .TransferTemplate.EndDate ""}}"
+                   name="end_date"/>
+            <input id="tt-enabled-input" aria-label="enabled" type="checkbox"
+                   {{if .TransferTemplate.Enabled}}checked{{end}}
+                   name="enabled"/>
+        </fieldset>
+    </div>
+    <div class="modal-footer">
+        {{if .IsEdit}}
+            <button type="submit" form="delete-form" class="reset button" aria-label="Delete">
+                Delete
+            </button>
+        {{end}}
+        <button class="button" type="submit">
+            {{if .IsEdit}}
+                Save
+            {{else}}
+                Create
+            {{end}}
+        </button>
+    </div>
+</form>

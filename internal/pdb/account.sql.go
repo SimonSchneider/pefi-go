@@ -102,6 +102,17 @@ func (q *Queries) DeleteSnapshot(ctx context.Context, arg DeleteSnapshotParams) 
 	return err
 }
 
+const deleteTransferTemplate = `-- name: DeleteTransferTemplate :exec
+DELETE
+FROM transfer_template
+WHERE id = ?
+`
+
+func (q *Queries) DeleteTransferTemplate(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteTransferTemplate, id)
+	return err
+}
+
 const getAccount = `-- name: GetAccount :one
 SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 FROM account
@@ -274,6 +285,78 @@ func (q *Queries) GetSnapshotsByAccounts(ctx context.Context, ids []string) ([]A
 	return items, nil
 }
 
+const getTransferTemplate = `-- name: GetTransferTemplate :one
+SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
+FROM transfer_template
+WHERE id = ?
+`
+
+func (q *Queries) GetTransferTemplate(ctx context.Context, id string) (TransferTemplate, error) {
+	row := q.db.QueryRowContext(ctx, getTransferTemplate, id)
+	var i TransferTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.FromAccountID,
+		&i.ToAccountID,
+		&i.AmountType,
+		&i.AmountFixed,
+		&i.AmountPercent,
+		&i.Priority,
+		&i.Recurrence,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Enabled,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTransferTemplates = `-- name: GetTransferTemplates :many
+SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
+FROM transfer_template
+ORDER BY recurrence, priority
+`
+
+func (q *Queries) GetTransferTemplates(ctx context.Context) ([]TransferTemplate, error) {
+	rows, err := q.db.QueryContext(ctx, getTransferTemplates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TransferTemplate
+	for rows.Next() {
+		var i TransferTemplate
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.FromAccountID,
+			&i.ToAccountID,
+			&i.AmountType,
+			&i.AmountFixed,
+			&i.AmountPercent,
+			&i.Priority,
+			&i.Recurrence,
+			&i.StartDate,
+			&i.EndDate,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAccounts = `-- name: ListAccounts :many
 SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
 FROM account
@@ -422,5 +505,69 @@ func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) 
 	row := q.db.QueryRowContext(ctx, upsertSnapshot, arg.AccountID, arg.Date, arg.Balance)
 	var i AccountSnapshot
 	err := row.Scan(&i.AccountID, &i.Date, &i.Balance)
+	return i, err
+}
+
+const upsertTransferTemplate = `-- name: UpsertTransferTemplate :one
+INSERT OR
+REPLACE
+INTO transfer_template
+(id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date,
+ end_date, enabled, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
+`
+
+type UpsertTransferTemplateParams struct {
+	ID            string
+	Name          string
+	FromAccountID *string
+	ToAccountID   *string
+	AmountType    string
+	AmountFixed   string
+	AmountPercent float64
+	Priority      int64
+	Recurrence    string
+	StartDate     int64
+	EndDate       *int64
+	Enabled       bool
+	CreatedAt     int64
+	UpdatedAt     int64
+}
+
+func (q *Queries) UpsertTransferTemplate(ctx context.Context, arg UpsertTransferTemplateParams) (TransferTemplate, error) {
+	row := q.db.QueryRowContext(ctx, upsertTransferTemplate,
+		arg.ID,
+		arg.Name,
+		arg.FromAccountID,
+		arg.ToAccountID,
+		arg.AmountType,
+		arg.AmountFixed,
+		arg.AmountPercent,
+		arg.Priority,
+		arg.Recurrence,
+		arg.StartDate,
+		arg.EndDate,
+		arg.Enabled,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i TransferTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.FromAccountID,
+		&i.ToAccountID,
+		&i.AmountType,
+		&i.AmountFixed,
+		&i.AmountPercent,
+		&i.Priority,
+		&i.Recurrence,
+		&i.StartDate,
+		&i.EndDate,
+		&i.Enabled,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }

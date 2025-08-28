@@ -83,3 +83,27 @@ RETURNING *;
 DELETE
 FROM growth_model
 WHERE id = ?;
+
+-- name: GetTransferTemplates :many
+SELECT *
+FROM transfer_template
+ORDER BY recurrence, priority;
+
+-- name: GetTransferTemplate :one
+SELECT *
+FROM transfer_template
+WHERE id = ?;
+
+-- name: UpsertTransferTemplate :one
+INSERT OR
+REPLACE
+INTO transfer_template
+(id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date,
+ end_date, enabled, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: DeleteTransferTemplate :exec
+DELETE
+FROM transfer_template
+WHERE id = ?;

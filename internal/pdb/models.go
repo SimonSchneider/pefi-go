@@ -33,6 +33,23 @@ type GrowthModel struct {
 	UpdatedAt        int64
 }
 
+type TransferTemplate struct {
+	ID            string
+	Name          string
+	FromAccountID *string
+	ToAccountID   *string
+	AmountType    string
+	AmountFixed   string
+	AmountPercent float64
+	Priority      int64
+	Recurrence    string
+	StartDate     int64
+	EndDate       *int64
+	Enabled       bool
+	CreatedAt     int64
+	UpdatedAt     int64
+}
+
 type User struct {
 	ID        string
 	Name      string

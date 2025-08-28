@@ -1,0 +1,28 @@
+{{- /*gotype: github.com/SimonSchneider/pefigo/internal/core.TransferTemplatesView*/ -}}
+<header>
+    {{ template "transfer_template_list.nav_header.gohtml" . }}
+</header>
+<div class="container">
+    <div class="list-container" id="container">
+        {{ range .Transfers }}
+            <div class="chore-container" id="transfer-{{.ID}}">
+                <a class="name" href="/transfers/{{.ID}}">{{.Name}}</a>
+                <p class="secondary-text">
+                    {{ if eq .AmountType "fixed" }}
+                        {{.AmountFixed.SimpleEncode}}
+                    {{ else if eq .AmountType "percent" }}
+                        {{mul .AmountPercent 100}}%
+                    {{ end }}
+                    [{{.Priority}}, {{ .Recurrence}}]
+                </p>
+                <div class="group">
+                    <a href="/transfers/{{.ID}}/edit?prev={{ $.RequestDetails.CurrPath }}" class="icon-button button">
+                        <img src="/static/public/icons/pencil.svg" alt="edit"/>
+                    </a>
+                </div>
+            </div>
+        {{ else }}
+            <p>No transfers found</p>
+        {{ end }}
+    </div>
+</div>
