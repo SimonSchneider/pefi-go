@@ -1,0 +1,82 @@
+package core;
+
+templ AccountsContent(accounts []Account) {
+	<div class="flex flex-col gap-4">
+        <div class="flex flex-row gap-4">
+            <div class="card bg-base-100 shadow-sm border border-base-300">
+                <div class="card-body p-0">
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-title">Total Accounts</div>
+                            <div class="stat-value">10</div>
+                            <div class="stat-figure"><img src="/static/public/icons/cash-banknote.svg" alt="Account" class="w-10 h-10" /></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+		<!-- Accounts Table -->
+		<div class="card bg-base-100 shadow-sm border border-base-300">
+			<div class="card-body">
+				<div class="overflow-x-auto">
+					<div class="pb-4 flex items-center justify-between">
+						<h3 class="text-md text-base-content">Accounts overview</h3>
+						<!-- You can add an "Add Account" button here in the future if needed -->
+					</div>
+					<table class="table w-full">
+						<thead>
+							<tr>
+								<th class="font-semibold sticky">Name</th>
+								<th class="font-semibold">Type</th>
+								<th class="font-semibold">Cash Flow</th>
+								<th class="font-semibold text-right sticky">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							if len(accounts) == 0 {
+								<tr>
+									<td colspan="6" class="text-center py-8 text-base-content/70">
+										<div class="flex flex-col items-center gap-2">
+											<svg class="w-12 h-12 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 003 3v8a3 3 0 003 3z"></path>
+											</svg>
+											<p class="text-lg font-medium">No accounts yet</p>
+											<p>Create your first account to get started</p>
+										</div>
+									</td>
+								</tr>
+							} else {
+								for _, account := range accounts {
+									<tr class="hover:bg-base-50">
+										<td class="font-medium">{ account.Name }</td>
+										<td>
+											if account.CashFlowFrequency != "" {
+												<span class="badge badge-outline">{ account.CashFlowFrequency }</span>
+											} else {
+												<span class="text-base-content/50">-</span>
+											}
+										</td>
+										<td>
+											if account.CashFlowDestinationID != "" {
+												<span class="badge badge-ghost">{ account.CashFlowDestinationID }</span>
+											} else {
+												<span class="text-base-content/50">-</span>
+											}
+										</td>
+										<td class="text-right">
+											<div class="flex items-center justify-end gap-2">
+												<button class="btn btn-ghost btn-sm" title="Edit">
+													<img src="/static/public/icons/pencil.svg" alt="Edit" class="w-4 h-4" />
+												</button>
+											</div>
+										</td>
+									</tr>
+								}
+							}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+}
