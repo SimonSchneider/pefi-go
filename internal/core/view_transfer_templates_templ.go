@@ -471,15 +471,19 @@ func TransferTemplatesStatCardRow(view *TransferTemplatesView2) templ.Component 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		templ_7745c5c3_Err = StatCard("Net Income", FormatWithThousands(view.MonthlyIncome+view.MonthlyExpenses), "Net income of all accounts", IconTrendingUp("w-10 h-10 ")).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = StatCard("Total Templates", strconv.Itoa(len(view.TransferTemplates)), "number of templates", Icon("cash-banknote.svg", "w-10 h-10 ")).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
 		templ_7745c5c3_Err = StatCard("Total Income", FormatWithThousands(view.MonthlyIncome), "Total income of all accounts", IconTrendingUp("w-10 h-10 ")).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = StatCard("Total Expenses", FormatWithThousands(view.MonthlyExpenses), "Total expenses of all accounts", IconTrendingDown("w-10 h-10 ")).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = StatCard("Total Templates", strconv.Itoa(len(view.TransferTemplates)), "number of templates", Icon("cash-banknote.svg", "w-10 h-10 ")).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -519,7 +523,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(t.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 125, Col: 34}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 124, Col: 34}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -539,7 +543,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(from.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 131, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 130, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
@@ -563,7 +567,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(to.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 136, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 135, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -591,7 +595,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(t.Recurrence)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 145, Col: 25}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 144, Col: 25}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -604,7 +608,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 			var templ_7745c5c3_Var27 string
 			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(t.Priority)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 146, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 145, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 			if templ_7745c5c3_Err != nil {
@@ -662,7 +666,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 			var templ_7745c5c3_Var30 string
 			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(t.AmountPercent * 100)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 164, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 163, Col: 50}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
@@ -694,7 +698,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 		var templ_7745c5c3_Var31 templ.SafeURL
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs("/transfers/" + t.ID + "/duplicate")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 181, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 180, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -715,7 +719,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 		var templ_7745c5c3_Var32 templ.SafeURL
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinURLErrs("/transfer-templates/" + t.ID + "/edit")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 186, Col: 95}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 185, Col: 95}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -766,7 +770,7 @@ func NewTransferTemplateButton() templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 196, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 195, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -779,7 +783,7 @@ func NewTransferTemplateButton() templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 197, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 196, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -792,7 +796,7 @@ func NewTransferTemplateButton() templ.Component {
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 198, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_transfer_templates.templ`, Line: 197, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
