@@ -1,6 +1,6 @@
 @import "tailwindcss" source(none);
 
-@source "../../**/*.{templ}";
+@source "../**/*.{templ}";
 @plugin "./daisyui.js" {
     themes: pastel --default, dark --prefersdark, synthwave;
 }

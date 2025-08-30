@@ -1083,11 +1083,6 @@
     width: var(--size);
     height: var(--size);
   }
-  .btn-square {
-    padding-inline: calc(0.25rem * 0);
-    width: var(--size);
-    height: var(--size);
-  }
   .h-3 {
     height: calc(var(--spacing) * 3);
   }

@@ -1,7 +1,7 @@
 
 watch-tw:
 	@echo "Watching for changes..."
-	@./vendor-bin/tailwindcss -i static/tailwind/styles.css -o static/public/styles-tw.css --watch
+	@./vendor-bin/tailwindcss -i tailwind/styles.css -o static/public/styles-tw.css --watch
 
 watch-templ:
 	@go tool templ generate --watch --proxy="http://localhost:3006" --cmd="go run cmd/main.go -addr :3006 -watch -dburl tmp.db.sqlite"
