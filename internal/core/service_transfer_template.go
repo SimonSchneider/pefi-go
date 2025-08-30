@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"net/http"
 )
 
 type TransferTemplate struct {
@@ -122,6 +123,15 @@ func UpsertTransferTemplate(ctx context.Context, db *sql.DB, inp TransferTemplat
 		return TransferTemplate{}, fmt.Errorf("failed to upsert  template: %w", err)
 	}
 	return transferTemplateFromDB(t)
+}
+
+func DuplicateTransferTemplate(ctx context.Context, db *sql.DB, id string) (TransferTemplate, error) {
+	t, err := GetTransferTemplate(ctx, db, id)
+	if err != nil {
+		return TransferTemplate{}, fmt.Errorf("failed to get transfer template: %w", err)
+	}
+	t.ID = ""
+	return UpsertTransferTemplate(ctx, db, t)
 }
 
 func ListTransferTemplates(ctx context.Context, db *sql.DB) ([]TransferTemplate, error) {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
@@ -92,6 +93,9 @@ func UpsertAccountGrowthModel(ctx context.Context, db *sql.DB, inp AccountGrowth
 	var endDate *int64
 	if inp.EndDate != nil {
 		*endDate = int64(*inp.EndDate)
+	}
+	if inp.ID == "" {
+		inp.ID = sid.MustNewString(32)
 	}
 	annualRate, err := inp.AnnualRate.Encode()
 	if err != nil {

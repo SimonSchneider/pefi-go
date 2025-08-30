@@ -123,9 +123,6 @@ func HandlerAccountUpsert(db *sql.DB) http.Handler {
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		if inp.ID == "" {
-			inp.ID = sid.MustNewString(32)
-		}
 		acc, err := UpsertAccount(ctx, db, inp)
 		if err != nil {
 			return fmt.Errorf("upserting account: %w", err)
@@ -293,9 +290,6 @@ func HandlerAccountGrowthModelUpsert(db *sql.DB) http.Handler {
 		var inp AccountGrowthModelInput
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
-		}
-		if inp.ID == "" {
-			inp.ID = sid.MustNewString(32)
 		}
 		_, err := UpsertAccountGrowthModel(ctx, db, inp)
 		if err != nil {
@@ -539,6 +533,17 @@ func HandlerTransferTemplateUpsert(db *sql.DB) http.Handler {
 	})
 }
 
+func HandlerTransferTemplateDuplicate(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		tr, err := DuplicateTransferTemplate(ctx, db, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("duplicating transfer template: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/templ/transfer-templates/%s/edit", tr.ID))
+		return nil
+	})
+}
+
 func HandlerTransferTemplateDelete(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		if err := DeleteTransferTemplate(ctx, db, r.PathValue("id")); err != nil {
@@ -683,6 +688,7 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /transfers/{id}/edit", HandlerTransferTemplateUpsertPage(db, view))
 	mux.Handle("GET /transfers/{id}", HandlerTransferTemplatePage(db, view))
 	mux.Handle("POST /transfers/{$}", HandlerTransferTemplateUpsert(db))
+	mux.Handle("POST /transfers/{id}/duplicate", HandlerTransferTemplateDuplicate(db))
 	mux.Handle("POST /transfers/{id}/delete", HandlerTransferTemplateDelete(db))
 	mux.Handle("GET /transfers/table/{$}", HandlerTransferTable(db, view))
 

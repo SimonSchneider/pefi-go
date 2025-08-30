@@ -27,11 +27,13 @@
 
 ### TODO
 
+- Cleanup old stuff
+- A 100% transfer from a non fixed distribution will still 0 it out.
 - Add the account table edit view
 - Change the date for a snapshot in the table view
 - Add categories to accounts
 - Support category grouping for graph
-- Add categories to transactions
+- Add categories to transfer-templates
 - Add transfer run for a specific date for doing the money depositing split for that month
 - Model startup shares
     - Model startup shares valuation based on company valuation and shares owned by the user

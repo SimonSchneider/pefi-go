@@ -81,7 +81,7 @@ templ TransferTemplateForm(view *TransferTemplateEditView) {
 					<label class="label">Fixed Amount</label>
 					<input type="text" class="input" placeholder="1000" name="amount_fixed" value={ view.TransferTemplate.AmountFixed.SimpleEncode() }/>
 					<label class="label">Percentage</label>
-					<input type="number" class="input" placeholder="10" step="0.01" min="0" max="100" name="amount_percent" value={ view.TransferTemplate.AmountPercent * 100 }/>
+					<input type="number" class="input" placeholder="10" step="0.01" min="0" max="100" name="amount_percent" value={ view.TransferTemplate.AmountPercent }/>
 					<label class="label">Priority</label>
 					<input type="number" class="input" placeholder="1" name="priority" value={ view.TransferTemplate.Priority }/>
 					<label class="label">Recurrence (Cron Expression)</label>
@@ -180,8 +180,13 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 		// </td>
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-2">
+				<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
+					<button type="submit" class="btn btn-ghost btn-sm" title="Duplicate">
+						@IconCopy("w-4 h-4")
+					</button>
+				</form>
 				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/templ/transfer-templates/" + t.ID + "/edit" }>
-					<img src="/static/public/icons/pencil.svg" alt="Edit" class="w-4 h-4"/>
+					@IconPencil("w-4 h-4")
 				</a>
 			</div>
 		</td>
