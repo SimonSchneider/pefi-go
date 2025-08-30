@@ -9,105 +9,9 @@ import (
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
-	"github.com/SimonSchneider/goslu/templ"
 )
-
-func HandlerIndexPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return err
-		}
-		trans, err := ListTransferTemplates(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing transfer templates: %w", err)
-		}
-		return view.IndexPage(w, r, IndexView{
-			Accounts:  AccountsListView{Accounts: accs},
-			Transfers: TransferTemplatesView{Transfers: trans},
-		})
-	})
-}
-
-func HandlerTable(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accounts, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
-		}
-		ids := make([]string, len(accounts))
-		for i, acc := range accounts {
-			ids[i] = acc.ID
-		}
-		// Snapshots are ordered by date
-		snapshots, err := ListAccountsSnapshots(ctx, db, ids)
-		if err != nil {
-			return fmt.Errorf("listing account snapshots: %w", err)
-		}
-		type DateIDKey struct {
-			Date date.Date
-			ID   string
-		}
-		dates := make([]date.Date, 0)
-		snaps := make(map[DateIDKey]AccountSnapshot)
-		for _, s := range snapshots {
-			snaps[DateIDKey{Date: s.Date, ID: s.AccountID}] = s
-			if len(dates) == 0 || dates[len(dates)-1] != s.Date {
-				dates = append(dates, s.Date)
-			}
-		}
-		rows := make([]TableRow, 0)
-		for _, d := range dates {
-			rows = append(rows, TableRow{
-				Date:      d,
-				Snapshots: make([]AccountSnapshot, 0, len(accounts)),
-			})
-			for _, acc := range accounts {
-				if snap, ok := snaps[DateIDKey{Date: d, ID: acc.ID}]; ok {
-					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, snap)
-				} else {
-					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, AccountSnapshot{
-						AccountID: acc.ID,
-						Date:      d,
-					})
-				}
-			}
-		}
-		return view.TablePage(w, r, TableView{
-			Accounts: accounts,
-			Rows:     rows,
-		})
-	})
-}
-
-func HandlerTransferTable(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accounts, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
-		}
-		transfers, err := ListTransferTemplates(ctx, db)
-		type DateIDKey struct {
-			Date date.Date
-			ID   string
-		}
-		reqD := &RequestDetails{req: r}
-		rows := make([]TransferTableRow, 0, len(transfers))
-		for _, t := range transfers {
-			rows = append(rows, TransferTableRow{
-				RequestDetails: reqD,
-				Transfer:       t,
-				Accounts:       accounts,
-			})
-		}
-		return view.TransferTablePage(w, r, TransferTableView{
-			Rows: rows,
-		})
-	})
-}
 
 func HandlerAccountUpsert(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -134,58 +38,7 @@ func HandlerAccountDelete(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerAccountPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		acc, err := GetAccount(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting account: %w", err)
-		}
-		snapshots, err := ListAccountSnapshots(ctx, db, string(acc.ID))
-		if err != nil {
-			return fmt.Errorf("listing account snapshots: %w", err)
-		}
-		growthModels, err := ListAccountGrowthModels(ctx, db, string(acc.ID))
-		if err != nil {
-			return fmt.Errorf("listing account growth models: %w", err)
-		}
-		return view.AccountPage(w, r, AccountView{
-			Account:      acc,
-			Snapshots:    snapshots,
-			GrowthModels: growthModels,
-		})
-	})
-}
-
-func HandlerAccountEditPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		account, err := GetAccount(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting account for edit: %w", err)
-		}
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts for edit page: %w", err)
-		}
-		return view.AccountEditPage(w, r, AccountEditView{
-			Account:  account,
-			Accounts: accs,
-		})
-	})
-}
-
-func HandlerAccountNewPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts for new account page: %w", err)
-		}
-		return view.AccountCreatePage(w, r, AccountEditView{
-			Accounts: accs,
-		})
-	})
-}
-
-func HandlerAccountSnapshotUpsert(db *sql.DB, view *View) http.Handler {
+func HandlerAccountSnapshotUpsert(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		var inp AccountSnapshotInput
 		if err := srvu.Decode(r, &inp, false); err != nil {
@@ -209,7 +62,7 @@ func HandlerAccountSnapshotUpsert(db *sql.DB, view *View) http.Handler {
 			snap = s
 		}
 		if r.Header.Get("HX-Request") == "true" {
-			return view.SnapshotTableCell(w, r, snap)
+			return NewTemplView(ctx, w, r).Render(SnapshotCell(accID, inp.Date, snap))
 		} else {
 			shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", accID))
 		}
@@ -228,52 +81,6 @@ func HandlerAccountSnapshotDelete(db *sql.DB) http.Handler {
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", r.PathValue("id")))
 		return nil
-	})
-}
-
-func HandlerAccountSnapshotNewPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		acc, err := GetAccount(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting account for snapshot creation: %w", err)
-		}
-		return view.AccountSnapshotEditPage(w, r, AccountSnapshotEditView{
-			Account:  acc,
-			Snapshot: AccountSnapshot{Date: date.Today()},
-		})
-	})
-}
-
-func HandlerAccountGrowthModelNewPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		acc, err := GetAccount(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting account for creation: %w", err)
-		}
-		return view.AccountGrowthModelEditPage(w, r, AccountGrowthModelView{
-			Account: acc,
-			GrowthModel: GrowthModel{
-				ID:        sid.MustNewString(32),
-				AccountID: acc.ID,
-			},
-		})
-	})
-}
-
-func HandlerAccountGrowthModelEditPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		gm, err := GetGrowthModel(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting account for creation: %w", err)
-		}
-		acc, err := GetAccount(ctx, db, gm.AccountID)
-		if err != nil {
-			return fmt.Errorf("getting account for growth model edit: %w", err)
-		}
-		return view.AccountGrowthModelEditPage(w, r, AccountGrowthModelView{
-			Account:     acc,
-			GrowthModel: gm,
-		})
 	})
 }
 
@@ -302,33 +109,6 @@ func HandlerAccountGrowthModelDelete(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerAccountSnapshotEditPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		acc, err := GetAccount(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting account for snapshot creation: %w", err)
-		}
-		var d date.Date
-		if err := shttp.Parse(&d, date.ParseDate, r.PathValue("date"), date.Today()); err != nil {
-			return fmt.Errorf("parsing date: %w", err)
-		}
-		snapshot, err := GetAccountSnapshot(ctx, db, acc.ID, d)
-		if err != nil {
-			return fmt.Errorf("getting account snapshot: %w", err)
-		}
-		return view.AccountSnapshotEditPage(w, r, AccountSnapshotEditView{
-			Account:  acc,
-			Snapshot: snapshot,
-		})
-	})
-}
-
-func HandlerCharts(tmpl templ.TemplateProvider) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return tmpl.ExecuteTemplate(w, "chart.gohtml", struct{ Query string }{fmt.Sprintf("?%s", r.URL.Query().Encode())})
-	})
-}
-
 type SSEPredictionEventHandler struct {
 	w *srvu.SSESender
 }
@@ -353,39 +133,6 @@ func HandlerChartsDataStream(db *sql.DB) http.Handler {
 			return fmt.Errorf("running prediction: %w", err)
 		}
 		return nil
-	})
-}
-
-func HandlerTransferTemplateUpsertPage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		id := r.PathValue("id")
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts for transfer template edit: %w", err)
-		}
-		viewData := TransferTemplateEditView{
-			Accounts: accs,
-		}
-		if id != "" {
-			t, err := GetTransferTemplate(ctx, db, id)
-			if err != nil {
-				return fmt.Errorf("getting transfer template for edit: %w", err)
-			}
-			viewData.TransferTemplate = t
-		}
-		return view.TransferTemplateEditPage(w, r, viewData)
-	})
-}
-
-func HandlerTransferTemplatePage(db *sql.DB, view *View) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		t, err := GetTransferTemplate(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting transfer template for show: %w", err)
-		}
-		return view.TransferTemplatePage(w, r, TransferTemplateView{
-			TransferTemplate: t,
-		})
 	})
 }
 
@@ -493,7 +240,7 @@ func AccountEditPage(db *sql.DB) http.Handler {
 	})
 }
 
-func TransferTemplatesNewPage(db *sql.DB, view *View) http.Handler {
+func TransferTemplatesNewPage(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		accs, err := ListAccounts(ctx, db)
 		if err != nil {
@@ -505,7 +252,7 @@ func TransferTemplatesNewPage(db *sql.DB, view *View) http.Handler {
 	})
 }
 
-func TransferTemplatesEditPage(db *sql.DB, view *View) http.Handler {
+func TransferTemplatesEditPage(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		id := r.PathValue("id")
 		t, err := GetTransferTemplate(ctx, db, id)
@@ -523,7 +270,59 @@ func TransferTemplatesEditPage(db *sql.DB, view *View) http.Handler {
 	})
 }
 
-func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *View) http.Handler {
+func SnapshotsTablePage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accounts, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		ids := make([]string, len(accounts))
+		for i, acc := range accounts {
+			ids[i] = acc.ID
+		}
+		// Snapshots are ordered by date
+		snapshots, err := ListAccountsSnapshots(ctx, db, ids)
+		if err != nil {
+			return fmt.Errorf("listing account snapshots: %w", err)
+		}
+		type DateIDKey struct {
+			Date date.Date
+			ID   string
+		}
+		dates := make([]date.Date, 0)
+		snaps := make(map[DateIDKey]AccountSnapshot)
+		for _, s := range snapshots {
+			snaps[DateIDKey{Date: s.Date, ID: s.AccountID}] = s
+			if len(dates) == 0 || dates[len(dates)-1] != s.Date {
+				dates = append(dates, s.Date)
+			}
+		}
+		rows := make([]TableRow, 0)
+		for _, d := range dates {
+			rows = append(rows, TableRow{
+				Date:      d,
+				Snapshots: make([]AccountSnapshot, 0, len(accounts)),
+			})
+			for _, acc := range accounts {
+				if snap, ok := snaps[DateIDKey{Date: d, ID: acc.ID}]; ok {
+					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, snap)
+				} else {
+					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, AccountSnapshot{
+						AccountID: acc.ID,
+						Date:      d,
+					})
+				}
+			}
+		}
+
+		return NewTemplView(ctx, w, r).Render(Page("Snapshots Table", PageSnapshotsTable(&TableView{
+			Accounts: accounts,
+			Rows:     rows,
+		})))
+	})
+}
+
+func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
 
@@ -533,37 +332,23 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /templ/accounts/new", AccountNewPage(db))
 	mux.Handle("GET /templ/accounts/{id}/edit", AccountEditPage(db))
 	mux.Handle("GET /templ/transfer-templates", TransferTemplatesPage(db))
-	mux.Handle("GET /templ/transfer-templates/new", TransferTemplatesNewPage(db, view))
-	mux.Handle("GET /templ/transfer-templates/{id}/edit", TransferTemplatesEditPage(db, view))
+	mux.Handle("GET /templ/transfer-templates/new", TransferTemplatesNewPage(db))
+	mux.Handle("GET /templ/transfer-templates/{id}/edit", TransferTemplatesEditPage(db))
+	mux.Handle("GET /templ/snapshots-table", SnapshotsTablePage(db))
 
-	mux.Handle("GET /{$}", HandlerIndexPage(db, view))
-
-	mux.Handle("GET /accounts/new", HandlerAccountNewPage(db, view))
-	mux.Handle("GET /accounts/{id}/edit", HandlerAccountEditPage(db, view))
-	mux.Handle("GET /accounts/{id}", HandlerAccountPage(db, view))
 	mux.Handle("POST /accounts/{$}", HandlerAccountUpsert(db))
 	mux.Handle("POST /accounts/{id}/delete", HandlerAccountDelete(db))
 
-	mux.Handle("GET /accounts/{id}/snapshots/new", HandlerAccountSnapshotNewPage(db, view))
-	mux.Handle("GET /accounts/{id}/snapshots/{date}/edit", HandlerAccountSnapshotEditPage(db, view))
-	mux.Handle("POST /accounts/{id}/snapshots/", HandlerAccountSnapshotUpsert(db, view))
-	mux.Handle("POST /accounts/{id}/snapshots/{date}/", HandlerAccountSnapshotUpsert(db, view))
+	mux.Handle("POST /accounts/{id}/snapshots/", HandlerAccountSnapshotUpsert(db))
+	mux.Handle("POST /accounts/{id}/snapshots/{date}/", HandlerAccountSnapshotUpsert(db))
 	mux.Handle("POST /accounts/{id}/snapshots/delete", HandlerAccountSnapshotDelete(db))
 
-	mux.Handle("GET /accounts/{id}/growth-models/new", HandlerAccountGrowthModelNewPage(db, view))
-	mux.Handle("GET /growth-models/{id}/edit", HandlerAccountGrowthModelEditPage(db, view))
 	mux.Handle("POST /growth-models/", HandlerAccountGrowthModelUpsert(db))
 	mux.Handle("POST /growth-models/{id}/delete", HandlerAccountGrowthModelDelete(db))
 
-	mux.Handle("GET /transfers/new", HandlerTransferTemplateUpsertPage(db, view))
-	mux.Handle("GET /transfers/{id}/edit", HandlerTransferTemplateUpsertPage(db, view))
-	mux.Handle("GET /transfers/{id}", HandlerTransferTemplatePage(db, view))
 	mux.Handle("POST /transfers/{$}", HandlerTransferTemplateUpsert(db))
 	mux.Handle("POST /transfers/{id}/duplicate", HandlerTransferTemplateDuplicate(db))
 	mux.Handle("POST /transfers/{id}/delete", HandlerTransferTemplateDelete(db))
-	mux.Handle("GET /transfers/table/{$}", HandlerTransferTable(db, view))
-
-	mux.Handle("GET /tables/{$}", HandlerTable(db, view))
 
 	mux.Handle("POST /sleep/{$}", srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		// Simulate a long-running operation
@@ -572,17 +357,7 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 		return nil
 	}))
 
-	mux.Handle("GET /charts/{$}", HandlerCharts(tmpl))
 	mux.Handle("GET /charts/stream", HandlerChartsDataStream(db))
 
 	return mux
-}
-
-func Respond[T any](v T, err error) func(provider templ.TemplateProvider, w http.ResponseWriter, name string) error {
-	return func(provider templ.TemplateProvider, w http.ResponseWriter, name string) error {
-		if err != nil {
-			return err
-		}
-		return provider.ExecuteTemplate(w, name, v)
-	}
 }

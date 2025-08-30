@@ -9,6 +9,7 @@ templ Page(name string, child templ.Component) {
 			<meta name="color-scheme" content="light dark"/>
 			<link rel="icon" href="/static/public/favicon.webp"/>
 			<link rel="stylesheet" href="/static/public/styles-tw.css"/>
+			<script src="/static/public/htmx.min.js"></script>
 			<title>{ name }</title>
 		</head>
 		<body class="bg-base-100">
@@ -34,7 +35,7 @@ templ NavItem(href string, iconPath string, name string, activePath string) {
 }
 
 templ Sidebar(page string) {
-	<aside class="w-64 bg-base-200 border-r border-base-300 flex flex-col h-full">
+	<aside class="w-64 bg-base-200 border-r border-base-300 flex flex-col h-full flex-shrink-0">
 		<div class="p-6 border-b border-base-300">
 			<div class="flex items-center gap-3">
 				<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
@@ -50,6 +51,7 @@ templ Sidebar(page string) {
 			<ul class="space-y-2">
 				@NavItem("/templ/app", "/static/public/icons/home.svg", "Dashboard", page)
 				@NavItem("/templ/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page)
+				@NavItem("/templ/snapshots-table", "/static/public/icons/table.svg", "Snapshots Table", page)
 				@NavItem("/templ/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page)
 				@NavItem("/templ/chart", "/static/public/icons/trending-up.svg", "Chart", page)
 			</ul>
@@ -97,7 +99,7 @@ templ Header(title string, btns ...templ.Component) {
 }
 
 templ Layout(page string, child templ.Component) {
-	<div class="flex h-screen w-full bg-base-100">
+	<div class="flex h-screen w-full bg-base-100 overflow-hidden">
 		@Sidebar(page)
 		@child
 	</div>

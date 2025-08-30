@@ -29,14 +29,14 @@ func Page(name string, child templ.Component) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\" data-theme=\"light\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"color-scheme\" content=\"light dark\"><link rel=\"icon\" href=\"/static/public/favicon.webp\"><link rel=\"stylesheet\" href=\"/static/public/styles-tw.css\"><title>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\" data-theme=\"light\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"color-scheme\" content=\"light dark\"><link rel=\"icon\" href=\"/static/public/favicon.webp\"><link rel=\"stylesheet\" href=\"/static/public/styles-tw.css\"><script src=\"/static/public/htmx.min.js\"></script><title>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 12, Col: 16}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 13, Col: 16}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -98,7 +98,7 @@ func NavItem(href string, iconPath string, name string, activePath string) templ
 		var templ_7745c5c3_Var5 templ.SafeURL
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(href)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 23, Col: 14}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 24, Col: 14}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -124,7 +124,7 @@ func NavItem(href string, iconPath string, name string, activePath string) templ
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(iconPath)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 30, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 31, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -137,7 +137,7 @@ func NavItem(href string, iconPath string, name string, activePath string) templ
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 31, Col: 15}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 32, Col: 15}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -172,7 +172,7 @@ func Sidebar(page string) templ.Component {
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<aside class=\"w-64 bg-base-200 border-r border-base-300 flex flex-col h-full\"><div class=\"p-6 border-b border-base-300\"><div class=\"flex items-center gap-3\"><div class=\"w-10 h-10 bg-primary rounded-lg flex items-center justify-center\"><span class=\"text-primary-content font-bold text-xl\">P</span></div><div><h1 class=\"text-xl font-bold text-base-content\">Pefigo</h1><p class=\"text-sm text-base-content/70\">Financial Modeling</p></div></div></div><nav class=\"flex-1 p-4\"><ul class=\"space-y-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<aside class=\"w-64 bg-base-200 border-r border-base-300 flex flex-col h-full flex-shrink-0\"><div class=\"p-6 border-b border-base-300\"><div class=\"flex items-center gap-3\"><div class=\"w-10 h-10 bg-primary rounded-lg flex items-center justify-center\"><span class=\"text-primary-content font-bold text-xl\">P</span></div><div><h1 class=\"text-xl font-bold text-base-content\">Pefigo</h1><p class=\"text-sm text-base-content/70\">Financial Modeling</p></div></div></div><nav class=\"flex-1 p-4\"><ul class=\"space-y-2\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -181,6 +181,10 @@ func Sidebar(page string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = NavItem("/templ/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = NavItem("/templ/snapshots-table", "/static/public/icons/table.svg", "Snapshots Table", page).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -228,7 +232,7 @@ func Header(title string, btns ...templ.Component) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 89, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 91, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -273,7 +277,7 @@ func Layout(page string, child templ.Component) templ.Component {
 			templ_7745c5c3_Var12 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"flex h-screen w-full bg-base-100\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"flex h-screen w-full bg-base-100 overflow-hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

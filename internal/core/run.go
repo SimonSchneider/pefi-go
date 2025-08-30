@@ -5,12 +5,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/SimonSchneider/goslu/config"
-	"github.com/SimonSchneider/goslu/migrate"
-	"github.com/SimonSchneider/goslu/srvu"
-	"github.com/SimonSchneider/goslu/templ"
-	"github.com/SimonSchneider/pefigo"
-	"html/template"
 	"io"
 	"io/fs"
 	"log"
@@ -18,6 +12,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+
+	"github.com/SimonSchneider/goslu/config"
+	"github.com/SimonSchneider/goslu/migrate"
+	"github.com/SimonSchneider/goslu/srvu"
+	"github.com/SimonSchneider/goslu/templ"
+	"github.com/SimonSchneider/pefigo"
 )
 
 func Run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, getEnv func(string) string, getwd func() (string, error)) error {
@@ -34,56 +34,19 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, 
 		return fmt.Errorf("failed to migrate db: %w", err)
 	}
 
-	public, tmpls, err := templ.GetPublicAndTemplates(pefigo.StaticEmbeddedFS, &templ.Config{
-		Watch:        cfg.Watch,
-		TmplPatterns: []string{"templates/*.gohtml"},
-		RootTmplProvider: func() *template.Template {
-			return template.New("").Funcs(template.FuncMap{
-				"mkSlice": func(args ...interface{}) []interface{} {
-					return args
-				},
-				"mul": func(args ...interface{}) float64 {
-					result := 1.0
-					for _, arg := range args {
-						if f, ok := arg.(float64); ok {
-							result *= f
-						} else if i, ok := arg.(int); ok {
-							result *= float64(i)
-						} else {
-							panic("illegal arg to mul function")
-						}
-					}
-					return result
-				},
-				"dict": func(args ...interface{}) map[string]interface{} {
-					if len(args)%2 != 0 {
-						panic("illegal number of args to dict function")
-					}
-					m := make(map[string]interface{}, len(args)/2)
-					for i := 0; i < len(args); i += 2 {
-						if key, ok := args[i].(string); !ok {
-							panic("illegal key arg to dict function")
-						} else {
-							m[key] = args[i+1]
-						}
-					}
-					return m
-				},
-			})
-		},
+	public, _, err := templ.GetPublicAndTemplates(pefigo.StaticEmbeddedFS, &templ.Config{
+		Watch: cfg.Watch,
 	})
 	if err != nil {
 		return fmt.Errorf("sub static: %w", err)
 	}
-
-	view := NewView(tmpls)
 
 	srv := &http.Server{
 		BaseContext: func(listener net.Listener) context.Context {
 			return ctx
 		},
 		Addr:    cfg.Addr,
-		Handler: srvu.With(NewHandler(db, public, tmpls, view), srvu.WithCompression(), srvu.WithLogger(logger)),
+		Handler: srvu.With(NewHandler(db, public), srvu.WithCompression(), srvu.WithLogger(logger)),
 	}
 	logger.Printf("starting chore server, listening on %s\n  sqliteDB: %s", cfg.Addr, cfg.DbURL)
 	return srvu.RunServerGracefully(ctx, srv, logger)
