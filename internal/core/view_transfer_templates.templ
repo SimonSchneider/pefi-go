@@ -120,7 +120,7 @@ templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
 	</div>
 }
 
-templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate) {
+templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateWithAmount) {
 	<tr class="hover:bg-base-50">
 		<td class="font-medium">{ t.Name }</td>
 		<td>
@@ -159,10 +159,21 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 					{{ class = "text-green-600" }}
 				}
 				if t.AmountType == "fixed" {
-					@BalanceBadge(t.AmountFixed, false, class)
+					@BalanceBadge(t.AmountFixed.Mean(), false, class)
 				} else {
 					<span class={ class }>{ t.AmountPercent * 100 }%</span>
 				}
+			</div>
+		</td>
+		<td class="text-right">
+			<div class="flex flex-col gap-1">
+				if t.ToAccountID == "" {
+					{{ class = "text-red-600" }}
+				}
+				if t.FromAccountID == "" {
+					{{ class = "text-green-600" }}
+				}
+				@BalanceBadge(t.Amount, false, class)
 			</div>
 		</td>
 		<td class="text-right">
@@ -204,6 +215,7 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 										<th class="font-semibold">From → To</th>
 										<th class="font-semibold">Recurrence</th>
 										<th class="font-semibold text-right">Amount</th>
+										<th class="font-semibold text-right">Estimated Amount</th>
 										// <th class="font-semibold">Cash Flow</th>
 										// <th class="font-semibold">Last Snapshot</th>
 										<th class="font-semibold text-right sticky">Actions</th>

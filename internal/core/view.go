@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"strconv"
@@ -115,20 +116,73 @@ type TransferTableView struct {
 	Rows []TransferTableRow
 }
 
+type TransferTemplateWithAmount struct {
+	TransferTemplate
+	Amount float64
+}
+
+func makeTransferTemplatesWithAmount(transfers []TransferTemplate) []TransferTemplateWithAmount {
+	type AccBalance struct {
+		Starting float64
+		Current  float64
+	}
+	accs := make(map[string]AccBalance)
+	ttwas := make([]TransferTemplateWithAmount, len(transfers))
+	// handle the percentage transfers with the same priority using the same initial account balance
+	currIter := ""
+	for i, t := range transfers {
+		nextIter := fmt.Sprintf("%s%d", t.Recurrence, t.Priority)
+		if nextIter != currIter {
+			currIter = nextIter
+			for k, acc := range accs {
+				acc.Starting = acc.Current
+				accs[k] = acc
+			}
+		}
+		ttwa := TransferTemplateWithAmount{TransferTemplate: t}
+		accs = initMap(accs, t.FromAccountID)
+		accs = initMap(accs, t.ToAccountID)
+		switch t.AmountType {
+		case "fixed":
+			ttwa.Amount = t.AmountFixed.Mean()
+		case "percent":
+			ttwa.Amount = t.AmountPercent * accs[t.FromAccountID].Starting
+		}
+		fromAcc := accs[t.FromAccountID]
+		fromAcc.Current -= ttwa.Amount
+		accs[t.FromAccountID] = fromAcc
+		toAcc := accs[t.ToAccountID]
+		toAcc.Current += ttwa.Amount
+		accs[t.ToAccountID] = toAcc
+		ttwas[i] = ttwa
+	}
+	return ttwas
+}
+
+func initMap[K comparable, V any](m map[K]V, ks ...K) map[K]V {
+	var v V
+	for _, k := range ks {
+		if _, ok := m[k]; !ok {
+			m[k] = v
+		}
+	}
+	return m
+}
+
 type TransferTemplatesView2 struct {
-	TransferTemplates []TransferTemplate
+	TransferTemplates []TransferTemplateWithAmount
 	Accounts          map[string]Account
 	MonthlyIncome     float64
 	MonthlyExpenses   float64
 }
 
 func NewTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account) *TransferTemplatesView2 {
-	v := &TransferTemplatesView2{TransferTemplates: transferTemplates, Accounts: KeyBy(accounts, func(a Account) string { return a.ID })}
-	for _, t := range transferTemplates {
+	v := &TransferTemplatesView2{TransferTemplates: makeTransferTemplatesWithAmount(transferTemplates), Accounts: KeyBy(accounts, func(a Account) string { return a.ID })}
+	for _, t := range v.TransferTemplates {
 		if t.FromAccountID == "" {
-			v.MonthlyIncome += t.AmountFixed.Mean()
+			v.MonthlyIncome += t.Amount
 		} else if t.ToAccountID == "" {
-			v.MonthlyExpenses += -t.AmountFixed.Mean()
+			v.MonthlyExpenses += -t.Amount
 		}
 	}
 	return v

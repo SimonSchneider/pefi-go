@@ -1,6 +1,5 @@
 package core;
 
-import "github.com/SimonSchneider/pefigo/internal/uncertain"
 import "strconv"
 
 templ PageAccounts(view *AccountsView) {
@@ -197,7 +196,7 @@ templ AccountTableRow(account *AccountDetailed) {
 		</td>
 		<td class="text-right">
 			if account.LastSnapshot != nil {
-				@BalanceBadge(account.LastSnapshot.Balance, true, "")
+				@BalanceBadge(account.LastSnapshot.Balance.Mean(), true, "")
 			} else {
 				<span>-</span>
 			}
@@ -298,17 +297,16 @@ templ AccountsContent(view *AccountsView) {
 	</main>
 }
 
-templ BalanceBadge(balance uncertain.Value, coloring bool, class string) {
-	{{ mean := balance.Mean() }}
+templ BalanceBadge(val float64, coloring bool, class string) {
 	<span
-		class={ templ.KV("text-green-600", mean > 0 && coloring),
-		templ.KV("text-red-600", mean < 0 && coloring),
-		templ.KV("text-base-content/40", mean == 0 && coloring),
+		class={ templ.KV("text-green-600", val > 0 && coloring),
+		templ.KV("text-red-600", val < 0 && coloring),
+		templ.KV("text-base-content/40", val == 0 && coloring),
 		"font-mono",
 		"inline-block",
 		"min-w-[6ch]",
 		class }
-	>{ FormatWithThousands(mean) }</span>
+	>{ FormatWithThousands(val) }</span>
 }
 
 templ IconTrendingUp(class string) {

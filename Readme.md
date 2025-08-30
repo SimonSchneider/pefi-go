@@ -27,9 +27,8 @@
 
 ### TODO
 
-- Cleanup old stuff
+- Handle darkmode for icons (move to templ and set stroke color based on daisy UI theme)
 - A 100% transfer from a non fixed distribution will still 0 it out.
-- Add the account table edit view
 - Change the date for a snapshot in the table view
 - Add categories to accounts
 - Support category grouping for graph
