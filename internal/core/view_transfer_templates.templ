@@ -7,6 +7,109 @@ templ PageTransferTemplates(view *TransferTemplatesView2) {
 	@Layout("/templ/transfer-templates", TransferTemplatesContent(view))
 }
 
+templ PageEditTransferTemplate(view *TransferTemplateEditView) {
+	@Layout("/templ/transfer-templates", EditTransferTemplateContent(view))
+}
+
+templ EditTransferTemplateContent(view *TransferTemplateEditView) {
+	<main class="flex-1 flex flex-col">
+		if view.IsEdit() {
+			@Header("Edit Transfer Template", DeleteTransferTemplateButton(view.TransferTemplate.ID))
+		} else {
+			@Header("New Transfer Template", NewTransferTemplateButton())
+		}
+		@TransferTemplateForm(view)
+	</main>
+}
+
+templ DeleteTransferTemplateButton(id string) {
+	<form method="post" action={ "/transfers/" + id + "/delete?next=" + templ.EscapeString("/templ/transfer-templates") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ TransferTemplateForm(view *TransferTemplateEditView) {
+	<div class="flex flex-col lg:flex-row gap-6 m-6">
+		<div class="flex-1">
+			<form action={ "/transfers/?next=" + templ.EscapeString("/templ/transfer-templates") } method="post">
+				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
+					<legend class="fieldset-legend">Transfer Template Details</legend>
+					<input type="hidden" name="id" value={ view.TransferTemplate.ID }/>
+					<label class="label">Name</label>
+					<input type="text" class="input" placeholder="Salary Transfer" name="name" value={ view.TransferTemplate.Name }/>
+					<label class="label">From Account</label>
+					<select class="select" name="from_account_id">
+						<option value="">External (Income)</option>
+						for _, acc := range view.Accounts {
+							<option
+								value={ acc.ID }
+								if acc.ID == view.TransferTemplate.FromAccountID {
+									selected
+								}
+							>{ acc.Name }</option>
+						}
+					</select>
+					<label class="label">To Account</label>
+					<select class="select" name="to_account_id">
+						<option value="">External (Expense)</option>
+						for _, acc := range view.Accounts {
+							<option
+								value={ acc.ID }
+								if acc.ID == view.TransferTemplate.ToAccountID {
+									selected
+								}
+							>{ acc.Name }</option>
+						}
+					</select>
+					<label class="label">Amount Type</label>
+					<select class="select" name="amount_type" id="amount-type-select">
+						<option
+							value="fixed"
+							if view.TransferTemplate.AmountType == "fixed" {
+								selected
+							}
+						>Fixed Amount</option>
+						<option
+							value="percent"
+							if view.TransferTemplate.AmountType == "percent" {
+								selected
+							}
+						>Percentage</option>
+					</select>
+					<label class="label">Fixed Amount</label>
+					<input type="text" class="input" placeholder="1000" name="amount_fixed" value={ view.TransferTemplate.AmountFixed.SimpleEncode() }/>
+					<label class="label">Percentage</label>
+					<input type="number" class="input" placeholder="10" step="0.01" min="0" max="100" name="amount_percent" value={ view.TransferTemplate.AmountPercent * 100 }/>
+					<label class="label">Priority</label>
+					<input type="number" class="input" placeholder="1" name="priority" value={ view.TransferTemplate.Priority }/>
+					<label class="label">Recurrence (Cron Expression)</label>
+					<input type="text" class="input" placeholder="*-*-25" name="recurrence" value={ view.TransferTemplate.Recurrence }/>
+					<div class="text-sm text-base-content/70 mt-1">
+						Leave empty for one-time transfers. Use cron syntax (e.g., "*-*-25" for monthly on 25th)
+					</div>
+					<label class="label">Start Date</label>
+					<input type="date" class="input" name="start_date" value={ view.TransferTemplate.StartDate.String() }/>
+					<label class="label">End Date (Optional)</label>
+					{{ endDate := "" }}
+					if view.TransferTemplate.EndDate != nil {
+						{{ endDate = view.TransferTemplate.EndDate.String() }}
+					}
+					<input type="date" class="input" name="end_date" value={ endDate }/>
+					<div class="form-control">
+						<label class="label cursor-pointer">
+							<span class="label-text">Enabled</span>
+							<input type="checkbox" class="checkbox" name="enabled" checked={ view.TransferTemplate.Enabled }/>
+						</label>
+					</div>
+					@SaveButton(view.IsEdit())
+				</fieldset>
+			</form>
+		</div>
+	</div>
+}
+
 templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
 	<div class="flex flex-row flex-wrap gap-4">
 		@StatCard("Total Income", FormatWithThousands(view.MonthlyIncome), "Total income of all accounts", IconTrendingUp("w-10 h-10 "))
@@ -77,9 +180,9 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 		// </td>
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-2">
-				<button class="btn btn-ghost btn-sm" title="Edit">
+				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/templ/transfer-templates/" + t.ID + "/edit" }>
 					<img src="/static/public/icons/pencil.svg" alt="Edit" class="w-4 h-4"/>
-				</button>
+				</a>
 			</div>
 		</td>
 	</tr>
@@ -87,10 +190,10 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 
 templ NewTransferTemplateButton() {
 	{{ label := "New Transfer template" }}
-	<button class="btn btn-primary" title={ label }>
+	<a class="btn btn-primary" href="/templ/transfer-templates/new" title={ label }>
 		{ label }
 		<img src="/static/public/icons/plus.svg" alt={ label } class="w-4 h-4"/>
-	</button>
+	</a>
 }
 
 templ TransferTemplatesContent(view *TransferTemplatesView2) {
@@ -107,7 +210,7 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 									<tr>
 										<th class="font-semibold sticky">Name</th>
 										<th class="font-semibold">From → To</th>
-										<th class="font-semibold">Reccurance</th>
+										<th class="font-semibold">Recurrence</th>
 										<th class="font-semibold text-right">Amount</th>
 										// <th class="font-semibold">Cash Flow</th>
 										// <th class="font-semibold">Last Snapshot</th>

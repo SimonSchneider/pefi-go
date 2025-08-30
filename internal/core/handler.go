@@ -617,6 +617,36 @@ func AccountEditPage(db *sql.DB) http.Handler {
 	})
 }
 
+func TransferTemplatesNewPage(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accs, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		return NewTemplView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(&TransferTemplateEditView{
+			Accounts: accs,
+		})))
+	})
+}
+
+func TransferTemplatesEditPage(db *sql.DB, view *View) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		id := r.PathValue("id")
+		t, err := GetTransferTemplate(ctx, db, id)
+		if err != nil {
+			return fmt.Errorf("getting transfer template: %w", err)
+		}
+		accs, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		return NewTemplView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(&TransferTemplateEditView{
+			Accounts:         accs,
+			TransferTemplate: t,
+		})))
+	})
+}
+
 func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *View) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
@@ -627,6 +657,8 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /templ/accounts/new", AccountNewPage(db))
 	mux.Handle("GET /templ/accounts/{id}/edit", AccountEditPage(db))
 	mux.Handle("GET /templ/transfer-templates", TransferTemplatesPage(db))
+	mux.Handle("GET /templ/transfer-templates/new", TransferTemplatesNewPage(db, view))
+	mux.Handle("GET /templ/transfer-templates/{id}/edit", TransferTemplatesEditPage(db, view))
 
 	mux.Handle("GET /{$}", HandlerIndexPage(db, view))
 

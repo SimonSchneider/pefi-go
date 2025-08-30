@@ -29,7 +29,6 @@
 
 - Add the account table edit view
 - Change the date for a snapshot in the table view
-- Upsert transfer templates
 - Add categories to accounts
 - Support category grouping for graph
 - Add categories to transactions
