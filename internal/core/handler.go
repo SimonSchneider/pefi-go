@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -14,8 +13,6 @@ import (
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/goslu/templ"
-	"github.com/SimonSchneider/pefigo/internal/pdb"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
 func HandlerIndexPage(db *sql.DB, view *View) http.Handler {
@@ -28,14 +25,9 @@ func HandlerIndexPage(db *sql.DB, view *View) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing transfer templates: %w", err)
 		}
-		users, err := ListUsers(ctx, db)
-		if err != nil {
-			return err
-		}
 		return view.IndexPage(w, r, IndexView{
 			Accounts:  AccountsListView{Accounts: accs},
 			Transfers: TransferTemplatesView{Transfers: trans},
-			Users:     UserListView{Users: users},
 		})
 	})
 }
@@ -331,127 +323,6 @@ func HandlerAccountSnapshotEditPage(db *sql.DB, view *View) http.Handler {
 	})
 }
 
-func HandlerGetUser(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return Respond(GetUser(ctx, db, r.PathValue("id")))(tmpl, w, "user.gohtml")
-	})
-}
-
-func HandlerUpsertUser(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp UserInput
-		if err := srvu.Decode(r, &inp, false); err != nil {
-			return fmt.Errorf("decoding input: %w", err)
-		}
-		return Respond(UpsertUser(ctx, db, inp))(tmpl, w, "user.gohtml")
-	})
-}
-
-func HandlerEditUser(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return Respond(GetUser(ctx, db, r.PathValue("id")))(tmpl, w, "userModal.gohtml")
-	})
-}
-
-func HandlerDeleteUser(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return DeleteUser(ctx, db, r.PathValue("id"))
-	})
-}
-
-func HandlerListUsers(db *sql.DB, tmpl templ.TemplateProvider) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return Respond(ListUsers(ctx, db))(tmpl, w, "userList.gohtml")
-	})
-}
-
-func HandlerImport(db *sql.DB) http.Handler {
-	dbi := pdb.New(db)
-	type ImportSnapshot struct {
-		Date    *date.Date `json:"date"`
-		Balance float64    `json:"balance"`
-	}
-	type ImportAccount struct {
-		ID        string           `json:"id"`
-		Name      string           `json:"name"`
-		Snapshots []ImportSnapshot `json:"snapshots"`
-	}
-	type ImportData struct {
-		Accounts []ImportAccount `json:"accounts"`
-	}
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return nil
-		}
-		var imp ImportData
-		if err := json.NewDecoder(r.Body).Decode(&imp); err != nil {
-			return fmt.Errorf("decoding import data: %w", err)
-		}
-		accs := make([]Account, 0, len(imp.Accounts))
-		snapshots := make([]AccountSnapshot, 0)
-		for _, a := range imp.Accounts {
-			var currDate date.Date
-			for _, s := range a.Snapshots {
-				if s.Date == nil && currDate == 0 {
-					return fmt.Errorf("missing date for snapshot")
-				}
-				if s.Date != nil {
-					currDate = *s.Date
-				} else {
-					t := currDate.ToStdTime()
-					y, m, d := t.Date()
-					if m == 12 {
-						y++
-						m = 1
-					} else {
-						m++
-					}
-					parsed, err := date.ParseDate(fmt.Sprintf("%04d-%02d-%02d", y, m, d))
-					if err != nil {
-						return fmt.Errorf("parsing date from snapshot: %w", err)
-					}
-					currDate = parsed
-				}
-				balance := uncertain.NewFixed(s.Balance)
-				snapshots = append(snapshots, AccountSnapshot{
-					AccountID: a.ID,
-					Date:      currDate,
-					Balance:   balance,
-				})
-			}
-			accs = append(accs, Account{
-				ID:   a.ID,
-				Name: a.Name,
-			})
-		}
-		for _, a := range accs {
-			if _, err := dbi.CreateAccount(ctx, pdb.CreateAccountParams{
-				ID:        a.ID,
-				Name:      a.Name,
-				CreatedAt: time.Now().UnixMilli(),
-				UpdatedAt: time.Now().UnixMilli(),
-			}); err != nil {
-				return fmt.Errorf("creating account: %w", err)
-			}
-		}
-		for _, s := range snapshots {
-			balance, err := s.Balance.Encode()
-			if err != nil {
-				return fmt.Errorf("encoding balance for snapshot (%s, %s): %w", s.AccountID, s.Date, err)
-			}
-			if _, err := dbi.UpsertSnapshot(ctx, pdb.UpsertSnapshotParams{
-				AccountID: s.AccountID,
-				Date:      int64(s.Date),
-				Balance:   balance,
-			}); err != nil {
-				return fmt.Errorf("creating account snapshot (%s): %w", s.AccountID, err)
-			}
-		}
-		return nil
-	})
-}
-
 func HandlerCharts(tmpl templ.TemplateProvider) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		return tmpl.ExecuteTemplate(w, "chart.gohtml", struct{ Query string }{fmt.Sprintf("?%s", r.URL.Query().Encode())})
@@ -704,23 +575,7 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /charts/{$}", HandlerCharts(tmpl))
 	mux.Handle("GET /charts/stream", HandlerChartsDataStream(db))
 
-	// OLD
-	mux.Handle("POST /users/{$}", HandlerUpsertUser(db, tmpl))
-	mux.Handle("GET /users/{$}", HandlerListUsers(db, tmpl))
-	mux.Handle("GET /users/{id}/edit", HandlerEditUser(db, tmpl))
-	mux.Handle("DELETE /users/{id}", HandlerDeleteUser(db))
-	mux.Handle("GET /users/{id}", HandlerGetUser(db, tmpl))
-	mux.Handle("GET /users/new", TemplateHandler(tmpl, "userModal.gohtml", EmptyUser()))
-
-	mux.Handle("POST /import/{$}", HandlerImport(db))
-
 	return mux
-}
-
-func TemplateHandler(tmpl templ.TemplateProvider, name string, data interface{}) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return tmpl.ExecuteTemplate(w, name, data)
-	})
 }
 
 func Respond[T any](v T, err error) func(provider templ.TemplateProvider, w http.ResponseWriter, name string) error {

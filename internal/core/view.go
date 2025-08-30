@@ -53,7 +53,6 @@ type AccountsListView struct {
 
 type UserListView struct {
 	*RequestDetails
-	Users []User
 }
 
 type IndexView struct {
