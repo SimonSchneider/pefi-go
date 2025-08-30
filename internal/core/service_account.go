@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
-	"net/http"
-	"time"
 )
 
 type Account struct {
@@ -19,6 +21,12 @@ type Account struct {
 	CashFlowDestinationID string
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
+}
+
+type AccountDetailed struct {
+	Account
+	LastSnapshot *AccountSnapshot
+	GrowthModel  *GrowthModel
 }
 
 type AccountInput struct {
@@ -108,10 +116,55 @@ func accountsListFromDB(dbAccs []pdb.Account) []Account {
 	return accs
 }
 
+func accountsListFromDBDetailed(dbAccs []pdb.Account, snapshots map[string]pdb.AccountSnapshot, growthModels map[string]pdb.GrowthModel) []AccountDetailed {
+	accs := make([]AccountDetailed, len(dbAccs))
+	for i := range dbAccs {
+		accs[i].Account = accountFromDB(dbAccs[i])
+		s := accountSnapshotFromDB(snapshots[accs[i].ID])
+		accs[i].LastSnapshot = &s
+		if gm, ok := growthModels[accs[i].ID]; ok {
+			gmd, err := growthModelFromDB(gm)
+			if err != nil {
+				panic(err)
+			}
+			accs[i].GrowthModel = &gmd
+		}
+	}
+	return accs
+}
+
 func ListAccounts(ctx context.Context, db *sql.DB) ([]Account, error) {
 	accs, err := pdb.New(db).ListAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return accountsListFromDB(accs), nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]AccountDetailed, error) {
+	accs, err := pdb.New(db).ListAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	snapshots, err := pdb.New(db).ListLatestSnapshotPerAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	snapshotsMap := make(map[string]pdb.AccountSnapshot)
+	for _, snapshot := range snapshots {
+		snapshotsMap[snapshot.AccountID] = snapshot
+	}
+	growthModels, err := pdb.New(db).ListActiveGrowthModels(ctx, ptr(int64(today)))
+	if err != nil {
+		return nil, err
+	}
+	growthModelsMap := make(map[string]pdb.GrowthModel)
+	for _, growthModel := range growthModels {
+		growthModelsMap[growthModel.AccountID] = growthModel
+	}
+	return accountsListFromDBDetailed(accs, snapshotsMap, growthModelsMap), nil
 }

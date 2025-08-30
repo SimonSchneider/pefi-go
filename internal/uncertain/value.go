@@ -211,22 +211,22 @@ func (u Value) Sample(ucfg *Config) float64 {
 	}
 }
 
-func (u Value) isFixed() bool {
+func (u Value) IsFixed() bool {
 	return u.Distribution == DistFixed
 }
 
 func (u Value) operate(cfg *Config, v Value, op func(a, b float64) float64) Value {
 	// Both fixed: operate directly
-	if u.isFixed() && v.isFixed() {
+	if u.IsFixed() && v.IsFixed() {
 		result := op(u.Fixed.Value, v.Fixed.Value)
 		return NewFixed(result)
 	}
 
 	// One fixed: sample the other and apply op
-	if u.isFixed() {
+	if u.IsFixed() {
 		return v.sampleWithFixed(cfg, u.Fixed.Value, func(b, a float64) float64 { return op(a, b) })
 	}
-	if v.isFixed() {
+	if v.IsFixed() {
 		return u.sampleWithFixed(cfg, v.Fixed.Value, op)
 	}
 
@@ -253,7 +253,7 @@ func (u Value) sampleWithFixed(cfg *Config, fixed float64, op func(a, b float64)
 }
 
 func (u Value) ApplyFixed(cfg *Config, fixed float64, op func(a, b float64) float64) Value {
-	if u.isFixed() {
+	if u.IsFixed() {
 		return NewFixed(op(u.Fixed.Value, fixed))
 	}
 	return u.sampleWithFixed(cfg, fixed, op)

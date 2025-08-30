@@ -1,10 +1,13 @@
 package core
 
 import (
+	"io"
+	"math"
+	"net/http"
+	"strconv"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/templ"
-	"io"
-	"net/http"
 )
 
 type RequestDetails struct {
@@ -195,4 +198,103 @@ type TransferTableView struct {
 func (v *View) TransferTablePage(w http.ResponseWriter, r *http.Request, d TransferTableView) error {
 	d.RequestDetails = &RequestDetails{req: r}
 	return v.p.ExecuteTemplate(w, "transfer_template_table.page.gohtml", d)
+}
+
+type TransferTemplatesView2 struct {
+	TransferTemplates []TransferTemplate
+	Accounts          map[string]Account
+	MonthlyIncome     float64
+	MonthlyExpenses   float64
+}
+
+func NewTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account) *TransferTemplatesView2 {
+	v := &TransferTemplatesView2{TransferTemplates: transferTemplates, Accounts: KeyBy(accounts, func(a Account) string { return a.ID })}
+	for _, t := range transferTemplates {
+		if t.FromAccountID == "" {
+			v.MonthlyIncome += t.AmountFixed.Mean()
+		} else if t.ToAccountID == "" {
+			v.MonthlyExpenses += -t.AmountFixed.Mean()
+		}
+	}
+	return v
+}
+
+func (v *TransferTemplatesView2) GetAccount(id string) *Account {
+	a := v.Accounts[id]
+	return &a
+}
+
+type AccountsView struct {
+	Accounts         []AccountDetailed
+	TotalBalance     float64
+	TotalAssets      float64
+	TotalLiabilities float64
+}
+
+func NewAccountsView(accounts []AccountDetailed) *AccountsView {
+	v := &AccountsView{Accounts: accounts}
+	for _, account := range accounts {
+		v.TotalBalance += account.LastSnapshot.Balance.Mean()
+		if account.LastSnapshot.Balance.Mean() > 0 {
+			v.TotalAssets += account.LastSnapshot.Balance.Mean()
+		} else {
+			v.TotalLiabilities += account.LastSnapshot.Balance.Mean()
+		}
+	}
+	return v
+}
+
+func FormatWithThousands(val float64) string {
+	// Round the value to the nearest integer
+	rounded := math.Round(val)
+	s := strconv.FormatInt(int64(rounded), 10)
+	n := len(s)
+	neg := false
+	if n > 0 && s[0] == '-' {
+		neg = true
+		s = s[1:]
+		n--
+	}
+	if n <= 3 {
+		if neg {
+			return "-" + s
+		}
+		return s
+	}
+	var out []byte
+	pre := n % 3
+	if pre == 0 {
+		pre = 3
+	}
+	out = append(out, s[:pre]...)
+	for i := pre; i < n; i += 3 {
+		out = append(out, ',')
+		out = append(out, s[i:i+3]...)
+	}
+	if neg {
+		return "-" + string(out)
+	}
+	return string(out)
+}
+
+func KeyBy[T any](items []T, key func(T) string) map[string]T {
+	m := make(map[string]T)
+	for _, item := range items {
+		m[key(item)] = item
+	}
+	return m
+}
+
+type AccountEditView2 struct {
+	Account      Account
+	Accounts     []Account
+	GrowthModels []GrowthModel
+}
+
+func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel) *AccountEditView2 {
+	return &AccountEditView2{Account: account, Accounts: accounts, GrowthModels: growthModels}
+}
+
+func (v *AccountEditView2) IsEdit() bool {
+	return v.Account.ID != ""
 }

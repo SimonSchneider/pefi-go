@@ -1,82 +1,302 @@
 package core;
 
-templ AccountsContent(accounts []Account) {
-	<div class="flex flex-col gap-4">
-        <div class="flex flex-row gap-4">
-            <div class="card bg-base-100 shadow-sm border border-base-300">
-                <div class="card-body p-0">
-                    <div class="stats">
-                        <div class="stat">
-                            <div class="stat-title">Total Accounts</div>
-                            <div class="stat-value">10</div>
-                            <div class="stat-figure"><img src="/static/public/icons/cash-banknote.svg" alt="Account" class="w-10 h-10" /></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-		<!-- Accounts Table -->
-		<div class="card bg-base-100 shadow-sm border border-base-300">
-			<div class="card-body">
-				<div class="overflow-x-auto">
-					<div class="pb-4 flex items-center justify-between">
-						<h3 class="text-md text-base-content">Accounts overview</h3>
-						<!-- You can add an "Add Account" button here in the future if needed -->
-					</div>
-					<table class="table w-full">
-						<thead>
-							<tr>
-								<th class="font-semibold sticky">Name</th>
-								<th class="font-semibold">Type</th>
-								<th class="font-semibold">Cash Flow</th>
-								<th class="font-semibold text-right sticky">Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							if len(accounts) == 0 {
-								<tr>
-									<td colspan="6" class="text-center py-8 text-base-content/70">
-										<div class="flex flex-col items-center gap-2">
-											<svg class="w-12 h-12 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 003 3v8a3 3 0 003 3z"></path>
-											</svg>
-											<p class="text-lg font-medium">No accounts yet</p>
-											<p>Create your first account to get started</p>
-										</div>
-									</td>
-								</tr>
-							} else {
-								for _, account := range accounts {
-									<tr class="hover:bg-base-50">
-										<td class="font-medium">{ account.Name }</td>
-										<td>
-											if account.CashFlowFrequency != "" {
-												<span class="badge badge-outline">{ account.CashFlowFrequency }</span>
-											} else {
-												<span class="text-base-content/50">-</span>
-											}
-										</td>
-										<td>
-											if account.CashFlowDestinationID != "" {
-												<span class="badge badge-ghost">{ account.CashFlowDestinationID }</span>
-											} else {
-												<span class="text-base-content/50">-</span>
-											}
-										</td>
-										<td class="text-right">
-											<div class="flex items-center justify-end gap-2">
-												<button class="btn btn-ghost btn-sm" title="Edit">
-													<img src="/static/public/icons/pencil.svg" alt="Edit" class="w-4 h-4" />
-												</button>
-											</div>
-										</td>
-									</tr>
-								}
+import "github.com/SimonSchneider/pefigo/internal/uncertain"
+import "strconv"
+
+templ PageAccounts(view *AccountsView) {
+	@Layout("/templ/accounts", AccountsContent(view))
+}
+
+templ PageEditAccount(view *AccountEditView2) {
+	@Layout("/templ/accounts", EditAccountContent(view))
+}
+
+templ EditAccountContent(view *AccountEditView2) {
+	<main class="flex-1 flex flex-col">
+		@Header("New Account", NewAccountButton())
+		@AccountForm(view)
+	</main>
+}
+
+templ SaveButton(isEdit bool) {
+	<button class="btn btn-primary mt-4" type="submit">
+		if isEdit {
+			Save
+		} else {
+			Create
+		}
+	</button>
+}
+
+templ AccountForm(view *AccountEditView2) {
+	{{ balanceUpperLimit := "" }}
+	if view.Account.BalanceUpperLimit != nil {
+		{{ balanceUpperLimit = strconv.FormatFloat(*view.Account.BalanceUpperLimit, 'f', -1, 64) }}
+	}
+	<div class="flex flex-col lg:flex-row gap-6 m-6">
+		<!-- Account Details Box -->
+		<div class="flex-1">
+			<form action="/templ/accounts" method="post">
+				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
+					<legend class="fieldset-legend">Account details</legend>
+					<label class="label">Name</label>
+					<input type="text" class="input" placeholder="Checking" name="name" value={ view.Account.Name }/>
+					<label class="label">Balance upper limit</label>
+					<input type="number" class="input" placeholder="1000" name="balance_upper_limit" value={ balanceUpperLimit }/>
+					<label class="label">Cash flow frequency</label>
+					<input type="text" class="input" placeholder="Name" name="cash_flow_frequency" value={ view.Account.CashFlowFrequency }/>
+					<label class="label">Cash flow destination</label>
+					<select class="select" name="cash_flow_destination_id">
+						<option
+							value=""
+							if view.Account.CashFlowDestinationID == "" {
+								selected
 							}
-						</tbody>
-					</table>
+						>Select a destination</option>
+						for _, acc := range view.Accounts {
+							<option
+								value={ acc.ID }
+								if acc.ID == view.Account.CashFlowDestinationID {
+									selected
+								}
+							>{ acc.Name }</option>
+						}
+					</select>
+					@SaveButton(view.IsEdit())
+				</fieldset>
+			</form>
+		</div>
+		if view.IsEdit() {
+			<!-- Growth Models Box -->
+			<div class="flex-1">
+				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4">
+					<legend class="fieldset-legend">Growth Models</legend>
+					<div class="space-y-3">
+						for _, growthModel := range view.GrowthModels {
+							@GrowthModelForm(growthModel)
+						}
+						@GrowthModelForm(GrowthModel{})
+					</div>
+				</fieldset>
+			</div>
+		}
+	</div>
+}
+
+templ GrowthModelForm(growthModel GrowthModel) {
+	{{ endDate := "" }}
+	if growthModel.ID != "" && growthModel.EndDate != nil {
+		{{ endDate = growthModel.EndDate.String() }}
+	}
+	<form>
+		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
+			if growthModel.ID != "" {
+				<button type="button" class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+					<img src="/static/public/icons/x.svg" class="w-3 h-3" alt="Delete"/>
+				</button>
+			}
+			<div class="flex flex-col gap-2">
+				<div class="flex flex-row gap-2">
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Type</label>
+						<select class="select select-sm w-full" name="type">
+							<option
+								value="fixed"
+								if growthModel.Type == "fixed" {
+									selected
+								}
+							>Fixed</option>
+							<option
+								value="lognormal"
+								if growthModel.Type == "lognormal" {
+									selected
+								}
+							>Lognormal</option>
+						</select>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Annual Rate</label>
+						<input type="text" class="input input-sm w-full" placeholder="Rate" name="annual_rate" value={ growthModel.AnnualRate.SimpleEncode() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Annual Volatility</label>
+						<input type="text" class="input input-sm w-full" placeholder="Volatility" name="annual_volatility" value={ growthModel.AnnualVolatility.SimpleEncode() }/>
+					</div>
+				</div>
+				<div class="flex flex-row gap-2">
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Start Date</label>
+						<input type="text" class="input input-sm w-full" placeholder="Start" name="start_date" value={ growthModel.StartDate.String() }/>
+					</div>
+					<div class="form-control flex-2">
+						<label class="label label-text text-xs pb-1">End Date</label>
+						<input type="text" class="input input-sm w-full" placeholder="End" name="end_date" value={ endDate }/>
+					</div>
+					<div class="flex items-end">
+						@SaveButton(growthModel.ID != "")
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
+templ StatCard(title string, value string, desc string, icon templ.Component) {
+	<div class="card bg-base-100 shadow-sm border border-base-300">
+		<div class="card-body p-0">
+			<div class="stats">
+				<div class="stat">
+					<div class="stat-title">{ title }</div>
+					<div class="stat-value">{ value }</div>
+					<div class="stat-desc">{ desc }</div>
+					<div class="stat-figure">
+						@icon
+					</div>
 				</div>
 			</div>
 		</div>
 	</div>
+}
+
+templ Icon(path string, class string) {
+	<img src={ "/static/public/icons/" + path } class={ class }/>
+}
+
+templ AccountsStatCardRow(view *AccountsView) {
+	<div class="flex flex-row flex-wrap gap-4">
+		@StatCard("Total Balance", FormatWithThousands(view.TotalBalance), "Total balance of all accounts", IconTrendingUp("w-10 h-10 "))
+		@StatCard("Total Accounts", strconv.Itoa(len(view.Accounts)), "number of accounts", Icon("cash-banknote.svg", "w-10 h-10 "))
+		@StatCard("Assets", FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10"))
+		@StatCard("Liabilities", FormatWithThousands(-view.TotalLiabilities), "Total liabilities", IconTrendingDown("w-10 h-10"))
+	</div>
+}
+
+templ AccountTableRow(account *AccountDetailed) {
+	<tr class="hover:bg-base-50">
+		<td class="font-medium">{ account.Name }</td>
+		<td>
+			<span class="text-base-content/50"></span>
+		</td>
+		<td class="text-right">
+			if account.LastSnapshot != nil {
+				@BalanceBadge(account.LastSnapshot.Balance, true, "")
+			} else {
+				<span>-</span>
+			}
+		</td>
+		<td>
+			if account.LastSnapshot != nil {
+				<span>{ account.LastSnapshot.Date.String() }</span>
+			} else {
+				<span>-</span>
+			}
+		</td>
+		<td>
+			if account.GrowthModel != nil {
+				<span
+					class={ "badge",
+					templ.KV("badge-primary", account.GrowthModel.Type == "fixed"),
+					templ.KV("badge-secondary", account.GrowthModel.Type == "lognormal") }
+				>{ account.GrowthModel.Type }</span>
+			} else {
+				<span class="text-base-content/50"></span>
+			}
+		</td>
+		<td>
+			if account.GrowthModel != nil {
+				if account.GrowthModel.AnnualRate.IsFixed() {
+					<span>{ account.GrowthModel.AnnualRate.Mean() }</span>
+				} else {
+					<span>~{ account.GrowthModel.AnnualRate.Mean() }</span>
+				}
+			} else {
+				<span class="text-base-content/50"></span>
+			}
+		</td>
+		<td class="text-right">
+			<div class="flex items-center justify-end gap-2">
+				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/templ/accounts/" + account.ID + "/edit" }>
+					<img src="/static/public/icons/pencil.svg" alt="Edit" class="w-4 h-4"/>
+				</a>
+			</div>
+		</td>
+	</tr>
+}
+
+templ NewAccountButton() {
+	{{ label := "New Account" }}
+	<a class="btn btn-primary" href="/templ/accounts/new" title={ label }>
+		{ label }
+		<img src="/static/public/icons/plus.svg" alt={ label } class="w-4 h-4"/>
+	</a>
+}
+
+templ AccountsContent(view *AccountsView) {
+	<main class="flex-1 flex flex-col">
+		@Header("Accounts", NewAccountButton())
+		<div class="flex-1 p-6 overflow-auto bg-base-50">
+			<div class="flex flex-col gap-4">
+				@AccountsStatCardRow(view)
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead>
+									<tr>
+										<th class="font-semibold sticky">Name</th>
+										<th class="font-semibold">Type</th>
+										<th class="font-semibold text-right">Balance</th>
+										<th class="font-semibold">Last Snapshot</th>
+										<th class="font-semibold">Growth Model</th>
+										<th class="font-semibold">Growth Rate</th>
+										<th class="font-semibold text-right sticky">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(view.Accounts) == 0 {
+										<tr>
+											<td colspan="6" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													<svg class="w-12 h-12 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 003 3v8a3 3 0 003 3z"></path>
+													</svg>
+													<p class="text-lg font-medium">No accounts yet</p>
+													<p>Create your first account to get started</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, account := range view.Accounts {
+											@AccountTableRow(&account)
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}
+
+templ BalanceBadge(balance uncertain.Value, coloring bool, class string) {
+	{{ mean := balance.Mean() }}
+	<span
+		class={ templ.KV("text-green-600", mean > 0 && coloring),
+		templ.KV("text-red-600", mean < 0 && coloring),
+		templ.KV("text-base-content/40", mean == 0 && coloring),
+		"font-mono",
+		"inline-block",
+		"min-w-[6ch]",
+		class }
+	>{ FormatWithThousands(mean) }</span>
+}
+
+templ IconTrendingUp(class string) {
+	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={ class + " icon icon-tabler icons-tabler-outline icon-tabler-trending-up text-green-600" }><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 17l6 -6l4 4l8 -8"></path><path d="M14 7l7 0l0 7"></path></svg>
+}
+
+templ IconTrendingDown(class string) {
+	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={ class + " icon icon-tabler icons-tabler-outline icon-tabler-trending-down text-red-600" }><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 7l6 6l4 -4l8 8"></path><path d="M21 10l0 7l-7 0"></path></svg>
 }

@@ -547,11 +547,53 @@ func GraphPage() http.Handler {
 
 func AccountsPage(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accs, err := ListAccountsDetailed(ctx, db, date.Today())
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		return NewTemplView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs))))
+	})
+}
+
+func TransferTemplatesPage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		transferTemplates, err := ListTransferTemplates(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing transfer templates: %w", err)
+		}
+		accounts, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		return NewTemplView(ctx, w, r).Render(Page("Transfer Templates", PageTransferTemplates(NewTransferTemplatesView2(transferTemplates, accounts))))
+	})
+}
+
+func AccountNewPage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		accs, err := ListAccounts(ctx, db)
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
-		return NewTemplView(ctx, w, r).Render(Page("Accounts", PageAccounts(accs)))
+		return NewTemplView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil))))
+	})
+}
+
+func AccountEditPage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accs, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		acc, err := GetAccount(ctx, db, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting account: %w", err)
+		}
+		growthModels, err := ListAccountGrowthModels(ctx, db, string(acc.ID))
+		if err != nil {
+			return fmt.Errorf("listing account growth models: %w", err)
+		}
+		return NewTemplView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels))))
 	})
 }
 
@@ -562,6 +604,9 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /templ/app", RootPage())
 	mux.Handle("GET /templ/graph", GraphPage())
 	mux.Handle("GET /templ/accounts", AccountsPage(db))
+	mux.Handle("GET /templ/accounts/new", AccountNewPage(db))
+	mux.Handle("GET /templ/accounts/{id}/edit", AccountEditPage(db))
+	mux.Handle("GET /templ/transfer-templates", TransferTemplatesPage(db))
 
 	mux.Handle("GET /{$}", HandlerIndexPage(db, view))
 

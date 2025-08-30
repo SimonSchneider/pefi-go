@@ -107,3 +107,18 @@ RETURNING *;
 DELETE
 FROM transfer_template
 WHERE id = ?;
+
+-- name: ListLatestSnapshotPerAccount :many
+SELECT s.*
+FROM account_snapshot s
+INNER JOIN (
+    SELECT account_id, MAX(date) AS max_date
+    FROM account_snapshot
+    GROUP BY account_id
+) latest
+ON s.account_id = latest.account_id AND s.date = latest.max_date;
+
+-- name: ListActiveGrowthModels :many
+SELECT *
+FROM growth_model
+WHERE end_date IS NULL OR end_date > @param1 AND start_date <= @param1;

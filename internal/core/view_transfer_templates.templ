@@ -1,0 +1,143 @@
+package core;
+
+import "strconv"
+
+// import "github.com/SimonSchneider/pefigo/internal/uncertain"
+templ PageTransferTemplates(view *TransferTemplatesView2) {
+	@Layout("/templ/transfer-templates", TransferTemplatesContent(view))
+}
+
+templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
+	<div class="flex flex-row flex-wrap gap-4">
+		@StatCard("Total Income", FormatWithThousands(view.MonthlyIncome), "Total income of all accounts", IconTrendingUp("w-10 h-10 "))
+		@StatCard("Total Expenses", FormatWithThousands(view.MonthlyExpenses), "Total expenses of all accounts", IconTrendingDown("w-10 h-10 "))
+		@StatCard("Total Templates", strconv.Itoa(len(view.TransferTemplates)), "number of templates", Icon("cash-banknote.svg", "w-10 h-10 "))
+		// @StatCard("Assets", FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10"))
+		// @StatCard("Liabilities", FormatWithThousands(-view.TotalLiabilities), "Total liabilities", IconTrendingDown("w-10 h-10"))
+	</div>
+}
+
+templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate) {
+	<tr class="hover:bg-base-50">
+		<td class="font-medium">{ t.Name }</td>
+		<td>
+			<div class="flex flex-col gap-1">
+				{{ from := view.GetAccount(t.FromAccountID) }}
+				{{ to := view.GetAccount(t.ToAccountID) }}
+				if t.FromAccountID != "" {
+					<span>{ from.Name }</span>
+				} else {
+					<span class="text-green-700">external</span>
+				}
+				if t.ToAccountID != "" {
+					<span class="text-base-content/50">→ { to.Name }</span>
+				} else {
+					<span class="text-red-300">→ external</span>
+				}
+			</div>
+		</td>
+		<td>
+			<div class="flex flex-col gap-1">
+				if t.Recurrence != "" {
+					<span>{ t.Recurrence }</span>
+					<span class="text-base-content/50">{ t.Priority }</span>
+				} else {
+					<span class="badge badge-secondary">one-time</span>
+				}
+			</div>
+		</td>
+		<td class="text-right">
+			<div class="flex flex-col gap-1">
+				{{ class := "" }}
+				if t.ToAccountID == "" {
+					{{ class = "text-red-600" }}
+				}
+				if t.FromAccountID == "" {
+					{{ class = "text-green-600" }}
+				}
+				if t.AmountType == "fixed" {
+					@BalanceBadge(t.AmountFixed, false, class)
+				} else {
+					<span class={ class }>{ t.AmountPercent * 100 }%</span>
+				}
+			</div>
+		</td>
+		// <td>
+		// if account.CashFlowFrequency != "" {
+		// 	<span class="badge badge-primary">accruing</span>
+		// } else {
+		// }
+		// </td>
+		// <td>
+		// if account.LastSnapshot != nil {
+		// 	<span >{ account.LastSnapshot.Date.String() }</span>
+		// } else {
+		// 	<span >-</span>
+		// }
+		// </td>
+		<td class="text-right">
+			<div class="flex items-center justify-end gap-2">
+				<button class="btn btn-ghost btn-sm" title="Edit">
+					<img src="/static/public/icons/pencil.svg" alt="Edit" class="w-4 h-4"/>
+				</button>
+			</div>
+		</td>
+	</tr>
+}
+
+templ NewTransferTemplateButton() {
+	{{ label := "New Transfer template" }}
+	<button class="btn btn-primary" title={ label }>
+		{ label }
+		<img src="/static/public/icons/plus.svg" alt={ label } class="w-4 h-4"/>
+	</button>
+}
+
+templ TransferTemplatesContent(view *TransferTemplatesView2) {
+	<main class="flex-1 flex flex-col">
+		@Header("Transfer Templates", NewTransferTemplateButton())
+		<div class="flex-1 p-6 overflow-auto bg-base-50">
+			<div class="flex flex-col gap-4">
+				@TransferTemplatesStatCardRow(view)
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead>
+									<tr>
+										<th class="font-semibold sticky">Name</th>
+										<th class="font-semibold">From → To</th>
+										<th class="font-semibold">Reccurance</th>
+										<th class="font-semibold text-right">Amount</th>
+										// <th class="font-semibold">Cash Flow</th>
+										// <th class="font-semibold">Last Snapshot</th>
+										<th class="font-semibold text-right sticky">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(view.TransferTemplates) == 0 {
+										<tr>
+											<td colspan="6" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													<svg class="w-12 h-12 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 003 3v8a3 3 0 003 3z"></path>
+													</svg>
+													<p class="text-lg font-medium">No accounts yet</p>
+													<p>Create your first account to get started</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, tpl := range view.TransferTemplates {
+											@TransferTemplateTableRow(view, &tpl)
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}

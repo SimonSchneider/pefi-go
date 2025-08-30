@@ -2,5 +2,5 @@
 
 @source "../../**/*.{templ}";
 @plugin "./daisyui.js" {
-    themes: pastel --default, dark --prefersdark;
+    themes: pastel --default, dark --prefersdark, synthwave;
 }

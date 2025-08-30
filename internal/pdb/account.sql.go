@@ -395,6 +395,79 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 	return items, nil
 }
 
+const listActiveGrowthModels = `-- name: ListActiveGrowthModels :many
+SELECT id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
+FROM growth_model
+WHERE end_date IS NULL OR end_date > ?1 AND start_date <= ?1
+`
+
+func (q *Queries) ListActiveGrowthModels(ctx context.Context, param1 *int64) ([]GrowthModel, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveGrowthModels, param1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GrowthModel
+	for rows.Next() {
+		var i GrowthModel
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.ModelType,
+			&i.AnnualGrowthRate,
+			&i.AnnualVolatility,
+			&i.StartDate,
+			&i.EndDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLatestSnapshotPerAccount = `-- name: ListLatestSnapshotPerAccount :many
+SELECT s.account_id, s.date, s.balance
+FROM account_snapshot s
+INNER JOIN (
+    SELECT account_id, MAX(date) AS max_date
+    FROM account_snapshot
+    GROUP BY account_id
+) latest
+ON s.account_id = latest.account_id AND s.date = latest.max_date
+`
+
+func (q *Queries) ListLatestSnapshotPerAccount(ctx context.Context) ([]AccountSnapshot, error) {
+	rows, err := q.db.QueryContext(ctx, listLatestSnapshotPerAccount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AccountSnapshot
+	for rows.Next() {
+		var i AccountSnapshot
+		if err := rows.Scan(&i.AccountID, &i.Date, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE account
 SET name                     = ?,
