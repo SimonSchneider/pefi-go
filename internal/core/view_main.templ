@@ -49,11 +49,11 @@ templ Sidebar(page string) {
 		</div>
 		<nav class="flex-1 p-4">
 			<ul class="space-y-2">
-				@NavItem("/templ/app", "/static/public/icons/home.svg", "Dashboard", page)
-				@NavItem("/templ/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page)
-				@NavItem("/templ/snapshots-table", "/static/public/icons/table.svg", "Snapshots Table", page)
-				@NavItem("/templ/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page)
-				@NavItem("/templ/chart", "/static/public/icons/trending-up.svg", "Chart", page)
+				@NavItem("/", "/static/public/icons/home.svg", "Dashboard", page)
+				@NavItem("/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page)
+				@NavItem("/snapshots-table", "/static/public/icons/table.svg", "Snapshots Table", page)
+				@NavItem("/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page)
+				@NavItem("/chart", "/static/public/icons/trending-up.svg", "Chart", page)
 			</ul>
 		</nav>
 		<div class="flex-end p-4 mt-auto border-t border-base-300">
@@ -118,9 +118,9 @@ templ DashboardContent() {
 }
 
 templ App() {
-	@Layout("/templ/app", DashboardContent())
+	@Layout("/", DashboardContent())
 }
 
 templ PageChart(p PredictionParams) {
-	@Layout("/templ/chart", ChartContent(p))
+	@Layout("/chart", ChartContent(p))
 }

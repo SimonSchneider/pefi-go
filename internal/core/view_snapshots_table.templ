@@ -3,7 +3,7 @@ package core
 import "github.com/SimonSchneider/goslu/date"
 
 templ PageSnapshotsTable(view *TableView) {
-	@Layout("/templ/snapshots-table", SnapshotsTableContent(view))
+	@Layout("/snapshots-table", SnapshotsTableContent(view))
 }
 
 templ SnapshotsTableContent(view *TableView) {

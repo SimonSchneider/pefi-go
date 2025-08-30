@@ -176,23 +176,23 @@ func Sidebar(page string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavItem("/templ/app", "/static/public/icons/home.svg", "Dashboard", page).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NavItem("/", "/static/public/icons/home.svg", "Dashboard", page).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavItem("/templ/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NavItem("/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavItem("/templ/snapshots-table", "/static/public/icons/table.svg", "Snapshots Table", page).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NavItem("/snapshots-table", "/static/public/icons/table.svg", "Snapshots Table", page).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavItem("/templ/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NavItem("/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavItem("/templ/chart", "/static/public/icons/trending-up.svg", "Chart", page).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = NavItem("/chart", "/static/public/icons/trending-up.svg", "Chart", page).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -355,7 +355,7 @@ func App() templ.Component {
 			templ_7745c5c3_Var14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("/templ/app", DashboardContent()).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("/", DashboardContent()).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -384,7 +384,7 @@ func PageChart(p PredictionParams) templ.Component {
 			templ_7745c5c3_Var15 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("/templ/chart", ChartContent(p)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("/chart", ChartContent(p)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

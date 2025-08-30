@@ -157,7 +157,7 @@ func HandlerTransferTemplateDuplicate(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("duplicating transfer template: %w", err)
 		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/templ/transfer-templates/%s/edit", tr.ID))
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfer-templates/%s/edit", tr.ID))
 		return nil
 	})
 }
@@ -326,15 +326,15 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
 
-	mux.Handle("GET /templ/app", RootPage())
-	mux.Handle("GET /templ/chart", ChartPage())
-	mux.Handle("GET /templ/accounts", AccountsPage(db))
-	mux.Handle("GET /templ/accounts/new", AccountNewPage(db))
-	mux.Handle("GET /templ/accounts/{id}/edit", AccountEditPage(db))
-	mux.Handle("GET /templ/transfer-templates", TransferTemplatesPage(db))
-	mux.Handle("GET /templ/transfer-templates/new", TransferTemplatesNewPage(db))
-	mux.Handle("GET /templ/transfer-templates/{id}/edit", TransferTemplatesEditPage(db))
-	mux.Handle("GET /templ/snapshots-table", SnapshotsTablePage(db))
+	mux.Handle("GET /{$}", RootPage())
+	mux.Handle("GET /chart", ChartPage())
+	mux.Handle("GET /accounts", AccountsPage(db))
+	mux.Handle("GET /accounts/new", AccountNewPage(db))
+	mux.Handle("GET /accounts/{id}/edit", AccountEditPage(db))
+	mux.Handle("GET /transfer-templates", TransferTemplatesPage(db))
+	mux.Handle("GET /transfer-templates/new", TransferTemplatesNewPage(db))
+	mux.Handle("GET /transfer-templates/{id}/edit", TransferTemplatesEditPage(db))
+	mux.Handle("GET /snapshots-table", SnapshotsTablePage(db))
 
 	mux.Handle("POST /accounts/{$}", HandlerAccountUpsert(db))
 	mux.Handle("POST /accounts/{id}/delete", HandlerAccountDelete(db))

@@ -4,11 +4,11 @@ import "strconv"
 
 // import "github.com/SimonSchneider/pefigo/internal/uncertain"
 templ PageTransferTemplates(view *TransferTemplatesView2) {
-	@Layout("/templ/transfer-templates", TransferTemplatesContent(view))
+	@Layout("/transfer-templates", TransferTemplatesContent(view))
 }
 
 templ PageEditTransferTemplate(view *TransferTemplateEditView) {
-	@Layout("/templ/transfer-templates", EditTransferTemplateContent(view))
+	@Layout("/transfer-templates", EditTransferTemplateContent(view))
 }
 
 templ EditTransferTemplateContent(view *TransferTemplateEditView) {
@@ -23,7 +23,7 @@ templ EditTransferTemplateContent(view *TransferTemplateEditView) {
 }
 
 templ DeleteTransferTemplateButton(id string) {
-	<form method="post" action={ "/transfers/" + id + "/delete?next=" + templ.EscapeString("/templ/transfer-templates") }>
+	<form method="post" action={ "/transfers/" + id + "/delete?next=" + templ.EscapeString("/transfer-templates") }>
 		<button class="btn btn-error" type="submit">
 			Delete
 		</button>
@@ -33,7 +33,7 @@ templ DeleteTransferTemplateButton(id string) {
 templ TransferTemplateForm(view *TransferTemplateEditView) {
 	<div class="flex flex-col lg:flex-row gap-6 m-6">
 		<div class="flex-1">
-			<form action={ "/transfers/?next=" + templ.EscapeString("/templ/transfer-templates") } method="post">
+			<form action={ "/transfers/?next=" + templ.EscapeString("/transfer-templates") } method="post">
 				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
 					<legend class="fieldset-legend">Transfer Template Details</legend>
 					<input type="hidden" name="id" value={ view.TransferTemplate.ID }/>
@@ -165,19 +165,6 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 				}
 			</div>
 		</td>
-		// <td>
-		// if account.CashFlowFrequency != "" {
-		// 	<span class="badge badge-primary">accruing</span>
-		// } else {
-		// }
-		// </td> 
-		// <td>
-		// if account.LastSnapshot != nil {
-		// 	<span >{ account.LastSnapshot.Date.String() }</span>
-		// } else {
-		// 	<span >-</span>
-		// }
-		// </td>
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-2">
 				<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
@@ -185,7 +172,7 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 						@IconCopy("w-4 h-4")
 					</button>
 				</form>
-				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/templ/transfer-templates/" + t.ID + "/edit" }>
+				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
 					@IconPencil("w-4 h-4")
 				</a>
 			</div>
@@ -195,7 +182,7 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 
 templ NewTransferTemplateButton() {
 	{{ label := "New Transfer template" }}
-	<a class="btn btn-primary" href="/templ/transfer-templates/new" title={ label }>
+	<a class="btn btn-primary" href="/transfer-templates/new" title={ label }>
 		{ label }
 		<img src="/static/public/icons/plus.svg" alt={ label } class="w-4 h-4"/>
 	</a>

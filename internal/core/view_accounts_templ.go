@@ -32,7 +32,7 @@ func PageAccounts(view *AccountsView) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("/templ/accounts", AccountsContent(view)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("/accounts", AccountsContent(view)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -61,7 +61,7 @@ func PageEditAccount(view *AccountEditView2) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("/templ/accounts", EditAccountContent(view)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("/accounts", EditAccountContent(view)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -143,9 +143,9 @@ func DeleteAccountButton(id string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 templ.SafeURL
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/" + id + "/delete?next=" + templ.EscapeString("/templ/accounts"))
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/" + id + "/delete?next=" + templ.EscapeString("/accounts"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 26, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 26, Col: 99}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -233,9 +233,9 @@ func AccountForm(view *AccountEditView2) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 templ.SafeURL
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/?next=" + templ.EscapeString("/templ/accounts"))
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/?next=" + templ.EscapeString("/accounts"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 51, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 51, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -385,9 +385,9 @@ func AccountForm(view *AccountEditView2) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 templ.SafeURL
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinURLErrs("/growth-models/" + growthModel.ID + "/delete?next=" + templ.EscapeString("/templ/accounts/"+view.Account.ID+"/edit"))
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinURLErrs("/growth-models/" + growthModel.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 85, Col: 175}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 85, Col: 169}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -455,9 +455,9 @@ func GrowthModelForm(accountID string, growthModel GrowthModel) templ.Component 
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 templ.SafeURL
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs("/growth-models/?next=" + templ.EscapeString("/templ/accounts/"+accountID+"/edit"))
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs("/growth-models/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 107, Col: 112}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 107, Col: 106}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -963,9 +963,9 @@ func AccountTableRow(account *AccountDetailed) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var43 templ.SafeURL
-		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinURLErrs("/templ/accounts/" + account.ID + "/edit")
+		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinURLErrs("/accounts/" + account.ID + "/edit")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 236, Col: 97}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 236, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 		if templ_7745c5c3_Err != nil {
@@ -1001,14 +1001,14 @@ func NewAccountButton() templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		label := "New Account"
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<a class=\"btn btn-primary\" href=\"/templ/accounts/new\" title=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<a class=\"btn btn-primary\" href=\"/accounts/new\" title=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var45 string
 		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 246, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_accounts.templ`, Line: 246, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 		if templ_7745c5c3_Err != nil {
