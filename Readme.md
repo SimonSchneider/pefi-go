@@ -27,12 +27,19 @@
 
 ### TODO
 
-- Prediction requires interest models for accounts
-- TransactionTemplates will need to be modeled in a where they support the budget based transfers above
+- Add the account table edit view
+- Change the date for a snapshot in the table view
+- Upsert transfer templates
+- Add categories to accounts
+- Support category grouping for graph
+- Include graph controls in header bar
+- Add categories to transactions
+- Add transfer run for a specific date for doing the money depositing split for that month
 - Model startup shares
     - Model startup shares valuation based on company valuation and shares owned by the user
     - Model startup shares prediction based on future funding rounds and exit events
 
+## Modeling for transfering
 Can model the split using the transactionTemplates with fixed, percentage and remainder by doing the following:
 
 - 1 salary account for each user

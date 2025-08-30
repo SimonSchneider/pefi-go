@@ -234,11 +234,13 @@ type AccountsView struct {
 func NewAccountsView(accounts []AccountDetailed) *AccountsView {
 	v := &AccountsView{Accounts: accounts}
 	for _, account := range accounts {
-		v.TotalBalance += account.LastSnapshot.Balance.Mean()
-		if account.LastSnapshot.Balance.Mean() > 0 {
-			v.TotalAssets += account.LastSnapshot.Balance.Mean()
-		} else {
-			v.TotalLiabilities += account.LastSnapshot.Balance.Mean()
+		if account.LastSnapshot != nil {
+			v.TotalBalance += account.LastSnapshot.Balance.Mean()
+			if account.LastSnapshot.Balance.Mean() > 0 {
+				v.TotalAssets += account.LastSnapshot.Balance.Mean()
+			} else {
+				v.TotalLiabilities += account.LastSnapshot.Balance.Mean()
+			}
 		}
 	}
 	return v

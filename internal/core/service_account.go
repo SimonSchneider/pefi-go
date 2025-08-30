@@ -120,8 +120,10 @@ func accountsListFromDBDetailed(dbAccs []pdb.Account, snapshots map[string]pdb.A
 	accs := make([]AccountDetailed, len(dbAccs))
 	for i := range dbAccs {
 		accs[i].Account = accountFromDB(dbAccs[i])
-		s := accountSnapshotFromDB(snapshots[accs[i].ID])
-		accs[i].LastSnapshot = &s
+		if snapshot, ok := snapshots[accs[i].ID]; ok {
+			s := accountSnapshotFromDB(snapshot)
+			accs[i].LastSnapshot = &s
+		}
 		if gm, ok := growthModels[accs[i].ID]; ok {
 			gmd, err := growthModelFromDB(gm)
 			if err != nil {

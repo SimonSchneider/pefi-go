@@ -50,35 +50,10 @@ templ Sidebar(page string) {
 				@NavItem("/templ/app", "/static/public/icons/home.svg", "Dashboard", page)
 				@NavItem("/templ/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page)
 				@NavItem("/templ/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page)
-				@NavItem("/templ/graph", "/static/public/icons/trending-up.svg", "Graph", page)
+				@NavItem("/templ/chart", "/static/public/icons/trending-up.svg", "Chart", page)
 			</ul>
 		</nav>
-	</aside>
-}
-
-templ Header(title string, btns ...templ.Component) {
-	<header class="h-16 bg-base-100 border-b border-base-300 flex items-center justify-between px-6">
-		<div class="flex items-center gap-4">
-			<h2 class="text-xl font-semibold text-base-content">{ title }</h2>
-		</div>
-		<div class="flex items-center gap-4">
-			<!-- Search -->
-			<div class="form-control">
-				<div class="input-group">
-					<input type="text" placeholder="Search..." class="input input-bordered w-64"/>
-					<button class="btn btn-square btn-ghost">
-						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							></path>
-						</svg>
-					</button>
-				</div>
-			</div>
-			<!-- Theme Toggle -->
+		<div class="flex-end p-4 mt-auto border-t border-base-300">
 			<label class="swap swap-rotate btn btn-ghost btn-circle">
 				<!-- this hidden checkbox controls the state -->
 				<input type="checkbox" class="theme-controller" value="synthwave"/>
@@ -103,6 +78,16 @@ templ Header(title string, btns ...templ.Component) {
 					></path>
 				</svg>
 			</label>
+		</div>
+	</aside>
+}
+
+templ Header(title string, btns ...templ.Component) {
+	<header class="h-16 bg-base-100 border-b border-base-300 flex items-center justify-between px-6">
+		<div class="flex items-center gap-4">
+			<h2 class="text-xl font-semibold text-base-content">{ title }</h2>
+		</div>
+		<div class="flex items-center gap-4">
 			for _, btn := range btns {
 				@btn
 			}
@@ -133,6 +118,6 @@ templ App() {
 	@Layout("/templ/app", DashboardContent())
 }
 
-templ PageGraph() {
-	@Layout("/templ/graph", GraphContent())
+templ PageChart(p PredictionParams) {
+	@Layout("/templ/chart", ChartContent(p))
 }

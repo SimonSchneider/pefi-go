@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"net/http"
-	"time"
 )
 
 type GrowthModel struct {
@@ -131,6 +132,13 @@ func ListAccountGrowthModels(ctx context.Context, db *sql.DB, accountID string) 
 		gmList[i] = gm
 	}
 	return gmList, nil
+}
+
+func DeleteAccountGrowthModel(ctx context.Context, db *sql.DB, id string) error {
+	if err := pdb.New(db).DeleteGrowthModel(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete account growth model: %w", err)
+	}
+	return nil
 }
 
 func GetGrowthModel(ctx context.Context, db *sql.DB, id string) (GrowthModel, error) {

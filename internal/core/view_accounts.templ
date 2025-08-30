@@ -13,9 +13,21 @@ templ PageEditAccount(view *AccountEditView2) {
 
 templ EditAccountContent(view *AccountEditView2) {
 	<main class="flex-1 flex flex-col">
-		@Header("New Account", NewAccountButton())
+		if view.IsEdit() {
+			@Header("Edit Account", DeleteAccountButton(view.Account.ID))
+		} else {
+			@Header("New Account", NewAccountButton())
+		}
 		@AccountForm(view)
 	</main>
+}
+
+templ DeleteAccountButton(id string) {
+	<form method="post" action={ "/accounts/" + id + "/delete?next=" + templ.EscapeString("/templ/accounts") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
 }
 
 templ SaveButton(isEdit bool) {
@@ -36,9 +48,10 @@ templ AccountForm(view *AccountEditView2) {
 	<div class="flex flex-col lg:flex-row gap-6 m-6">
 		<!-- Account Details Box -->
 		<div class="flex-1">
-			<form action="/templ/accounts" method="post">
+			<form action={ "/accounts/?next=" + templ.EscapeString("/templ/accounts") } method="post">
 				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
 					<legend class="fieldset-legend">Account details</legend>
+					<input type="hidden" name="id" value={ view.Account.ID }/>
 					<label class="label">Name</label>
 					<input type="text" class="input" placeholder="Checking" name="name" value={ view.Account.Name }/>
 					<label class="label">Balance upper limit</label>
@@ -68,14 +81,17 @@ templ AccountForm(view *AccountEditView2) {
 		</div>
 		if view.IsEdit() {
 			<!-- Growth Models Box -->
+			for _, growthModel := range view.GrowthModels {
+				<form id={ "delete-form-" + growthModel.ID } action={ "/growth-models/" + growthModel.ID + "/delete?next=" + templ.EscapeString("/templ/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+			}
 			<div class="flex-1">
 				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4">
 					<legend class="fieldset-legend">Growth Models</legend>
 					<div class="space-y-3">
 						for _, growthModel := range view.GrowthModels {
-							@GrowthModelForm(growthModel)
+							@GrowthModelForm(view.Account.ID, growthModel)
 						}
-						@GrowthModelForm(GrowthModel{})
+						@GrowthModelForm(view.Account.ID, GrowthModel{})
 					</div>
 				</fieldset>
 			</div>
@@ -83,18 +99,20 @@ templ AccountForm(view *AccountEditView2) {
 	</div>
 }
 
-templ GrowthModelForm(growthModel GrowthModel) {
+templ GrowthModelForm(accountID string, growthModel GrowthModel) {
 	{{ endDate := "" }}
 	if growthModel.ID != "" && growthModel.EndDate != nil {
 		{{ endDate = growthModel.EndDate.String() }}
 	}
-	<form>
+	<form method="post" action={ "/growth-models/?next=" + templ.EscapeString("/templ/accounts/"+accountID+"/edit") }>
 		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
 			if growthModel.ID != "" {
-				<button type="button" class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+				<button type="submit" form={ "delete-form-" + growthModel.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
 					<img src="/static/public/icons/x.svg" class="w-3 h-3" alt="Delete"/>
 				</button>
 			}
+			<input type="hidden" name="id" value={ growthModel.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
 			<div class="flex flex-col gap-2">
 				<div class="flex flex-row gap-2">
 					<div class="form-control flex-1">
@@ -207,7 +225,7 @@ templ AccountTableRow(account *AccountDetailed) {
 				if account.GrowthModel.AnnualRate.IsFixed() {
 					<span>{ account.GrowthModel.AnnualRate.Mean() }</span>
 				} else {
-					<span>~{ account.GrowthModel.AnnualRate.Mean() }</span>
+					<span>~ { account.GrowthModel.AnnualRate.Mean() }</span>
 				}
 			} else {
 				<span class="text-base-content/50"></span>

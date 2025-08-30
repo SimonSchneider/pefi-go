@@ -1,3 +1,22 @@
 {
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+    "sqltools.useNodeRuntime": true,
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "name": "pefigo",
+            "database": "tmp.db.sqlite"
+        }
+    ],
+    "[*.templ]": {
+        "editor.defaultFormatter": "vscode.html-language-features"
+    },
+    "task.problemMatchers.neverPrompt": false,
+    "tailwindCSS.includeLanguages": {
+        "templ": "html"
+    },
+    "emmet.includeLanguages": {
+        "templ": "html"
+    },
 }

@@ -123,6 +123,9 @@ func HandlerAccountUpsert(db *sql.DB) http.Handler {
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
+		if inp.ID == "" {
+			inp.ID = sid.MustNewString(32)
+		}
 		acc, err := UpsertAccount(ctx, db, inp)
 		if err != nil {
 			return fmt.Errorf("upserting account: %w", err)
@@ -291,11 +294,24 @@ func HandlerAccountGrowthModelUpsert(db *sql.DB) http.Handler {
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
+		if inp.ID == "" {
+			inp.ID = sid.MustNewString(32)
+		}
 		_, err := UpsertAccountGrowthModel(ctx, db, inp)
 		if err != nil {
 			return fmt.Errorf("upserting account growth model: %w", err)
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", inp.AccountID))
+		return nil
+	})
+}
+
+func HandlerAccountGrowthModelDelete(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := DeleteAccountGrowthModel(ctx, db, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting account growth model: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", r.PathValue("id")))
 		return nil
 	})
 }
@@ -539,9 +555,13 @@ func RootPage() http.Handler {
 	})
 }
 
-func GraphPage() http.Handler {
+func ChartPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return NewTemplView(ctx, w, r).Render(Page("Graph", PageGraph()))
+		p := PredictionParams{}
+		if err := srvu.Decode(r, &p, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		return NewTemplView(ctx, w, r).Render(Page("Chart", PageChart(p)))
 	})
 }
 
@@ -602,7 +622,7 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
 
 	mux.Handle("GET /templ/app", RootPage())
-	mux.Handle("GET /templ/graph", GraphPage())
+	mux.Handle("GET /templ/chart", ChartPage())
 	mux.Handle("GET /templ/accounts", AccountsPage(db))
 	mux.Handle("GET /templ/accounts/new", AccountNewPage(db))
 	mux.Handle("GET /templ/accounts/{id}/edit", AccountEditPage(db))
@@ -625,6 +645,7 @@ func NewHandler(db *sql.DB, public fs.FS, tmpl templ.TemplateProvider, view *Vie
 	mux.Handle("GET /accounts/{id}/growth-models/new", HandlerAccountGrowthModelNewPage(db, view))
 	mux.Handle("GET /growth-models/{id}/edit", HandlerAccountGrowthModelEditPage(db, view))
 	mux.Handle("POST /growth-models/", HandlerAccountGrowthModelUpsert(db))
+	mux.Handle("POST /growth-models/{id}/delete", HandlerAccountGrowthModelDelete(db))
 
 	mux.Handle("GET /transfers/new", HandlerTransferTemplateUpsertPage(db, view))
 	mux.Handle("GET /transfers/{id}/edit", HandlerTransferTemplateUpsertPage(db, view))
