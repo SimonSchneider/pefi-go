@@ -73,7 +73,7 @@ func SnapshotsTableContent(view *TableView) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		for _, account := range view.Accounts {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<th class=\"px-3 py-3.5 text-center text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0 min-w-32\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<th class=\"px-3 py-3.5 text-center text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0 min-w-40\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

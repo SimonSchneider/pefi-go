@@ -1158,6 +1158,9 @@
   .w-64 {
     width: calc(var(--spacing) * 64);
   }
+  .w-auto {
+    width: auto;
+  }
   .w-full {
     width: 100%;
   }
@@ -1190,6 +1193,9 @@
   }
   .flex-shrink-0 {
     flex-shrink: 0;
+  }
+  .table-fixed {
+    table-layout: fixed;
   }
   .swap-rotate {
     .swap-on, input:indeterminate ~ .swap-on {
