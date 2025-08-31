@@ -316,7 +316,7 @@ func (q *Queries) GetTransferTemplate(ctx context.Context, id string) (TransferT
 const getTransferTemplates = `-- name: GetTransferTemplates :many
 SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
 FROM transfer_template
-ORDER BY recurrence, priority
+ORDER BY recurrence, priority, name, start_date, end_date, created_at
 `
 
 func (q *Queries) GetTransferTemplates(ctx context.Context) ([]TransferTemplate, error) {

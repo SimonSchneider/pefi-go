@@ -87,7 +87,7 @@ WHERE id = ?;
 -- name: GetTransferTemplates :many
 SELECT *
 FROM transfer_template
-ORDER BY recurrence, priority;
+ORDER BY recurrence, priority, name, start_date, end_date, created_at;
 
 -- name: GetTransferTemplate :one
 SELECT *

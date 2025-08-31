@@ -94,19 +94,22 @@ templ TransferTemplateForm(view *TransferTemplateEditView) {
 						Leave empty for one-time transfers. Use cron syntax (e.g., "*-*-25" for monthly on 25th)
 					</div>
 					<label class="label">Start Date</label>
-					<input type="date" class="input" name="start_date" value={ view.TransferTemplate.StartDate.String() }/>
+					<input type="text" class="input" name="start_date" value={ view.TransferTemplate.StartDate.String() }/>
 					<label class="label">End Date (Optional)</label>
 					{{ endDate := "" }}
 					if view.TransferTemplate.EndDate != nil {
 						{{ endDate = view.TransferTemplate.EndDate.String() }}
 					}
-					<input type="date" class="input" name="end_date" value={ endDate }/>
-					<div class="form-control">
-						<label class="label cursor-pointer">
-							<span class="label-text">Enabled</span>
-							<input type="checkbox" class="checkbox" name="enabled" checked={ view.TransferTemplate.Enabled }/>
-						</label>
-					</div>
+					<input type="text" class="input" name="end_date" value={ endDate }/>
+					<label class="label">Enabled</label>
+					<input
+						type="checkbox"
+						class="checkbox"
+						name="enabled"
+						if view.TransferTemplate.Enabled {
+							checked
+						}
+					/>
 					@SaveButton(view.IsEdit())
 				</fieldset>
 			</form>
@@ -116,7 +119,7 @@ templ TransferTemplateForm(view *TransferTemplateEditView) {
 
 templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
 	<div class="flex flex-row flex-wrap gap-4">
-		@StatCard("Net Income", ui.FormatWithThousands(view.MonthlyIncome + view.MonthlyExpenses), "Net income of all accounts", IconTrendingUp("w-10 h-10 "))
+		@StatCard("Net Income", ui.FormatWithThousands(view.MonthlyIncome+view.MonthlyExpenses), "Net income of all accounts", IconTrendingUp("w-10 h-10 "))
 		@StatCard("Total Templates", strconv.Itoa(len(view.TransferTemplates)), "number of templates", Icon("cash-banknote.svg", "w-10 h-10 "))
 		@StatCard("Total Income", ui.FormatWithThousands(view.MonthlyIncome), "Total income of all accounts", IconTrendingUp("w-10 h-10 "))
 		@StatCard("Total Expenses", ui.FormatWithThousands(view.MonthlyExpenses), "Total expenses of all accounts", IconTrendingDown("w-10 h-10 "))
@@ -180,6 +183,32 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 			</div>
 		</td>
 		<td class="text-right">
+			switch t.ActiveState() {
+				case "Active":
+					<span class="badge badge-primary">Enabled</span>
+				case "Inactive":
+					<span class="badge badge-secondary">{ t.ActiveState() }</span>
+				case "Disabled":
+					<span class="badge badge-error">{ t.ActiveState() }</span>
+			}
+		</td>
+		<td class="text-left">
+			<div class="flex flex-col gap-1">
+				if t.StartDate > 0 || t.EndDate != nil {
+					if t.StartDate > 0 {
+						<span>{ t.StartDate.String() }</span>
+					} else {
+						<span>-</span>
+					}
+				}
+				if t.EndDate != nil {
+					<span>{ t.EndDate.String() }</span>
+				} else if t.StartDate > 0 {
+					<span>-</span>
+				}
+			</div>
+		</td>
+		<td class="text-right">
 			<div class="flex items-center justify-end gap-2">
 				<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
 					<button type="submit" class="btn btn-ghost btn-sm" title="Duplicate">
@@ -219,6 +248,8 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 										<th class="font-semibold">Recurrence</th>
 										<th class="font-semibold text-right">Amount</th>
 										<th class="font-semibold text-right">Estimated Amount</th>
+										<th class="font-semibold text-right">Enabled</th>
+										<th class="font-semibold text-left">Date range</th>
 										// <th class="font-semibold">Cash Flow</th>
 										// <th class="font-semibold">Last Snapshot</th>
 										<th class="font-semibold text-right sticky">Actions</th>

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/SimonSchneider/goslu/date"
 	"github.com/a-h/templ"
 )
 
@@ -60,9 +61,21 @@ func (c TransferTemplateEditView) IsEdit() bool {
 type TransferTemplateWithAmount struct {
 	TransferTemplate
 	Amount float64
+
+	SimDate date.Date
 }
 
-func makeTransferTemplatesWithAmount(transfers []TransferTemplate) []TransferTemplateWithAmount {
+func (t *TransferTemplateWithAmount) ActiveState() string {
+	if !t.Enabled {
+		return "Disabled"
+	}
+	if t.EndDate != nil && t.EndDate.Before(t.SimDate) || t.StartDate.After(t.SimDate) {
+		return "Inactive"
+	}
+	return "Active"
+}
+
+func makeTransferTemplatesWithAmount(transfers []TransferTemplate, day date.Date) []TransferTemplateWithAmount {
 	type AccBalance struct {
 		Starting float64
 		Current  float64
@@ -72,6 +85,11 @@ func makeTransferTemplatesWithAmount(transfers []TransferTemplate) []TransferTem
 	// handle the percentage transfers with the same priority using the same initial account balance
 	currIter := ""
 	for i, t := range transfers {
+		ttwa := TransferTemplateWithAmount{TransferTemplate: t, SimDate: day}
+		if !t.Enabled || (t.EndDate != nil && t.EndDate.Before(day) || t.StartDate.After(day)) {
+			ttwas[i] = ttwa
+			continue
+		}
 		nextIter := fmt.Sprintf("%s%d", t.Recurrence, t.Priority)
 		if nextIter != currIter {
 			currIter = nextIter
@@ -80,7 +98,6 @@ func makeTransferTemplatesWithAmount(transfers []TransferTemplate) []TransferTem
 				accs[k] = acc
 			}
 		}
-		ttwa := TransferTemplateWithAmount{TransferTemplate: t}
 		accs = initMap(accs, t.FromAccountID)
 		accs = initMap(accs, t.ToAccountID)
 		switch t.AmountType {
@@ -118,7 +135,7 @@ type TransferTemplatesView2 struct {
 }
 
 func NewTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account) *TransferTemplatesView2 {
-	v := &TransferTemplatesView2{TransferTemplates: makeTransferTemplatesWithAmount(transferTemplates), Accounts: KeyBy(accounts, func(a Account) string { return a.ID })}
+	v := &TransferTemplatesView2{TransferTemplates: makeTransferTemplatesWithAmount(transferTemplates, date.Today()), Accounts: KeyBy(accounts, func(a Account) string { return a.ID })}
 	for _, t := range v.TransferTemplates {
 		if t.FromAccountID == "" {
 			v.MonthlyIncome += t.Amount

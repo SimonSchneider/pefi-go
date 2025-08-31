@@ -54,7 +54,7 @@ func (t *TransferTemplate) FromForm(r *http.Request) error {
 	if err := shttp.Parse(&t.StartDate, date.ParseDate, r.FormValue("start_date"), date.Date(0)); err != nil {
 		return fmt.Errorf("parsing effective from: %w", err)
 	}
-	if endDateStr := r.FormValue("endDate"); endDateStr != "" {
+	if endDateStr := r.FormValue("end_date"); endDateStr != "" {
 		var endDate date.Date
 		if err := shttp.Parse(&endDate, date.ParseDate, endDateStr, date.Date(0)); err != nil {
 			return fmt.Errorf("parsing effective to: %w", err)
