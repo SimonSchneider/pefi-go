@@ -46,6 +46,36 @@ templ SnapshotsTableContent(view *SnapshotsTableView) {
 			</div>
 		</div>
 	</main>
+	<script>
+		// Handle Enter key navigation in the snapshots table
+		document.addEventListener('keydown', function(event) {
+			if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
+				event.preventDefault();
+				
+				const currentInput = event.target;
+				const currentCell = currentInput.closest('td');
+				const currentRow = currentCell.closest('tr');
+				const table = currentRow.closest('table');
+				const tbody = table.querySelector('tbody');
+				
+				// Find the next row
+				const nextRow = currentRow.nextElementSibling;
+				if (!nextRow || !nextRow.classList.contains('hover:bg-gray-50')) {
+					return; // No next row or not a data row
+				}
+				
+				// Find the same column index in the next row
+				const currentCellIndex = Array.from(currentRow.children).indexOf(currentCell);
+				const nextCell = nextRow.children[currentCellIndex];
+				
+				if (nextCell && nextCell.querySelector('input')) {
+					const nextInput = nextCell.querySelector('input');
+					nextInput.focus();
+					nextInput.select(); // Select all text for easy editing
+				}
+			}
+		});
+	</script>
 }
 
 templ SnapshotsTableRow(row *SnapshotsRow) {

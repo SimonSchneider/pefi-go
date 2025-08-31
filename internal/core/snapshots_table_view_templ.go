@@ -138,7 +138,7 @@ func SnapshotsTableContent(view *SnapshotsTableView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</tbody></table></div></div></div></div></div></main>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</tbody></table></div></div></div></div></div></main><script>\n\t\t// Handle Enter key navigation in the snapshots table\n\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\tif (event.key === 'Enter' && event.target.tagName === 'INPUT') {\n\t\t\t\tevent.preventDefault();\n\t\t\t\t\n\t\t\t\tconst currentInput = event.target;\n\t\t\t\tconst currentCell = currentInput.closest('td');\n\t\t\t\tconst currentRow = currentCell.closest('tr');\n\t\t\t\tconst table = currentRow.closest('table');\n\t\t\t\tconst tbody = table.querySelector('tbody');\n\t\t\t\t\n\t\t\t\t// Find the next row\n\t\t\t\tconst nextRow = currentRow.nextElementSibling;\n\t\t\t\tif (!nextRow || !nextRow.classList.contains('hover:bg-gray-50')) {\n\t\t\t\t\treturn; // No next row or not a data row\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\t// Find the same column index in the next row\n\t\t\t\tconst currentCellIndex = Array.from(currentRow.children).indexOf(currentCell);\n\t\t\t\tconst nextCell = nextRow.children[currentCellIndex];\n\t\t\t\t\n\t\t\t\tif (nextCell && nextCell.querySelector('input')) {\n\t\t\t\t\tconst nextInput = nextCell.querySelector('input');\n\t\t\t\t\tnextInput.focus();\n\t\t\t\t\tnextInput.select(); // Select all text for easy editing\n\t\t\t\t}\n\t\t\t}\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -174,7 +174,7 @@ func SnapshotsTableRow(row *SnapshotsRow) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(row.Date.String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 57, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 87, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -187,7 +187,7 @@ func SnapshotsTableRow(row *SnapshotsRow) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(templ.SafeURL("/snapshots-table/modify-date?old-date=" + row.Date.String()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 58, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 88, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -239,7 +239,7 @@ func SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshot) te
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(getSnapshotValue(snapshot))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 77, Col: 37}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 107, Col: 37}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -252,7 +252,7 @@ func SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshot) te
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(templ.SafeURL("/accounts/" + accountID + "/snapshots/" + date.String() + "/"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 78, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 108, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
