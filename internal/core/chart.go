@@ -70,7 +70,7 @@ func (p *PredictionParams) FromForm(r *http.Request) error {
 	if err := shttp.Parse(&p.Quantile, shttp.ParseFloat, r.FormValue("quantile"), 0.8); err != nil {
 		return fmt.Errorf("parsing quantile: %w", err)
 	}
-	if err := shttp.Parse(&p.SnapshotInterval, ui.ParseDateCron, r.FormValue("snapshot_interval"), "*-*-25"); err != nil {
+	if err := shttp.Parse(&p.SnapshotInterval, ui.ParseDateCron, r.FormValue("snapshot_interval"), "*-*-28"); err != nil {
 		return fmt.Errorf("parsing snapshot interval: %w", err)
 	}
 	return nil
@@ -113,7 +113,7 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	if err != nil {
 		return fmt.Errorf("listing transfers for Prediction: %w", err)
 	}
-	startDate := date.Date(0)
+	startDate := date.Today()
 	for _, acc := range accs {
 		snaps, err := ListAccountSnapshots(ctx, db, acc.ID)
 		if err != nil {

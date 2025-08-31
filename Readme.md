@@ -27,7 +27,6 @@
 
 ### TODO
 
-- Handle darkmode for icons (move to templ and set stroke color based on daisy UI theme)
 - A 100% transfer from a non fixed distribution will still 0 it out.
 - Add categories to accounts
 - Support category grouping for graph
