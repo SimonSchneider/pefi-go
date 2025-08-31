@@ -20,6 +20,7 @@ type Account struct {
 	BalanceUpperLimit     *float64
 	CashFlowFrequency     string
 	CashFlowDestinationID string
+	TypeID                string
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
@@ -36,6 +37,7 @@ type AccountInput struct {
 	BalanceUpperLimit     *float64
 	CashFlowFrequency     string
 	CashFlowDestinationID string
+	TypeID                string
 }
 
 func (a *AccountInput) FromForm(r *http.Request) error {
@@ -46,6 +48,7 @@ func (a *AccountInput) FromForm(r *http.Request) error {
 	}
 	a.CashFlowFrequency = r.FormValue("cash_flow_frequency")
 	a.CashFlowDestinationID = r.FormValue("cash_flow_destination_id")
+	a.TypeID = r.FormValue("type_id")
 	return nil
 }
 
@@ -56,6 +59,7 @@ func accountFromDB(a pdb.Account) Account {
 		BalanceUpperLimit:     a.BalanceUpperLimit,
 		CashFlowFrequency:     ui.OrDefault(a.CashFlowFrequency),
 		CashFlowDestinationID: ui.OrDefault(a.CashFlowDestinationID),
+		TypeID:                ui.OrDefault(a.TypeID),
 		CreatedAt:             time.UnixMilli(a.CreatedAt),
 		UpdatedAt:             time.UnixMilli(a.UpdatedAt),
 	}
@@ -82,6 +86,7 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
 			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
+			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			UpdatedAt:             time.Now().UnixMilli(),
 		})
 	} else {
@@ -91,6 +96,7 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
 			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
+			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			CreatedAt:             time.Now().UnixMilli(),
 			UpdatedAt:             time.Now().UnixMilli(),
 		})

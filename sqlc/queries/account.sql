@@ -9,7 +9,8 @@ SET name                     = ?,
     updated_at               = ?,
     balance_upper_limit      = ?,
     cash_flow_frequency      = ?,
-    cash_flow_destination_id = ?
+    cash_flow_destination_id = ?,
+    type_id                  = ?
 WHERE id = ?
 RETURNING *;
 
@@ -26,8 +27,8 @@ ORDER BY name, id;
 
 -- name: CreateAccount :one
 INSERT INTO account
-(id, name, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+(id, name, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSnapshotsByAccount :many

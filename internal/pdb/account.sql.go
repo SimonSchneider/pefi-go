@@ -12,8 +12,8 @@ import (
 
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO account
-(id, name, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+(id, name, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
 
@@ -23,6 +23,7 @@ type CreateAccountParams struct {
 	BalanceUpperLimit     *float64
 	CashFlowFrequency     *string
 	CashFlowDestinationID *string
+	TypeID                *string
 	CreatedAt             int64
 	UpdatedAt             int64
 }
@@ -34,6 +35,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		arg.BalanceUpperLimit,
 		arg.CashFlowFrequency,
 		arg.CashFlowDestinationID,
+		arg.TypeID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -531,7 +533,8 @@ SET name                     = ?,
     updated_at               = ?,
     balance_upper_limit      = ?,
     cash_flow_frequency      = ?,
-    cash_flow_destination_id = ?
+    cash_flow_destination_id = ?,
+    type_id                  = ?
 WHERE id = ?
 RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
@@ -542,6 +545,7 @@ type UpdateAccountParams struct {
 	BalanceUpperLimit     *float64
 	CashFlowFrequency     *string
 	CashFlowDestinationID *string
+	TypeID                *string
 	ID                    string
 }
 
@@ -552,6 +556,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		arg.BalanceUpperLimit,
 		arg.CashFlowFrequency,
 		arg.CashFlowDestinationID,
+		arg.TypeID,
 		arg.ID,
 	)
 	var i Account

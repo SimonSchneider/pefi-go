@@ -47,6 +47,23 @@ templ AccountForm(view *AccountEditView2) {
 					<input type="hidden" name="id" value={ view.Account.ID }/>
 					<label class="label">Name</label>
 					<input type="text" class="input" placeholder="Checking" name="name" value={ view.Account.Name }/>
+					<label class="label">Account Type</label>
+					<select class="select" name="type_id">
+						<option
+							value=""
+							if view.Account.TypeID == "" {
+								selected
+							}
+						>Select an account type</option>
+						for _, accountType := range view.AccountTypes {
+							<option
+								value={ accountType.ID }
+								if accountType.ID == view.Account.TypeID {
+									selected
+								}
+							>{ accountType.Name }</option>
+						}
+					</select>
 					<label class="label">Balance upper limit</label>
 					<input type="number" class="input" placeholder="1000" name="balance_upper_limit" value={ balanceUpperLimit }/>
 					<label class="label">Cash flow frequency</label>
@@ -161,11 +178,13 @@ templ AccountsStatCardRow(view *AccountsView) {
 	</div>
 }
 
-templ AccountTableRow(account *AccountDetailed) {
+templ AccountTableRow(view *AccountsView, account *AccountDetailed) {
 	<tr class="hover:bg-base-50">
 		<td class="font-medium">{ account.Name }</td>
 		<td>
-			<span class="text-base-content/50"></span>
+			if account.TypeID != "" {
+				<span class="badge badge-outline">{ view.GetAccountTypeName(account.TypeID) }</span>
+			}
 		</td>
 		<td class="text-right">
 			if account.LastSnapshot != nil {
@@ -234,7 +253,7 @@ templ AccountsContent(view *AccountsView) {
 								<thead>
 									<tr>
 										<th class="font-semibold sticky">Name</th>
-										<th class="font-semibold">Type</th>
+										<th class="font-semibold">Account Type</th>
 										<th class="font-semibold text-right">Balance</th>
 										<th class="font-semibold">Last Snapshot</th>
 										<th class="font-semibold">Growth Model</th>
@@ -257,7 +276,7 @@ templ AccountsContent(view *AccountsView) {
 										</tr>
 									} else {
 										for _, account := range view.Accounts {
-											@AccountTableRow(&account)
+											@AccountTableRow(view, &account)
 										}
 									}
 								</tbody>

@@ -153,13 +153,14 @@ func (v *TransferTemplatesView2) GetAccount(id string) *Account {
 
 type AccountsView struct {
 	Accounts         []AccountDetailed
+	AccountTypes     []AccountType
 	TotalBalance     float64
 	TotalAssets      float64
 	TotalLiabilities float64
 }
 
-func NewAccountsView(accounts []AccountDetailed) *AccountsView {
-	v := &AccountsView{Accounts: accounts}
+func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountType) *AccountsView {
+	v := &AccountsView{Accounts: accounts, AccountTypes: accountTypes}
 	for _, account := range accounts {
 		if account.LastSnapshot != nil {
 			v.TotalBalance += account.LastSnapshot.Balance.Mean()
@@ -171,6 +172,10 @@ func NewAccountsView(accounts []AccountDetailed) *AccountsView {
 		}
 	}
 	return v
+}
+
+func (v *AccountsView) GetAccountTypeName(typeID string) string {
+	return findAccountTypeName(v.AccountTypes, typeID)
 }
 
 func KeyBy[T any](items []T, key func(T) string) map[string]T {
@@ -185,12 +190,29 @@ type AccountEditView2 struct {
 	Account      Account
 	Accounts     []Account
 	GrowthModels []GrowthModel
+	AccountTypes []AccountType
 }
 
-func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel) *AccountEditView2 {
-	return &AccountEditView2{Account: account, Accounts: accounts, GrowthModels: growthModels}
+func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountType) *AccountEditView2 {
+	return &AccountEditView2{Account: account, Accounts: accounts, GrowthModels: growthModels, AccountTypes: accountTypes}
 }
 
 func (v *AccountEditView2) IsEdit() bool {
 	return v.Account.ID != ""
+}
+
+func (v *AccountEditView2) GetAccountTypeName(typeID string) string {
+	return findAccountTypeName(v.AccountTypes, typeID)
+}
+
+func findAccountTypeName(accountTypes []AccountType, typeID string) string {
+	if typeID == "" {
+		return ""
+	}
+	for _, at := range accountTypes {
+		if at.ID == typeID {
+			return at.Name
+		}
+	}
+	return ""
 }

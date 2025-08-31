@@ -111,7 +111,11 @@ func AccountsPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs))))
+		accountTypes, err := ListAccountTypes(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing account types: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs, accountTypes))))
 	})
 }
 
@@ -135,7 +139,11 @@ func AccountNewPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil))))
+		accountTypes, err := ListAccountTypes(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing account types: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypes))))
 	})
 }
 
@@ -153,7 +161,11 @@ func AccountEditPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing account growth models: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels))))
+		accountTypes, err := ListAccountTypes(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing account types: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypes))))
 	})
 }
 
