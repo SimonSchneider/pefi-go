@@ -28,8 +28,6 @@
 ### TODO
 
 - A 100% transfer from a non fixed distribution will still 0 it out.
-- Add categories to accounts
-- Support category grouping for graph
 - Add categories to transfer-templates
 - Add transfer run for a specific date for doing the money depositing split for that month
 - Model startup shares

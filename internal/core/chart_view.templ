@@ -6,6 +6,16 @@ templ ChartControls(p PredictionParams) {
 	<form method="GET" class="flex items-center gap-4">
 		<div class="form-control">
 			<label class="label">
+				<span class="label-text">Group By</span>
+			</label>
+			<select name="group_by" class="select select-bordered w-24">
+				<option value="none" if p.GroupBy == "none" { selected }>None</option>
+				<option value="type" if p.GroupBy == "type" { selected }>Type</option>
+				<option value="total" if p.GroupBy == "total" { selected }>Total</option>
+			</select>
+		</div>
+		<div class="form-control">
+			<label class="label">
 				<span class="label-text">Duration</span>
 			</label>
 			<input

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
@@ -58,6 +59,28 @@ type PredictionParams struct {
 	Samples          int64
 	Quantile         float64
 	SnapshotInterval date.Cron
+	GroupBy          GroupBy
+}
+
+type GroupBy string
+
+const (
+	GroupByNone  GroupBy = "none"
+	GroupByType  GroupBy = "type"
+	GroupByTotal GroupBy = "total"
+)
+
+func ParseGroupBy(val string) (GroupBy, error) {
+	switch val {
+	case "none":
+		return GroupByNone, nil
+	case "type":
+		return GroupByType, nil
+	case "total":
+		return GroupByTotal, nil
+	default:
+		return GroupByNone, fmt.Errorf("invalid group by: %s", val)
+	}
 }
 
 func (p *PredictionParams) FromForm(r *http.Request) error {
@@ -72,6 +95,9 @@ func (p *PredictionParams) FromForm(r *http.Request) error {
 	}
 	if err := shttp.Parse(&p.SnapshotInterval, ui.ParseDateCron, r.FormValue("snapshot_interval"), "*-*-28"); err != nil {
 		return fmt.Errorf("parsing snapshot interval: %w", err)
+	}
+	if err := shttp.Parse(&p.GroupBy, ParseGroupBy, r.FormValue("group_by"), GroupByType); err != nil {
+		return fmt.Errorf("parsing group by: %w", err)
 	}
 	return nil
 }
@@ -113,8 +139,15 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	if err != nil {
 		return fmt.Errorf("listing transfers for Prediction: %w", err)
 	}
+	accountTypes, err := q.ListAccountTypes(ctx)
+	if err != nil {
+		return fmt.Errorf("listing account types for Prediction: %w", err)
+	}
+	accountTypesById := KeyBy(accountTypes, func(at pdb.AccountType) string { return at.ID })
+	accsById := make(map[string]pdb.Account, len(accs))
 	startDate := date.Today()
 	for _, acc := range accs {
+		accsById[acc.ID] = acc
 		snaps, err := ListAccountSnapshots(ctx, db, acc.ID)
 		if err != nil {
 			return fmt.Errorf("getting snapshots for account %s: %w", acc.ID, err)
@@ -200,47 +233,175 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 		})
 	}
 
-	sssEntities := make([]PredictionFinancialEntity, len(entities))
-	for i, e := range entities {
-		sssEntities[i] = PredictionFinancialEntity{
-			ID:   e.ID,
-			Name: e.Name,
-		}
-		for _, s := range e.Snapshots {
-			q := s.Balance.Quantiles()
-			sssEntities[i].Snapshots = append(sssEntities[i].Snapshots, PredictionBalanceSnapshot{
-				ID:         e.ID,
-				Day:        s.Date.ToStdTime().UnixMilli(),
-				Balance:    s.Balance.Mean(),
-				LowerBound: q(q1),
-				UpperBound: q(q2),
-			})
-		}
-	}
-
 	startDate += 1
 	endDate := startDate.Add(params.Duration)
-
 	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), params.Samples)
-	if err := eventHandler.Setup(PredictionSetupEvent{
-		Max:      endDate.ToStdTime().UnixMilli(),
-		Entities: sssEntities,
-	}); err != nil {
-		return fmt.Errorf("sending SSE response: %w", err)
+
+	h := &GroupingEventHandler{eventHandler: eventHandler, ucfg: ucfg, accsById: accsById, accountTypesById: accountTypesById, groupBy: params.GroupBy, q1: q1, q2: q2}
+
+	if err := h.Setup(entities, endDate); err != nil {
+		return fmt.Errorf("setting up grouping event handler: %w", err)
 	}
+
 	snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
-		q := balance.Quantiles()
-		event := PredictionBalanceSnapshot{
-			ID:         accountID,
-			Day:        day.ToStdTime().UnixMilli(),
-			Balance:    balance.Mean(),
-			LowerBound: q(q1),
-			UpperBound: q(q2),
-		}
-		return eventHandler.Snapshot(event)
+		return h.Snapshot(accountID, day, balance)
 	})
 	if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, params.SnapshotInterval, entities, transfers, finance.CompositeRecorder{SnapshotRecorder: snapshotRecorder}); err != nil {
 		return fmt.Errorf("running prediction for SSE: %w", err)
 	}
-	return eventHandler.Close()
+	return h.Close()
+}
+
+type GroupingEventHandler struct {
+	eventHandler     PredictionEventHandler
+	ucfg             *uncertain.Config
+	accsById         map[string]pdb.Account
+	accountTypesById map[string]pdb.AccountType
+	groupBy          GroupBy
+	q1               float64
+	q2               float64
+
+	currentDate date.Date
+	currentAccs map[string]uncertain.Value
+}
+
+func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Date) error {
+	for _, e := range h.accsById {
+		if e.TypeID == nil {
+			h.accountTypesById[""] = pdb.AccountType{
+				ID:   "",
+				Name: "unknown",
+			}
+		}
+	}
+
+	type GroupedEntities struct {
+		name  string
+		dates map[date.Date]uncertain.Value
+	}
+
+	groupedEntities := make(map[string]GroupedEntities)
+	switch h.groupBy {
+	case GroupByTotal:
+		groupedEntities["total"] = GroupedEntities{
+			name:  "total",
+			dates: make(map[date.Date]uncertain.Value),
+		}
+	case GroupByType:
+		for _, accountType := range h.accountTypesById {
+			groupedEntities[accountType.ID] = GroupedEntities{
+				name:  accountType.Name,
+				dates: make(map[date.Date]uncertain.Value),
+			}
+		}
+	case GroupByNone:
+		for _, account := range h.accsById {
+			groupedEntities[account.ID] = GroupedEntities{
+				name:  account.Name,
+				dates: make(map[date.Date]uncertain.Value),
+			}
+		}
+	}
+
+	for _, e := range entities {
+		key := h.getKey(e.ID)
+
+		ent := groupedEntities[key]
+
+		for _, s := range e.Snapshots {
+			amount := ent.dates[s.Date]
+			if amount.Zero() {
+				amount = s.Balance
+			} else {
+				amount = amount.Add(h.ucfg, s.Balance)
+			}
+			ent.dates[s.Date] = amount
+		}
+	}
+
+	sssEntities := make([]PredictionFinancialEntity, 0, len(groupedEntities))
+	for id, e := range groupedEntities {
+		ent := PredictionFinancialEntity{
+			ID:        id,
+			Name:      e.name,
+			Snapshots: make([]PredictionBalanceSnapshot, 0, len(e.dates)),
+		}
+		for day, amount := range e.dates {
+			q := amount.Quantiles()
+			ent.Snapshots = append(ent.Snapshots, PredictionBalanceSnapshot{
+				ID:         id,
+				Day:        day.ToStdTime().UnixMilli(),
+				Balance:    amount.Mean(),
+				LowerBound: q(h.q1),
+				UpperBound: q(h.q2),
+			})
+		}
+		sort.Slice(ent.Snapshots, func(i, j int) bool {
+			return ent.Snapshots[i].Day < ent.Snapshots[j].Day
+		})
+		sssEntities = append(sssEntities, ent)
+	}
+	h.currentDate = endDate
+	h.currentAccs = make(map[string]uncertain.Value, len(h.accsById))
+	return h.eventHandler.Setup(PredictionSetupEvent{
+		Max:      endDate.ToStdTime().UnixMilli(),
+		Entities: sssEntities,
+	})
+}
+
+func (h *GroupingEventHandler) getKey(id string) string {
+	switch h.groupBy {
+	case GroupByType:
+		return h.accountTypesById[ui.OrDefault(h.accsById[id].TypeID)].ID
+	case GroupByNone:
+		return id
+	case GroupByTotal:
+		return "total"
+	default:
+		panic("invalid group by")
+	}
+}
+
+func (h *GroupingEventHandler) Snapshot(id string, day date.Date, balance uncertain.Value) error {
+	if h.currentDate != day {
+		if err := h.Flush(); err != nil {
+			return err
+		}
+		h.currentDate = day
+	}
+
+	key := h.getKey(id)
+	acc, ok := h.currentAccs[key]
+	if !ok {
+		h.currentAccs[key] = balance
+	} else {
+		h.currentAccs[key] = acc.Add(h.ucfg, balance)
+	}
+	return nil
+}
+
+func (h *GroupingEventHandler) Flush() error {
+	fmt.Printf("Flushing: %+v\n", h.currentAccs)
+	for id, balance := range h.currentAccs {
+		q := balance.Quantiles()
+		err := h.eventHandler.Snapshot(PredictionBalanceSnapshot{
+			ID:         id,
+			Day:        h.currentDate.ToStdTime().UnixMilli(),
+			Balance:    balance.Mean(),
+			LowerBound: q(h.q1),
+			UpperBound: q(h.q2),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	clear(h.currentAccs)
+	return nil
+}
+
+func (h *GroupingEventHandler) Close() error {
+	if err := h.Flush(); err != nil {
+		return err
+	}
+	return h.eventHandler.Close()
 }
