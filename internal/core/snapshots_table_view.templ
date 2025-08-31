@@ -6,9 +6,16 @@ templ PageSnapshotsTable(view *SnapshotsTableView) {
 	@Layout("/snapshots-table", SnapshotsTableContent(view))
 }
 
+templ SnapshotsTableNewRowButton() {
+	<button class="btn btn-primary" hx-get="/snapshots-table/empty-row" hx-target="#snapshots-table-body" hx-swap="afterbegin">
+		New Row
+		@IconPlus("w-4 h-4")
+	</button>
+}
+
 templ SnapshotsTableContent(view *SnapshotsTableView) {
 	<main class="flex-1 flex flex-col overflow-hidden">
-		@Header("Snapshots Table")
+		@Header("Snapshots Table", SnapshotsTableNewRowButton())
 		<div class="flex-1 p-6 bg-gray-50 overflow-hidden">
 			<div class="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden max-w-full">
 				<div class="flex-1 overflow-auto border border-gray-300 rounded-lg">
@@ -27,16 +34,9 @@ templ SnapshotsTableContent(view *SnapshotsTableView) {
 										}
 									</tr>
 								</thead>
-								<tbody class="divide-y divide-gray-200 bg-white">
-									for i, row := range view.Rows {
-										<tr class="hover:bg-gray-50 even:bg-gray-50">
-											<td class={ templ.KV("sticky left-0 z-10 px-3 py-2 text-sm text-gray-900 border-r border-gray-300 font-mono min-w-32", true), templ.KV("bg-white", i%2 == 0), templ.KV("bg-gray-50", i%2 == 1) }>
-												{ row.Date.String() }
-											</td>
-											for _, snap := range row.Snapshots {
-												@SnapshotCell(snap.AccountID, row.Date, snap)
-											}
-										</tr>
+								<tbody id="snapshots-table-body" class="divide-y divide-gray-200 bg-white">
+									for _, row := range view.Rows {
+										@SnapshotsTableRow(&row)
 									}
 								</tbody>
 							</table>
@@ -46,6 +46,27 @@ templ SnapshotsTableContent(view *SnapshotsTableView) {
 			</div>
 		</div>
 	</main>
+}
+
+templ SnapshotsTableRow(row *SnapshotsRow) {
+	<tr class="hover:bg-gray-50 even:bg-gray-50">
+		<td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 last:border-r-0">
+			<input
+				type="text"
+				class="w-full h-full border-0 bg-transparent text-right font-mono text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-colors px-1 py-0.5"
+				value={ row.Date.String() }
+				hx-post={ templ.SafeURL("/snapshots-table/modify-date?old-date=" + row.Date.String()) }
+				hx-trigger="blur changed"
+				hx-target="closest tr"
+				hx-swap="outerHTML"
+				hx-indicator="this"
+				name="new-date"
+			/>
+		</td>
+		for _, snap := range row.Snapshots {
+			@SnapshotCell(snap.AccountID, row.Date, snap)
+		}
+	</tr>
 }
 
 templ SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshot) {

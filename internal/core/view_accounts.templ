@@ -101,7 +101,7 @@ templ GrowthModelForm(accountID string, growthModel GrowthModel) {
 		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
 			if growthModel.ID != "" {
 				<button type="submit" form={ "delete-form-" + growthModel.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
-					<img src="/static/public/icons/x.svg" class="w-3 h-3" alt="Delete"/>
+					@IconX("w-3 h-3")
 				</button>
 			}
 			<input type="hidden" name="id" value={ growthModel.ID }/>
@@ -154,10 +154,10 @@ templ GrowthModelForm(accountID string, growthModel GrowthModel) {
 
 templ AccountsStatCardRow(view *AccountsView) {
 	<div class="flex flex-row flex-wrap gap-4">
-		@StatCard("Total Balance", ui.FormatWithThousands(view.TotalBalance), "Total balance of all accounts", IconTrendingUp("w-10 h-10 "))
-		@StatCard("Total Accounts", strconv.Itoa(len(view.Accounts)), "number of accounts", Icon("cash-banknote.svg", "w-10 h-10 "))
-		@StatCard("Assets", ui.FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10"))
-		@StatCard("Liabilities", ui.FormatWithThousands(-view.TotalLiabilities), "Total liabilities", IconTrendingDown("w-10 h-10"))
+		@StatCard("Total Balance", ui.FormatWithThousands(view.TotalBalance), "Total balance of all accounts", IconTrendingUp("w-10 h-10 text-green-600"))
+		@StatCard("Total Accounts", strconv.Itoa(len(view.Accounts)), "number of accounts", IconCashBanknote("w-10 h-10"))
+		@StatCard("Assets", ui.FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10 text-green-600"))
+		@StatCard("Liabilities", ui.FormatWithThousands(-view.TotalLiabilities), "Total liabilities", IconTrendingDown("w-10 h-10 text-red-600"))
 	</div>
 }
 
@@ -206,7 +206,7 @@ templ AccountTableRow(account *AccountDetailed) {
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-2">
 				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/accounts/" + account.ID + "/edit" }>
-					<img src="/static/public/icons/pencil.svg" alt="Edit" class="w-4 h-4"/>
+					@IconPencil("w-4 h-4")
 				</a>
 			</div>
 		</td>
@@ -217,7 +217,7 @@ templ NewAccountButton() {
 	{{ label := "New Account" }}
 	<a class="btn btn-primary" href="/accounts/new" title={ label }>
 		{ label }
-		<img src="/static/public/icons/plus.svg" alt={ label } class="w-4 h-4"/>
+		@IconPlus("w-4 h-4")
 	</a>
 }
 

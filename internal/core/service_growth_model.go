@@ -93,7 +93,7 @@ func growthModelFromDB(g pdb.GrowthModel) (GrowthModel, error) {
 func UpsertAccountGrowthModel(ctx context.Context, db *sql.DB, inp AccountGrowthModelInput) (GrowthModel, error) {
 	var endDate *int64
 	if inp.EndDate != nil {
-		*endDate = int64(*inp.EndDate)
+		endDate = ptr(int64(*inp.EndDate))
 	}
 	if inp.ID == "" {
 		inp.ID = sid.MustNewString(32)

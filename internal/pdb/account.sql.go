@@ -511,6 +511,41 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 	return i, err
 }
 
+const updateSnapshotDate = `-- name: UpdateSnapshotDate :many
+UPDATE account_snapshot
+SET date = ?
+WHERE date = ?
+RETURNING account_id, date, balance
+`
+
+type UpdateSnapshotDateParams struct {
+	Date   int64
+	Date_2 int64
+}
+
+func (q *Queries) UpdateSnapshotDate(ctx context.Context, arg UpdateSnapshotDateParams) ([]AccountSnapshot, error) {
+	rows, err := q.db.QueryContext(ctx, updateSnapshotDate, arg.Date, arg.Date_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AccountSnapshot
+	for rows.Next() {
+		var i AccountSnapshot
+		if err := rows.Scan(&i.AccountID, &i.Date, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertGrowthModel = `-- name: UpsertGrowthModel :one
 INSERT OR
 REPLACE

@@ -10,6 +10,8 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
+	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
 func SnapshotsTablePage(db *sql.DB) http.Handler {
@@ -40,9 +42,9 @@ func SnapshotsTablePage(db *sql.DB) http.Handler {
 			}
 		}
 		slices.Reverse(dates)
-		rows := make([]SnapshotsTableRow, 0)
+		rows := make([]SnapshotsRow, 0)
 		for _, d := range dates {
-			rows = append(rows, SnapshotsTableRow{
+			rows = append(rows, SnapshotsRow{
 				Date:      d,
 				Snapshots: make([]AccountSnapshot, 0, len(accounts)),
 			})
@@ -62,6 +64,81 @@ func SnapshotsTablePage(db *sql.DB) http.Handler {
 			Accounts: accounts,
 			Rows:     rows,
 		})))
+	})
+}
+
+type DateInput struct {
+	OldDate date.Date
+	NewDate date.Date
+}
+
+func (d *DateInput) FromForm(r *http.Request) error {
+	if err := shttp.Parse(&d.OldDate, date.ParseDate, r.FormValue("old-date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing old date: %w", err)
+	}
+	if err := shttp.Parse(&d.NewDate, date.ParseDate, r.FormValue("new-date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing new date: %w", err)
+	}
+	return nil
+}
+
+func SnapshotsTableModifyDate(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp DateInput
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		snaps, err := pdb.New(db).UpdateSnapshotDate(ctx, pdb.UpdateSnapshotDateParams{
+			Date:   int64(inp.NewDate),
+			Date_2: int64(inp.OldDate),
+		})
+		if err != nil {
+			return fmt.Errorf("updating snapshot date: %w", err)
+		}
+		snapsByAccId := KeyBy(snaps, func(s pdb.AccountSnapshot) string { return s.AccountID })
+		accs, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		row := SnapshotsRow{
+			Date:      inp.NewDate,
+			Snapshots: make([]AccountSnapshot, len(accs)),
+		}
+		for i, acc := range accs {
+			balance := uncertain.Value{}
+			if snap, ok := snapsByAccId[acc.ID]; ok {
+				balance, err = uncertain.Decode(snap.Balance)
+				if err != nil {
+					return fmt.Errorf("decoding balance: %w", err)
+				}
+			}
+			row.Snapshots[i] = AccountSnapshot{
+				AccountID: acc.ID,
+				Date:      inp.NewDate,
+				Balance:   balance,
+			}
+		}
+		return NewView(ctx, w, r).Render(SnapshotsTableRow(&row))
+	})
+}
+
+func SnapshotsTableEmptyRow(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accounts, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		row := SnapshotsRow{
+			Date:      date.Date(0),
+			Snapshots: make([]AccountSnapshot, len(accounts)),
+		}
+		for i, acc := range accounts {
+			row.Snapshots[i] = AccountSnapshot{
+				AccountID: acc.ID,
+				Date:      date.Date(0),
+			}
+		}
+		return NewView(ctx, w, r).Render(SnapshotsTableRow(&row))
 	})
 }
 
@@ -100,10 +177,10 @@ func HandlerAccountSnapshotUpsert(db *sql.DB) http.Handler {
 type SnapshotsTableView struct {
 	*RequestDetails
 	Accounts []Account
-	Rows     []SnapshotsTableRow
+	Rows     []SnapshotsRow
 }
 
-type SnapshotsTableRow struct {
+type SnapshotsRow struct {
 	Date      date.Date
 	Snapshots []AccountSnapshot
 }

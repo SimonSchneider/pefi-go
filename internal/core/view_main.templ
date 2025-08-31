@@ -18,7 +18,7 @@ templ Page(name string, child templ.Component) {
 	</html>
 }
 
-templ NavItem(href string, iconPath string, name string, activePath string) {
+templ NavItem(href string, icon templ.Component, name string, activePath string) {
 	<li>
 		<a
 			href={ href }
@@ -28,7 +28,7 @@ templ NavItem(href string, iconPath string, name string, activePath string) {
 				templ.KV("text-base-content hover:text-base-content hover:bg-base-300", href != activePath),
 			}
 		>
-			<img src={ iconPath } alt="" class="w-5 h-5"/>
+			@icon
 			<span>{ name }</span>
 		</a>
 	</li>
@@ -49,11 +49,11 @@ templ Sidebar(page string) {
 		</div>
 		<nav class="flex-1 p-4">
 			<ul class="space-y-2">
-				@NavItem("/", "/static/public/icons/home.svg", "Dashboard", page)
-				@NavItem("/accounts", "/static/public/icons/cash-banknote.svg", "Accounts", page)
-				@NavItem("/snapshots-table", "/static/public/icons/table.svg", "Snapshots Table", page)
-				@NavItem("/transfer-templates", "/static/public/icons/transfer.svg", "Transfer Templates", page)
-				@NavItem("/chart", "/static/public/icons/trending-up.svg", "Chart", page)
+				@NavItem("/", IconHome("w-5 h-5"), "Dashboard", page)
+				@NavItem("/accounts", IconCashBanknote("w-5 h-5"), "Accounts", page)
+				@NavItem("/snapshots-table", IconTable("w-5 h-5"), "Snapshots Table", page)
+				@NavItem("/transfer-templates", IconTransfer("w-5 h-5"), "Transfer Templates", page)
+				@NavItem("/chart", IconTrendingUp("w-5 h-5"), "Chart", page)
 			</ul>
 		</nav>
 		<div class="flex-end p-4 mt-auto border-t border-base-300">

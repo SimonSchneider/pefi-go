@@ -201,6 +201,8 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 
 	// Snapshots table
 	mux.Handle("GET /snapshots-table", SnapshotsTablePage(db))
+	mux.Handle("POST /snapshots-table/modify-date", SnapshotsTableModifyDate(db))
+	mux.Handle("GET /snapshots-table/empty-row", SnapshotsTableEmptyRow(db))
 	mux.Handle("POST /accounts/{id}/snapshots/{date}/", HandlerAccountSnapshotUpsert(db))
 
 	// Chart
