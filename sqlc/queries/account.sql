@@ -128,3 +128,26 @@ UPDATE account_snapshot
 SET date = ?
 WHERE date = ?
 RETURNING *;
+
+-- name: ListAccountTypes :many
+SELECT *
+FROM account_type
+ORDER BY name, id;
+
+-- name: GetAccountType :one
+SELECT *
+FROM account_type
+WHERE id = ?;
+
+-- name: UpsertAccountType :one
+INSERT OR
+REPLACE
+INTO account_type
+(id, name)
+VALUES (?, ?)
+RETURNING *;
+
+-- name: DeleteAccountType :exec
+DELETE
+FROM account_type
+WHERE id = ?;

@@ -14,7 +14,7 @@ const createAccount = `-- name: CreateAccount :one
 INSERT INTO account
 (id, name, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
 
 type CreateAccountParams struct {
@@ -47,6 +47,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.BalanceUpperLimit,
 		&i.CashFlowFrequency,
 		&i.CashFlowDestinationID,
+		&i.TypeID,
 	)
 	return i, err
 }
@@ -55,7 +56,7 @@ const deleteAccount = `-- name: DeleteAccount :one
 DELETE
 FROM account
 WHERE id = ?
-RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
 
 func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error) {
@@ -70,8 +71,20 @@ func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error)
 		&i.BalanceUpperLimit,
 		&i.CashFlowFrequency,
 		&i.CashFlowDestinationID,
+		&i.TypeID,
 	)
 	return i, err
+}
+
+const deleteAccountType = `-- name: DeleteAccountType :exec
+DELETE
+FROM account_type
+WHERE id = ?
+`
+
+func (q *Queries) DeleteAccountType(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteAccountType, id)
+	return err
 }
 
 const deleteGrowthModel = `-- name: DeleteGrowthModel :exec
@@ -114,7 +127,7 @@ func (q *Queries) DeleteTransferTemplate(ctx context.Context, id string) error {
 }
 
 const getAccount = `-- name: GetAccount :one
-SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
+SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 FROM account
 WHERE id = ?
 `
@@ -131,7 +144,21 @@ func (q *Queries) GetAccount(ctx context.Context, id string) (Account, error) {
 		&i.BalanceUpperLimit,
 		&i.CashFlowFrequency,
 		&i.CashFlowDestinationID,
+		&i.TypeID,
 	)
+	return i, err
+}
+
+const getAccountType = `-- name: GetAccountType :one
+SELECT id, name
+FROM account_type
+WHERE id = ?
+`
+
+func (q *Queries) GetAccountType(ctx context.Context, id string) (AccountType, error) {
+	row := q.db.QueryRowContext(ctx, getAccountType, id)
+	var i AccountType
+	err := row.Scan(&i.ID, &i.Name)
 	return i, err
 }
 
@@ -357,8 +384,37 @@ func (q *Queries) GetTransferTemplates(ctx context.Context) ([]TransferTemplate,
 	return items, nil
 }
 
+const listAccountTypes = `-- name: ListAccountTypes :many
+SELECT id, name
+FROM account_type
+ORDER BY name, id
+`
+
+func (q *Queries) ListAccountTypes(ctx context.Context) ([]AccountType, error) {
+	rows, err := q.db.QueryContext(ctx, listAccountTypes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AccountType
+	for rows.Next() {
+		var i AccountType
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAccounts = `-- name: ListAccounts :many
-SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
+SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 FROM account
 ORDER BY name, id
 `
@@ -381,6 +437,7 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 			&i.BalanceUpperLimit,
 			&i.CashFlowFrequency,
 			&i.CashFlowDestinationID,
+			&i.TypeID,
 		); err != nil {
 			return nil, err
 		}
@@ -476,7 +533,7 @@ SET name                     = ?,
     cash_flow_frequency      = ?,
     cash_flow_destination_id = ?
 WHERE id = ?
-RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
 
 type UpdateAccountParams struct {
@@ -507,6 +564,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.BalanceUpperLimit,
 		&i.CashFlowFrequency,
 		&i.CashFlowDestinationID,
+		&i.TypeID,
 	)
 	return i, err
 }
@@ -544,6 +602,27 @@ func (q *Queries) UpdateSnapshotDate(ctx context.Context, arg UpdateSnapshotDate
 		return nil, err
 	}
 	return items, nil
+}
+
+const upsertAccountType = `-- name: UpsertAccountType :one
+INSERT OR
+REPLACE
+INTO account_type
+(id, name)
+VALUES (?, ?)
+RETURNING id, name
+`
+
+type UpsertAccountTypeParams struct {
+	ID   string
+	Name string
+}
+
+func (q *Queries) UpsertAccountType(ctx context.Context, arg UpsertAccountTypeParams) (AccountType, error) {
+	row := q.db.QueryRowContext(ctx, upsertAccountType, arg.ID, arg.Name)
+	var i AccountType
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
 }
 
 const upsertGrowthModel = `-- name: UpsertGrowthModel :one

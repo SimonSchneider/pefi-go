@@ -1,0 +1,108 @@
+package core
+
+templ PageAccountTypes(child templ.Component) {
+	@Layout("/account-types", child)
+}
+
+templ AccountTypesView(accountTypes []AccountType) {
+	<main class="flex-1 flex flex-col">
+		@Header("Account Types", NewButton("/account-types/new", IconPlus("w-4 h-4"), "New Account Type"))
+		<div class="flex-1 p-6 overflow-auto bg-base-50">
+			<div class="flex flex-col gap-4">
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead>
+									<tr>
+										<th class="font-semibold">Name</th>
+										<th class="font-semibold text-right sticky">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(accountTypes) == 0 {
+										<tr>
+											<td colspan="2" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													<svg class="w-12 h-12 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"></path>
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"></path>
+													</svg>
+													<p class="text-lg font-medium">No account types yet</p>
+													<p>Create your first account type to get started</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, at := range accountTypes {
+											<tr class="hover:bg-base-50">
+												<td class="font-medium">{ at.Name }</td>
+												<td class="text-right">
+													<a href={ templ.SafeURL("/account-types/" + at.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+														@IconPencil("w-4 h-4")
+													</a>
+												</td>
+											</tr>
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}
+
+templ PageEditAccountType(child templ.Component) {
+	@Layout("/account-types", child)
+}
+
+templ AccountTypeEditView(accountType AccountType) {
+	<main class="flex-1 flex flex-col">
+		if accountType.ID != "" {
+			@Header("Edit Account Type", DeleteAccountTypeButton(accountType.ID))
+		} else {
+			@Header("New Account Type", BackButton("/account-types"))
+		}
+		@AccountTypeForm(accountType)
+	</main>
+}
+
+templ DeleteAccountTypeButton(id string) {
+	<form method="post" action={ "/account-types/" + id + "/delete?next=" + templ.EscapeString("/account-types") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ AccountTypeForm(accountType AccountType) {
+	<div class="flex flex-col lg:flex-row gap-6 m-6">
+		<div class="flex-1">
+			<form action={ "/account-types/?next=" + templ.EscapeString("/account-types") } method="post">
+				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
+					<legend class="fieldset-legend">Account Type Details</legend>
+					<input type="hidden" name="id" value={ accountType.ID }/>
+					<label class="label">Name</label>
+					<input type="text" class="input" placeholder="Asset, Pension, Checking, etc." name="name" value={ accountType.Name }/>
+					@SaveButton(accountType.ID != "")
+				</fieldset>
+			</form>
+		</div>
+	</div>
+}
+
+templ NewButton(href string, icon templ.Component, text string) {
+	<a class="btn btn-primary" href={ href } title={ text }>
+		{ text }
+		@icon
+	</a>
+}
+
+templ BackButton(href string) {
+	<a class="btn btn-ghost" href={ href } title="Back">
+		Back
+	</a>
+}

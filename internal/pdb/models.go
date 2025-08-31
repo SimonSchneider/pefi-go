@@ -13,12 +13,18 @@ type Account struct {
 	BalanceUpperLimit     *float64
 	CashFlowFrequency     *string
 	CashFlowDestinationID *string
+	TypeID                *string
 }
 
 type AccountSnapshot struct {
 	AccountID string
 	Date      int64
 	Balance   string
+}
+
+type AccountType struct {
+	ID   string
+	Name string
 }
 
 type GrowthModel struct {

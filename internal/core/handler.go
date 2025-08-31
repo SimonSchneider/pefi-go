@@ -199,6 +199,13 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux.Handle("GET /transfer-templates/new", TransferTemplatesNewPage(db))
 	mux.Handle("GET /transfer-templates/{id}/edit", TransferTemplatesEditPage(db))
 
+	// Account types
+	mux.Handle("GET /account-types", AccountTypesPage(db))
+	mux.Handle("GET /account-types/new", AccountTypeNewPage(db))
+	mux.Handle("GET /account-types/{id}/edit", AccountTypeEditPage(db))
+	mux.Handle("POST /account-types/{$}", HandlerAccountTypeUpsert(db))
+	mux.Handle("POST /account-types/{id}/delete", HandlerAccountTypeDelete(db))
+
 	// Snapshots table
 	mux.Handle("GET /snapshots-table", SnapshotsTablePage(db))
 	mux.Handle("POST /snapshots-table/modify-date", SnapshotsTableModifyDate(db))
