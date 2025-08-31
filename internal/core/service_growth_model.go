@@ -11,6 +11,7 @@ import (
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
@@ -42,10 +43,10 @@ func (a *AccountGrowthModelInput) FromForm(r *http.Request) error {
 	if a.Type != "fixed" && a.Type != "lognormal" {
 		return fmt.Errorf("invalid growth model type: %s", a.Type)
 	}
-	if err := shttp.Parse(&a.AnnualRate, parseUncertainValue, r.FormValue("annual_rate"), uncertain.NewFixed(0)); err != nil {
+	if err := shttp.Parse(&a.AnnualRate, ui.ParseUncertainValue, r.FormValue("annual_rate"), uncertain.NewFixed(0)); err != nil {
 		return fmt.Errorf("parsing annual rate: %w", err)
 	}
-	if err := shttp.Parse(&a.AnnualVolatility, parseUncertainValue, r.FormValue("annual_volatility"), uncertain.NewFixed(0)); err != nil {
+	if err := shttp.Parse(&a.AnnualVolatility, ui.ParseUncertainValue, r.FormValue("annual_volatility"), uncertain.NewFixed(0)); err != nil {
 		return fmt.Errorf("parsing annual volatility: %w", err)
 	}
 	if err := shttp.Parse(&a.StartDate, date.ParseDate, r.FormValue("start_date"), date.Date(0)); err != nil {

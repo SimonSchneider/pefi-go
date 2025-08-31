@@ -11,6 +11,7 @@ import (
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 )
 
 type Account struct {
@@ -40,7 +41,7 @@ type AccountInput struct {
 func (a *AccountInput) FromForm(r *http.Request) error {
 	a.ID = r.FormValue("id")
 	a.Name = r.FormValue("name")
-	if err := shttp.Parse(&a.BalanceUpperLimit, parseNullableFloat, r.FormValue("balance_upper_limit"), nil); err != nil {
+	if err := shttp.Parse(&a.BalanceUpperLimit, ui.ParseNullableFloat, r.FormValue("balance_upper_limit"), nil); err != nil {
 		return fmt.Errorf("parsing balance limit: %w", err)
 	}
 	a.CashFlowFrequency = r.FormValue("cash_flow_frequency")
@@ -53,8 +54,8 @@ func accountFromDB(a pdb.Account) Account {
 		ID:                    a.ID,
 		Name:                  a.Name,
 		BalanceUpperLimit:     a.BalanceUpperLimit,
-		CashFlowFrequency:     orDefault(a.CashFlowFrequency),
-		CashFlowDestinationID: orDefault(a.CashFlowDestinationID),
+		CashFlowFrequency:     ui.OrDefault(a.CashFlowFrequency),
+		CashFlowDestinationID: ui.OrDefault(a.CashFlowDestinationID),
 		CreatedAt:             time.UnixMilli(a.CreatedAt),
 		UpdatedAt:             time.UnixMilli(a.UpdatedAt),
 	}
@@ -79,8 +80,8 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			ID:                    inp.ID,
 			Name:                  inp.Name,
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
-			CashFlowFrequency:     withDefaultNull(inp.CashFlowFrequency),
-			CashFlowDestinationID: withDefaultNull(inp.CashFlowDestinationID),
+			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
+			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			UpdatedAt:             time.Now().UnixMilli(),
 		})
 	} else {
@@ -88,8 +89,8 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			ID:                    sid.MustNewString(15),
 			Name:                  inp.Name,
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
-			CashFlowFrequency:     withDefaultNull(inp.CashFlowFrequency),
-			CashFlowDestinationID: withDefaultNull(inp.CashFlowDestinationID),
+			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
+			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			CreatedAt:             time.Now().UnixMilli(),
 			UpdatedAt:             time.Now().UnixMilli(),
 		})

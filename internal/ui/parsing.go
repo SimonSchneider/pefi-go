@@ -1,12 +1,13 @@
-package core
+package ui
 
 import (
 	"fmt"
+	"strconv"
+	"unicode"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"strconv"
-	"unicode"
 )
 
 type UncertainValue struct {
@@ -15,7 +16,7 @@ type UncertainValue struct {
 	Samples      []float64                  `json:"samples"`
 }
 
-func parseUncertainValue(val string) (uncertain.Value, error) {
+func ParseUncertainValue(val string) (uncertain.Value, error) {
 	if unicode.IsDigit(rune(val[0])) || (len(val) > 1 && val[0] == '-' && unicode.IsDigit(rune(val[1]))) {
 		// If the value is a simple float, return a fixed uncertain value
 		f, err := shttp.ParseFloat(val)
@@ -32,7 +33,7 @@ func parseUncertainValue(val string) (uncertain.Value, error) {
 	return value, nil
 }
 
-func parseHumanNumber[T int | int64 | int32 | float64 | float32](delegate func(string) (T, error)) func(string) (T, error) {
+func ParseHumanNumber[T int | int64 | int32 | float64 | float32](delegate func(string) (T, error)) func(string) (T, error) {
 	return func(val string) (T, error) {
 		if val == "" {
 			return 0, nil
@@ -51,7 +52,7 @@ func parseHumanNumber[T int | int64 | int32 | float64 | float32](delegate func(s
 	}
 }
 
-func parseInt64(val string) (int64, error) {
+func ParseInt64(val string) (int64, error) {
 	if val == "" {
 		return 0, nil
 	}
@@ -62,7 +63,7 @@ func parseInt64(val string) (int64, error) {
 	return i, nil
 }
 
-func parseNullableFloat(val string) (*float64, error) {
+func ParseNullableFloat(val string) (*float64, error) {
 	if val == "" {
 		return nil, nil
 	}
@@ -73,7 +74,7 @@ func parseNullableFloat(val string) (*float64, error) {
 	return &f, nil
 }
 
-func withDefaultNull[T comparable](val T) *T {
+func WithDefaultNull[T comparable](val T) *T {
 	var zero T
 	if val == zero {
 		return nil
@@ -81,7 +82,7 @@ func withDefaultNull[T comparable](val T) *T {
 	return &val
 }
 
-func orDefault[T any](val *T) T {
+func OrDefault[T any](val *T) T {
 	if val == nil {
 		var zero T
 		return zero
@@ -89,6 +90,6 @@ func orDefault[T any](val *T) T {
 	return *val
 }
 
-func parseDateCron(val string) (date.Cron, error) {
+func ParseDateCron(val string) (date.Cron, error) {
 	return date.Cron(val), nil
 }

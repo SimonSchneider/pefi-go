@@ -2,11 +2,11 @@ package core
 
 import "github.com/SimonSchneider/goslu/date"
 
-templ PageSnapshotsTable(view *TableView) {
+templ PageSnapshotsTable(view *SnapshotsTableView) {
 	@Layout("/snapshots-table", SnapshotsTableContent(view))
 }
 
-templ SnapshotsTableContent(view *TableView) {
+templ SnapshotsTableContent(view *SnapshotsTableView) {
 	<main class="flex-1 flex flex-col overflow-hidden">
 		@Header("Snapshots Table")
 		<div class="flex-1 p-6 bg-gray-50 overflow-hidden">

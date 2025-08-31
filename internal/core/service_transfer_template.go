@@ -10,6 +10,7 @@ import (
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
@@ -38,16 +39,16 @@ func (t *TransferTemplate) FromForm(r *http.Request) error {
 	if t.AmountType != "fixed" && t.AmountType != "percent" {
 		return fmt.Errorf("invalid amount type: %s", t.AmountType)
 	}
-	if err := shttp.Parse(&t.AmountFixed, parseUncertainValue, r.FormValue("amount_fixed"), uncertain.NewFixed(0)); err != nil {
+	if err := shttp.Parse(&t.AmountFixed, ui.ParseUncertainValue, r.FormValue("amount_fixed"), uncertain.NewFixed(0)); err != nil {
 		return fmt.Errorf("parsing amount fixed: %w", err)
 	}
 	if err := shttp.Parse(&t.AmountPercent, shttp.ParseFloat, r.FormValue("amount_percent"), 0); err != nil {
 		return fmt.Errorf("parsing amount percent: %w", err)
 	}
-	if err := shttp.Parse(&t.Priority, parseInt64, r.FormValue("priority"), int64(0)); err != nil {
+	if err := shttp.Parse(&t.Priority, ui.ParseInt64, r.FormValue("priority"), int64(0)); err != nil {
 		return fmt.Errorf("parsing priority: %w", err)
 	}
-	if err := shttp.Parse(&t.Recurrence, parseDateCron, r.FormValue("recurrence"), date.Cron("")); err != nil {
+	if err := shttp.Parse(&t.Recurrence, ui.ParseDateCron, r.FormValue("recurrence"), date.Cron("")); err != nil {
 		return fmt.Errorf("parsing recurrence: %w", err)
 	}
 	if err := shttp.Parse(&t.StartDate, date.ParseDate, r.FormValue("start_date"), date.Date(0)); err != nil {
@@ -79,8 +80,8 @@ func transferTemplateFromDB(t pdb.TransferTemplate) (TransferTemplate, error) {
 	return TransferTemplate{
 		ID:            t.ID,
 		Name:          t.Name,
-		FromAccountID: orDefault(t.FromAccountID),
-		ToAccountID:   orDefault(t.ToAccountID),
+		FromAccountID: ui.OrDefault(t.FromAccountID),
+		ToAccountID:   ui.OrDefault(t.ToAccountID),
 		AmountType:    t.AmountType,
 		AmountFixed:   amountFixed,
 		AmountPercent: t.AmountPercent,
@@ -108,8 +109,8 @@ func UpsertTransferTemplate(ctx context.Context, db *sql.DB, inp TransferTemplat
 	t, err := pdb.New(db).UpsertTransferTemplate(ctx, pdb.UpsertTransferTemplateParams{
 		ID:            inp.ID,
 		Name:          inp.Name,
-		FromAccountID: withDefaultNull(inp.FromAccountID),
-		ToAccountID:   withDefaultNull(inp.ToAccountID),
+		FromAccountID: ui.WithDefaultNull(inp.FromAccountID),
+		ToAccountID:   ui.WithDefaultNull(inp.ToAccountID),
 		AmountType:    inp.AmountType,
 		AmountFixed:   amountFixed,
 		AmountPercent: inp.AmountPercent,

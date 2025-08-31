@@ -1,0 +1,42 @@
+package core
+
+import "github.com/SimonSchneider/pefigo/internal/ui"
+
+templ SaveButton(isEdit bool) {
+	<button class="btn btn-primary mt-4" type="submit">
+		if isEdit {
+			Save
+		} else {
+			Create
+		}
+	</button>
+}
+
+templ StatCard(title string, value string, desc string, icon templ.Component) {
+	<div class="card bg-base-100 shadow-sm border border-base-300">
+		<div class="card-body p-0">
+			<div class="stats">
+				<div class="stat">
+					<div class="stat-title">{ title }</div>
+					<div class="stat-value">{ value }</div>
+					<div class="stat-desc">{ desc }</div>
+					<div class="stat-figure">
+						@icon
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ BalanceBadge(val float64, coloring bool, class string) {
+	<span
+		class={ templ.KV("text-green-600", val > 0 && coloring),
+		templ.KV("text-red-600", val < 0 && coloring),
+		templ.KV("text-base-content/40", val == 0 && coloring),
+		"font-mono",
+		"inline-block",
+		"min-w-[6ch]",
+		class }
+	>{ ui.FormatWithThousands(val) }</span>
+}

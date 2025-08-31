@@ -4,14 +4,54 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/finance"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"net/http"
-	"time"
 )
+
+func ChartPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		p := PredictionParams{}
+		if err := srvu.Decode(r, &p, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Chart", PageChart(p)))
+	})
+}
+
+type SSEPredictionEventHandler struct {
+	w *srvu.SSESender
+}
+
+func (s *SSEPredictionEventHandler) Setup(e PredictionSetupEvent) error {
+	return s.w.SendNamedJson("setup", e)
+}
+func (s *SSEPredictionEventHandler) Snapshot(e PredictionBalanceSnapshot) error {
+	return s.w.SendNamedJson("balanceSnapshot", e)
+}
+func (s *SSEPredictionEventHandler) Close() error {
+	return s.w.SendEventWithoutData("close")
+}
+
+func HandlerChartsDataStream(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var params PredictionParams
+		if err := srvu.Decode(r, &params, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		if err := RunPrediction(ctx, db, &SSEPredictionEventHandler{w: srvu.SSEResponse(w)}, params); err != nil {
+			return fmt.Errorf("running prediction: %w", err)
+		}
+		return nil
+	})
+}
 
 type PredictionParams struct {
 	Duration         date.Duration
@@ -24,13 +64,13 @@ func (p *PredictionParams) FromForm(r *http.Request) error {
 	if err := shttp.Parse(&p.Duration, date.ParseDuration, r.FormValue("duration"), 365); err != nil {
 		return fmt.Errorf("parsing duration: %w", err)
 	}
-	if err := shttp.Parse(&p.Samples, parseHumanNumber(parseInt64), r.FormValue("samples"), 2000); err != nil {
+	if err := shttp.Parse(&p.Samples, ui.ParseHumanNumber(ui.ParseInt64), r.FormValue("samples"), 2000); err != nil {
 		return fmt.Errorf("parsing samples: %w", err)
 	}
 	if err := shttp.Parse(&p.Quantile, shttp.ParseFloat, r.FormValue("quantile"), 0.8); err != nil {
 		return fmt.Errorf("parsing quantile: %w", err)
 	}
-	if err := shttp.Parse(&p.SnapshotInterval, parseDateCron, r.FormValue("snapshot_interval"), "*-*-25"); err != nil {
+	if err := shttp.Parse(&p.SnapshotInterval, ui.ParseDateCron, r.FormValue("snapshot_interval"), "*-*-25"); err != nil {
 		return fmt.Errorf("parsing snapshot interval: %w", err)
 	}
 	return nil
@@ -97,8 +137,8 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 		}
 		if acc.CashFlowFrequency != nil || acc.CashFlowDestinationID != nil {
 			entity.CashFlow = &finance.CashFlowModel{
-				Frequency:     date.Cron(orDefault(acc.CashFlowFrequency)),
-				DestinationID: orDefault(acc.CashFlowDestinationID),
+				Frequency:     date.Cron(ui.OrDefault(acc.CashFlowFrequency)),
+				DestinationID: ui.OrDefault(acc.CashFlowDestinationID),
 			}
 		}
 		for _, snap := range snaps {
@@ -112,7 +152,8 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 		}
 		fgms := make([]finance.GrowthModel, 0, len(gms))
 		for _, gm := range gms {
-			if gm.Type == "fixed" {
+			switch gm.Type {
+			case "fixed":
 				fgms = append(fgms, &finance.FixedGrowth{
 					TimeFrameGrowth: finance.TimeFrameGrowth{
 						StartDate: gm.StartDate,
@@ -120,7 +161,7 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 					},
 					AnnualRate: gm.AnnualRate,
 				})
-			} else if gm.Type == "lognormal" {
+			case "lognormal":
 				fgms = append(fgms, &finance.LogNormalGrowth{
 					TimeFrameGrowth: finance.TimeFrameGrowth{
 						StartDate: gm.StartDate,

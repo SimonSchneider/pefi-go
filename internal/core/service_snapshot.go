@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"net/http"
 )
 
 type AccountSnapshot struct {
@@ -34,7 +36,7 @@ func (a *AccountSnapshotInput) FromForm(r *http.Request) error {
 	balanceStr := r.FormValue("balance")
 	if balanceStr == "" {
 		a.EmptyBalance = true
-	} else if err := shttp.Parse(&a.Balance, parseUncertainValue, balanceStr, uncertain.NewFixed(0)); err != nil {
+	} else if err := shttp.Parse(&a.Balance, ui.ParseUncertainValue, balanceStr, uncertain.NewFixed(0)); err != nil {
 		return fmt.Errorf("parsing balance: %w", err)
 	}
 	return nil

@@ -1,13 +1,39 @@
 package core
 
 import (
+	"context"
 	"fmt"
-	"math"
 	"net/http"
-	"strconv"
 
-	"github.com/SimonSchneider/goslu/date"
+	"github.com/a-h/templ"
 )
+
+type View struct {
+	ctx context.Context
+	w   http.ResponseWriter
+	r   *http.Request
+}
+
+func NewView(ctx context.Context, w http.ResponseWriter, r *http.Request) *View {
+	return &View{ctx: ctx, w: w, r: r}
+}
+
+func (v *View) Render(c templ.Component) error {
+	v.setupHeaders(false)
+	return c.Render(v.ctx, v.w)
+}
+
+func (v *View) setupHeaders(cache bool) {
+	v.w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if cache {
+		v.w.Header().Set("Cache-Control", "public, max-age=3600") // Cache for 1 hour
+	} else {
+		// No caching headers
+		v.w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		v.w.Header().Set("Pragma", "no-cache")
+		v.w.Header().Set("Expires", "0")
+	}
+}
 
 type RequestDetails struct {
 	req *http.Request
@@ -21,75 +47,6 @@ func (r *RequestDetails) PrevPath() string {
 	return r.req.FormValue("prev")
 }
 
-type AccountsListView struct {
-	*RequestDetails
-	Accounts []Account
-}
-
-type UserListView struct {
-	*RequestDetails
-}
-
-type IndexView struct {
-	*RequestDetails
-	Accounts  AccountsListView
-	Transfers TransferTemplatesView
-	Users     UserListView
-}
-
-type TableRow struct {
-	Date      date.Date
-	Snapshots []AccountSnapshot
-}
-
-type TableView struct {
-	*RequestDetails
-	Accounts []Account
-	Rows     []TableRow
-}
-
-type AccountEditView struct {
-	*RequestDetails
-	Account  Account
-	Accounts []Account
-}
-
-func (c AccountEditView) IsEdit() bool {
-	return c.Account.ID != ""
-}
-
-type AccountSnapshotEditView struct {
-	*RequestDetails
-	Account  Account
-	Snapshot AccountSnapshot
-}
-
-func (c AccountSnapshotEditView) IsEdit() bool {
-	return c.Snapshot.AccountID != ""
-}
-
-type AccountGrowthModelView struct {
-	*RequestDetails
-	Account     Account
-	GrowthModel GrowthModel
-}
-
-func (c AccountGrowthModelView) IsEdit() bool {
-	return c.GrowthModel.ID != ""
-}
-
-type AccountView struct {
-	*RequestDetails
-	Account      Account
-	Snapshots    []AccountSnapshot
-	GrowthModels []GrowthModel
-}
-
-type TransferTemplatesView struct {
-	*RequestDetails
-	Transfers []TransferTemplate
-}
-
 type TransferTemplateEditView struct {
 	*RequestDetails
 	TransferTemplate TransferTemplate
@@ -98,22 +55,6 @@ type TransferTemplateEditView struct {
 
 func (c TransferTemplateEditView) IsEdit() bool {
 	return c.TransferTemplate.ID != ""
-}
-
-type TransferTemplateView struct {
-	*RequestDetails
-	TransferTemplate TransferTemplate
-}
-
-type TransferTableRow struct {
-	*RequestDetails
-	Transfer TransferTemplate
-	Accounts []Account
-}
-
-type TransferTableView struct {
-	*RequestDetails
-	Rows []TransferTableRow
 }
 
 type TransferTemplateWithAmount struct {
@@ -213,39 +154,6 @@ func NewAccountsView(accounts []AccountDetailed) *AccountsView {
 		}
 	}
 	return v
-}
-
-func FormatWithThousands(val float64) string {
-	// Round the value to the nearest integer
-	rounded := math.Round(val)
-	s := strconv.FormatInt(int64(rounded), 10)
-	n := len(s)
-	neg := false
-	if n > 0 && s[0] == '-' {
-		neg = true
-		s = s[1:]
-		n--
-	}
-	if n <= 3 {
-		if neg {
-			return "-" + s
-		}
-		return s
-	}
-	var out []byte
-	pre := n % 3
-	if pre == 0 {
-		pre = 3
-	}
-	out = append(out, s[:pre]...)
-	for i := pre; i < n; i += 3 {
-		out = append(out, ',')
-		out = append(out, s[i:i+3]...)
-	}
-	if neg {
-		return "-" + string(out)
-	}
-	return string(out)
 }
 
 func KeyBy[T any](items []T, key func(T) string) map[string]T {

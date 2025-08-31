@@ -167,7 +167,7 @@ myChart.on('legendselectchanged', function (params) {
     })
 });
 
-const evtSource = new EventSource(`/charts/stream${window.location.search}`);
+const evtSource = new EventSource(`/chart/stream${window.location.search}`);
 evtSource.addEventListener('setup', (event) => {
     const data = JSON.parse(event.data);
     data.entities.forEach(e => {

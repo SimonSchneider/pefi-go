@@ -1,6 +1,10 @@
 package core;
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/SimonSchneider/pefigo/internal/ui"
+)
 
 templ PageAccounts(view *AccountsView) {
 	@Layout("/accounts", AccountsContent(view))
@@ -27,16 +31,6 @@ templ DeleteAccountButton(id string) {
 			Delete
 		</button>
 	</form>
-}
-
-templ SaveButton(isEdit bool) {
-	<button class="btn btn-primary mt-4" type="submit">
-		if isEdit {
-			Save
-		} else {
-			Create
-		}
-	</button>
 }
 
 templ AccountForm(view *AccountEditView2) {
@@ -158,33 +152,12 @@ templ GrowthModelForm(accountID string, growthModel GrowthModel) {
 	</form>
 }
 
-templ StatCard(title string, value string, desc string, icon templ.Component) {
-	<div class="card bg-base-100 shadow-sm border border-base-300">
-		<div class="card-body p-0">
-			<div class="stats">
-				<div class="stat">
-					<div class="stat-title">{ title }</div>
-					<div class="stat-value">{ value }</div>
-					<div class="stat-desc">{ desc }</div>
-					<div class="stat-figure">
-						@icon
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-}
-
-templ Icon(path string, class string) {
-	<img src={ "/static/public/icons/" + path } class={ class }/>
-}
-
 templ AccountsStatCardRow(view *AccountsView) {
 	<div class="flex flex-row flex-wrap gap-4">
-		@StatCard("Total Balance", FormatWithThousands(view.TotalBalance), "Total balance of all accounts", IconTrendingUp("w-10 h-10 "))
+		@StatCard("Total Balance", ui.FormatWithThousands(view.TotalBalance), "Total balance of all accounts", IconTrendingUp("w-10 h-10 "))
 		@StatCard("Total Accounts", strconv.Itoa(len(view.Accounts)), "number of accounts", Icon("cash-banknote.svg", "w-10 h-10 "))
-		@StatCard("Assets", FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10"))
-		@StatCard("Liabilities", FormatWithThousands(-view.TotalLiabilities), "Total liabilities", IconTrendingDown("w-10 h-10"))
+		@StatCard("Assets", ui.FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10"))
+		@StatCard("Liabilities", ui.FormatWithThousands(-view.TotalLiabilities), "Total liabilities", IconTrendingDown("w-10 h-10"))
 	</div>
 }
 
@@ -295,32 +268,4 @@ templ AccountsContent(view *AccountsView) {
 			</div>
 		</div>
 	</main>
-}
-
-templ BalanceBadge(val float64, coloring bool, class string) {
-	<span
-		class={ templ.KV("text-green-600", val > 0 && coloring),
-		templ.KV("text-red-600", val < 0 && coloring),
-		templ.KV("text-base-content/40", val == 0 && coloring),
-		"font-mono",
-		"inline-block",
-		"min-w-[6ch]",
-		class }
-	>{ FormatWithThousands(val) }</span>
-}
-
-templ IconTrendingUp(class string) {
-	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={ class + " icon icon-tabler icons-tabler-outline icon-tabler-trending-up text-green-600" }><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 17l6 -6l4 4l8 -8"></path><path d="M14 7l7 0l0 7"></path></svg>
-}
-
-templ IconTrendingDown(class string) {
-	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class={ class + " icon icon-tabler icons-tabler-outline icon-tabler-trending-down text-red-600" }><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M3 7l6 6l4 -4l8 8"></path><path d="M21 10l0 7l-7 0"></path></svg>
-}
-
-templ IconCopy(class string) {
-	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-copy"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z"></path><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"></path></svg>
-}
-
-templ IconPencil(class string) {
-	<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-pencil"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path><path d="M13.5 6.5l4 4"></path></svg>
 }

@@ -1,6 +1,10 @@
 package core;
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/SimonSchneider/pefigo/internal/ui"
+)
 
 // import "github.com/SimonSchneider/pefigo/internal/uncertain"
 templ PageTransferTemplates(view *TransferTemplatesView2) {
@@ -112,10 +116,10 @@ templ TransferTemplateForm(view *TransferTemplateEditView) {
 
 templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
 	<div class="flex flex-row flex-wrap gap-4">
-		@StatCard("Net Income", FormatWithThousands(view.MonthlyIncome + view.MonthlyExpenses), "Net income of all accounts", IconTrendingUp("w-10 h-10 "))
+		@StatCard("Net Income", ui.FormatWithThousands(view.MonthlyIncome + view.MonthlyExpenses), "Net income of all accounts", IconTrendingUp("w-10 h-10 "))
 		@StatCard("Total Templates", strconv.Itoa(len(view.TransferTemplates)), "number of templates", Icon("cash-banknote.svg", "w-10 h-10 "))
-		@StatCard("Total Income", FormatWithThousands(view.MonthlyIncome), "Total income of all accounts", IconTrendingUp("w-10 h-10 "))
-		@StatCard("Total Expenses", FormatWithThousands(view.MonthlyExpenses), "Total expenses of all accounts", IconTrendingDown("w-10 h-10 "))
+		@StatCard("Total Income", ui.FormatWithThousands(view.MonthlyIncome), "Total income of all accounts", IconTrendingUp("w-10 h-10 "))
+		@StatCard("Total Expenses", ui.FormatWithThousands(view.MonthlyExpenses), "Total expenses of all accounts", IconTrendingDown("w-10 h-10 "))
 	</div>
 }
 
