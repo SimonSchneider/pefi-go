@@ -11,8 +11,16 @@ import (
 )
 
 const createAccount = `-- name: CreateAccount :one
-INSERT INTO account
-(id, name, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, created_at, updated_at)
+INSERT INTO account (
+    id,
+    name,
+    balance_upper_limit,
+    cash_flow_frequency,
+    cash_flow_destination_id,
+    type_id,
+    created_at,
+    updated_at
+  )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
@@ -55,8 +63,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 }
 
 const deleteAccount = `-- name: DeleteAccount :one
-DELETE
-FROM account
+DELETE FROM account
 WHERE id = ?
 RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
@@ -79,8 +86,7 @@ func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error)
 }
 
 const deleteAccountType = `-- name: DeleteAccountType :exec
-DELETE
-FROM account_type
+DELETE FROM account_type
 WHERE id = ?
 `
 
@@ -90,8 +96,7 @@ func (q *Queries) DeleteAccountType(ctx context.Context, id string) error {
 }
 
 const deleteGrowthModel = `-- name: DeleteGrowthModel :exec
-DELETE
-FROM growth_model
+DELETE FROM growth_model
 WHERE id = ?
 `
 
@@ -101,8 +106,7 @@ func (q *Queries) DeleteGrowthModel(ctx context.Context, id string) error {
 }
 
 const deleteSnapshot = `-- name: DeleteSnapshot :exec
-DELETE
-FROM account_snapshot
+DELETE FROM account_snapshot
 WHERE account_id = ?
   AND date = ?
 `
@@ -118,8 +122,7 @@ func (q *Queries) DeleteSnapshot(ctx context.Context, arg DeleteSnapshotParams) 
 }
 
 const deleteTransferTemplate = `-- name: DeleteTransferTemplate :exec
-DELETE
-FROM transfer_template
+DELETE FROM transfer_template
 WHERE id = ?
 `
 
@@ -152,7 +155,7 @@ func (q *Queries) GetAccount(ctx context.Context, id string) (Account, error) {
 }
 
 const getAccountType = `-- name: GetAccountType :one
-SELECT id, name
+SELECT id, name, color
 FROM account_type
 WHERE id = ?
 `
@@ -160,7 +163,7 @@ WHERE id = ?
 func (q *Queries) GetAccountType(ctx context.Context, id string) (AccountType, error) {
 	row := q.db.QueryRowContext(ctx, getAccountType, id)
 	var i AccountType
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(&i.ID, &i.Name, &i.Color)
 	return i, err
 }
 
@@ -278,7 +281,8 @@ const getSnapshotsByAccounts = `-- name: GetSnapshotsByAccounts :many
 SELECT account_id, date, balance
 FROM account_snapshot
 WHERE account_id IN (/*SLICE:ids*/?)
-ORDER BY date, account_id
+ORDER BY date,
+  account_id
 `
 
 func (q *Queries) GetSnapshotsByAccounts(ctx context.Context, ids []string) ([]AccountSnapshot, error) {
@@ -345,7 +349,12 @@ func (q *Queries) GetTransferTemplate(ctx context.Context, id string) (TransferT
 const getTransferTemplates = `-- name: GetTransferTemplates :many
 SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
 FROM transfer_template
-ORDER BY recurrence, priority, name, start_date, end_date, created_at
+ORDER BY recurrence,
+  priority,
+  name,
+  start_date,
+  end_date,
+  created_at
 `
 
 func (q *Queries) GetTransferTemplates(ctx context.Context) ([]TransferTemplate, error) {
@@ -387,9 +396,10 @@ func (q *Queries) GetTransferTemplates(ctx context.Context) ([]TransferTemplate,
 }
 
 const listAccountTypes = `-- name: ListAccountTypes :many
-SELECT id, name
+SELECT id, name, color
 FROM account_type
-ORDER BY name, id
+ORDER BY name,
+  id
 `
 
 func (q *Queries) ListAccountTypes(ctx context.Context) ([]AccountType, error) {
@@ -401,7 +411,7 @@ func (q *Queries) ListAccountTypes(ctx context.Context) ([]AccountType, error) {
 	var items []AccountType
 	for rows.Next() {
 		var i AccountType
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Color); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -418,7 +428,8 @@ func (q *Queries) ListAccountTypes(ctx context.Context) ([]AccountType, error) {
 const listAccounts = `-- name: ListAccounts :many
 SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 FROM account
-ORDER BY name, id
+ORDER BY name,
+  id
 `
 
 func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
@@ -457,7 +468,9 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 const listActiveGrowthModels = `-- name: ListActiveGrowthModels :many
 SELECT id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
 FROM growth_model
-WHERE end_date IS NULL OR end_date > ?1 AND start_date <= ?1
+WHERE end_date IS NULL
+  OR end_date > ?1
+  AND start_date <= ?1
 `
 
 func (q *Queries) ListActiveGrowthModels(ctx context.Context, param1 *int64) ([]GrowthModel, error) {
@@ -496,12 +509,13 @@ func (q *Queries) ListActiveGrowthModels(ctx context.Context, param1 *int64) ([]
 const listLatestSnapshotPerAccount = `-- name: ListLatestSnapshotPerAccount :many
 SELECT s.account_id, s.date, s.balance
 FROM account_snapshot s
-INNER JOIN (
-    SELECT account_id, MAX(date) AS max_date
+  INNER JOIN (
+    SELECT account_id,
+      MAX(date) AS max_date
     FROM account_snapshot
     GROUP BY account_id
-) latest
-ON s.account_id = latest.account_id AND s.date = latest.max_date
+  ) latest ON s.account_id = latest.account_id
+  AND s.date = latest.max_date
 `
 
 func (q *Queries) ListLatestSnapshotPerAccount(ctx context.Context) ([]AccountSnapshot, error) {
@@ -529,12 +543,12 @@ func (q *Queries) ListLatestSnapshotPerAccount(ctx context.Context) ([]AccountSn
 
 const updateAccount = `-- name: UpdateAccount :one
 UPDATE account
-SET name                     = ?,
-    updated_at               = ?,
-    balance_upper_limit      = ?,
-    cash_flow_frequency      = ?,
-    cash_flow_destination_id = ?,
-    type_id                  = ?
+SET name = ?,
+  updated_at = ?,
+  balance_upper_limit = ?,
+  cash_flow_frequency = ?,
+  cash_flow_destination_id = ?,
+  type_id = ?
 WHERE id = ?
 RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 `
@@ -610,32 +624,47 @@ func (q *Queries) UpdateSnapshotDate(ctx context.Context, arg UpdateSnapshotDate
 }
 
 const upsertAccountType = `-- name: UpsertAccountType :one
-INSERT OR
-REPLACE
-INTO account_type
-(id, name)
-VALUES (?, ?)
-RETURNING id, name
+INSERT INTO account_type (id, name, color)
+VALUES (?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET name = EXCLUDED.name,
+  color = EXCLUDED.color
+RETURNING id, name, color
 `
 
 type UpsertAccountTypeParams struct {
-	ID   string
-	Name string
+	ID    string
+	Name  string
+	Color *string
 }
 
 func (q *Queries) UpsertAccountType(ctx context.Context, arg UpsertAccountTypeParams) (AccountType, error) {
-	row := q.db.QueryRowContext(ctx, upsertAccountType, arg.ID, arg.Name)
+	row := q.db.QueryRowContext(ctx, upsertAccountType, arg.ID, arg.Name, arg.Color)
 	var i AccountType
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(&i.ID, &i.Name, &i.Color)
 	return i, err
 }
 
 const upsertGrowthModel = `-- name: UpsertGrowthModel :one
-INSERT OR
-REPLACE
-INTO growth_model
-(id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO growth_model (
+    id,
+    account_id,
+    model_type,
+    annual_growth_rate,
+    annual_volatility,
+    start_date,
+    end_date,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET model_type = EXCLUDED.model_type,
+  annual_growth_rate = EXCLUDED.annual_growth_rate,
+  annual_volatility = EXCLUDED.annual_volatility,
+  start_date = EXCLUDED.start_date,
+  end_date = EXCLUDED.end_date,
+  updated_at = EXCLUDED.updated_at
 RETURNING id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
 `
 
@@ -679,11 +708,10 @@ func (q *Queries) UpsertGrowthModel(ctx context.Context, arg UpsertGrowthModelPa
 }
 
 const upsertSnapshot = `-- name: UpsertSnapshot :one
-INSERT OR
-REPLACE
-INTO account_snapshot
-    (account_id, date, balance)
-VALUES (?, ?, ?)
+INSERT INTO account_snapshot (account_id, date, balance)
+VALUES (?, ?, ?) ON CONFLICT (account_id, date) DO
+UPDATE
+SET balance = EXCLUDED.balance
 RETURNING account_id, date, balance
 `
 
@@ -701,12 +729,36 @@ func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) 
 }
 
 const upsertTransferTemplate = `-- name: UpsertTransferTemplate :one
-INSERT OR
-REPLACE
-INTO transfer_template
-(id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date,
- end_date, enabled, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO transfer_template (
+    id,
+    name,
+    from_account_id,
+    to_account_id,
+    amount_type,
+    amount_fixed,
+    amount_percent,
+    priority,
+    recurrence,
+    start_date,
+    end_date,
+    enabled,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET name = EXCLUDED.name,
+  from_account_id = EXCLUDED.from_account_id,
+  to_account_id = EXCLUDED.to_account_id,
+  amount_type = EXCLUDED.amount_type,
+  amount_fixed = EXCLUDED.amount_fixed,
+  amount_percent = EXCLUDED.amount_percent,
+  priority = EXCLUDED.priority,
+  recurrence = EXCLUDED.recurrence,
+  start_date = EXCLUDED.start_date,
+  end_date = EXCLUDED.end_date,
+  enabled = EXCLUDED.enabled,
+  updated_at = EXCLUDED.updated_at
 RETURNING id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
 `
 

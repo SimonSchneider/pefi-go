@@ -19,4 +19,5 @@
     "emmet.includeLanguages": {
         "templ": "html"
     },
+    "gopls": { "ui.semanticTokens": true }
 }

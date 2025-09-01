@@ -23,8 +23,9 @@ type AccountSnapshot struct {
 }
 
 type AccountType struct {
-	ID   string
-	Name string
+	ID    string
+	Name  string
+	Color *string
 }
 
 type GrowthModel struct {

@@ -174,8 +174,8 @@ func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountType) *Ac
 	return v
 }
 
-func (v *AccountsView) GetAccountTypeName(typeID string) string {
-	return findAccountTypeName(v.AccountTypes, typeID)
+func (v *AccountsView) GetAccountType(typeID string) AccountType {
+	return findAccountType(v.AccountTypes, typeID)
 }
 
 func KeyBy[T any](items []T, key func(T) string) map[string]T {
@@ -202,17 +202,17 @@ func (v *AccountEditView2) IsEdit() bool {
 }
 
 func (v *AccountEditView2) GetAccountTypeName(typeID string) string {
-	return findAccountTypeName(v.AccountTypes, typeID)
+	return findAccountType(v.AccountTypes, typeID).Name
 }
 
-func findAccountTypeName(accountTypes []AccountType, typeID string) string {
+func findAccountType(accountTypes []AccountType, typeID string) AccountType {
 	if typeID == "" {
-		return ""
+		return AccountType{}
 	}
 	for _, at := range accountTypes {
 		if at.ID == typeID {
-			return at.Name
+			return at
 		}
 	}
-	return ""
+	return AccountType{}
 }

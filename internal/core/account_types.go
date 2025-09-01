@@ -10,6 +10,7 @@ import (
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 )
 
 func AccountTypesPage(db *sql.DB) http.Handler {
@@ -64,25 +65,29 @@ func HandlerAccountTypeDelete(db *sql.DB) http.Handler {
 }
 
 type AccountType struct {
-	ID   string
-	Name string
+	ID    string
+	Name  string
+	Color string
 }
 
 type AccountTypeInput struct {
-	ID   string
-	Name string
+	ID    string
+	Name  string
+	Color string
 }
 
 func (a *AccountTypeInput) FromForm(r *http.Request) error {
 	a.ID = r.FormValue("id")
 	a.Name = r.FormValue("name")
+	a.Color = r.FormValue("color")
 	return nil
 }
 
 func accountTypeFromDB(at pdb.AccountType) AccountType {
 	return AccountType{
-		ID:   at.ID,
-		Name: at.Name,
+		ID:    at.ID,
+		Name:  at.Name,
+		Color: ui.OrDefault(at.Color),
 	}
 }
 
@@ -102,13 +107,15 @@ func UpsertAccountType(ctx context.Context, db *sql.DB, inp AccountTypeInput) (A
 	)
 	if inp.ID != "" {
 		at, err = q.UpsertAccountType(ctx, pdb.UpsertAccountTypeParams{
-			ID:   inp.ID,
-			Name: inp.Name,
+			ID:    inp.ID,
+			Name:  inp.Name,
+			Color: ui.WithDefaultNull(inp.Color),
 		})
 	} else {
 		at, err = q.UpsertAccountType(ctx, pdb.UpsertAccountTypeParams{
-			ID:   sid.MustNewString(15),
-			Name: inp.Name,
+			ID:    sid.MustNewString(15),
+			Name:  inp.Name,
+			Color: ui.WithDefaultNull(inp.Color),
 		})
 	}
 	if err != nil {

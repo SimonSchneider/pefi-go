@@ -112,6 +112,7 @@ type PredictionBalanceSnapshot struct {
 type PredictionFinancialEntity struct {
 	ID        string                      `json:"id"`
 	Name      string                      `json:"name"`
+	Color     string                      `json:"color"`
 	Snapshots []PredictionBalanceSnapshot `json:"snapshots"`
 }
 type PredictionSetupEvent struct {
@@ -277,6 +278,7 @@ func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Dat
 
 	type GroupedEntities struct {
 		name  string
+		color string
 		dates map[date.Date]uncertain.Value
 	}
 
@@ -285,12 +287,14 @@ func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Dat
 	case GroupByTotal:
 		groupedEntities["total"] = GroupedEntities{
 			name:  "total",
+			color: "",
 			dates: make(map[date.Date]uncertain.Value),
 		}
 	case GroupByType:
 		for _, accountType := range h.accountTypesById {
 			groupedEntities[accountType.ID] = GroupedEntities{
 				name:  accountType.Name,
+				color: ui.OrDefault(accountType.Color),
 				dates: make(map[date.Date]uncertain.Value),
 			}
 		}
@@ -298,6 +302,7 @@ func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Dat
 		for _, account := range h.accsById {
 			groupedEntities[account.ID] = GroupedEntities{
 				name:  account.Name,
+				color: "",
 				dates: make(map[date.Date]uncertain.Value),
 			}
 		}
@@ -324,6 +329,7 @@ func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Dat
 		ent := PredictionFinancialEntity{
 			ID:        id,
 			Name:      e.name,
+			Color:     e.color,
 			Snapshots: make([]PredictionBalanceSnapshot, 0, len(e.dates)),
 		}
 		for day, amount := range e.dates {

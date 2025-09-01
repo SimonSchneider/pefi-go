@@ -183,7 +183,7 @@ templ AccountTableRow(view *AccountsView, account *AccountDetailed) {
 		<td class="font-medium">{ account.Name }</td>
 		<td>
 			if account.TypeID != "" {
-				<span class="badge badge-outline">{ view.GetAccountTypeName(account.TypeID) }</span>
+				@AccountTypeBadge(view.GetAccountType(account.TypeID))
 			}
 		</td>
 		<td class="text-right">

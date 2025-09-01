@@ -24,6 +24,15 @@ const batchInterval = 100;
 
 const series = {};
 
+function getColor(idx) {
+    return colors[idx % colors.length][1];
+}
+
+function lightenColor(color) {
+    const [r, g, b] = color.match(/\w\w/g).map(c => parseInt(c, 16));
+    return `rgba(${r}, ${g}, ${b}, 0.3)`;
+}
+
 myChart.setOption({
     legend: {
         data: [],
@@ -102,6 +111,7 @@ const intervalUpdate = setInterval(runUpdateBatch, batchInterval);
 let idx = 0;
 
 const addSeries = (data) => {
+    const color = data.color || getColor(idx);
     series[data.id] = {
         id: data.id,
         name: data.name,
@@ -111,10 +121,10 @@ const addSeries = (data) => {
         smooth: false,
         group: data.name,
         lineStyle: {
-            color: colors[idx % colors.length][1],
+            color,
         },
         itemStyle: {
-            color: colors[idx % colors.length][1],
+            color,
         },
     }
     series[`${data.id}_min`] = {
@@ -146,7 +156,7 @@ const addSeries = (data) => {
         smooth: false,
         group: data.name,
         areaStyle: {
-            color: colors[idx % colors.length][0]
+            color: lightenColor(color)
         },
         tooltip: {
             show: false,

@@ -16,6 +16,7 @@ templ AccountTypesView(accountTypes []AccountType) {
 								<thead>
 									<tr>
 										<th class="font-semibold">Name</th>
+										<th class="font-semibold">Color</th>
 										<th class="font-semibold text-right sticky">Actions</th>
 									</tr>
 								</thead>
@@ -37,6 +38,9 @@ templ AccountTypesView(accountTypes []AccountType) {
 										for _, at := range accountTypes {
 											<tr class="hover:bg-base-50">
 												<td class="font-medium">{ at.Name }</td>
+												<td>
+													@AccountTypeBadge(at)
+												</td>
 												<td class="text-right">
 													<a href={ templ.SafeURL("/account-types/" + at.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
 														@IconPencil("w-4 h-4")
@@ -53,6 +57,10 @@ templ AccountTypesView(accountTypes []AccountType) {
 			</div>
 		</div>
 	</main>
+}
+
+templ AccountTypeBadge(at AccountType) {
+	<span class="badge" style={ "background-color: " + at.Color }>{ at.Name }</span>
 }
 
 templ PageEditAccountType(child templ.Component) {
@@ -87,6 +95,8 @@ templ AccountTypeForm(accountType AccountType) {
 					<input type="hidden" name="id" value={ accountType.ID }/>
 					<label class="label">Name</label>
 					<input type="text" class="input" placeholder="Asset, Pension, Checking, etc." name="name" value={ accountType.Name }/>
+					<label class="label">Color</label>
+					<input type="color" class="input" name="color" value={ accountType.Color }/>
 					@SaveButton(accountType.ID != "")
 				</fieldset>
 			</form>
