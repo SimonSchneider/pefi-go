@@ -218,6 +218,13 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux.Handle("POST /account-types/{$}", HandlerAccountTypeUpsert(db))
 	mux.Handle("POST /account-types/{id}/delete", HandlerAccountTypeDelete(db))
 
+	// Special dates
+	mux.Handle("GET /special-dates", SpecialDatesPage(db))
+	mux.Handle("GET /special-dates/new", SpecialDateNewPage(db))
+	mux.Handle("GET /special-dates/{id}/edit", SpecialDateEditPage(db))
+	mux.Handle("POST /special-dates/{$}", HandlerSpecialDateUpsert(db))
+	mux.Handle("POST /special-dates/{id}/delete", HandlerSpecialDateDelete(db))
+
 	// Snapshots table
 	mux.Handle("GET /snapshots-table", SnapshotsTablePage(db))
 	mux.Handle("POST /snapshots-table/modify-date", SnapshotsTableModifyDate(db))

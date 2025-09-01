@@ -1,0 +1,98 @@
+package core
+
+templ PageSpecialDates(child templ.Component) {
+	@Layout("/special-dates", child)
+}
+
+templ SpecialDatesView(specialDates []SpecialDate) {
+	<main class="flex-1 flex flex-col">
+		@Header("Special Dates", NewButton("/special-dates/new", IconPlus("w-4 h-4"), "New Special Date"))
+		<div class="flex-1 p-6 overflow-auto bg-base-50">
+			<div class="flex flex-col gap-4">
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead>
+									<tr>
+										<th class="font-semibold">Name</th>
+										<th class="font-semibold">Date</th>
+										<th class="font-semibold text-right sticky">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(specialDates) == 0 {
+										<tr>
+											<td colspan="3" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													<svg class="w-12 h-12 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+													</svg>
+													<p class="text-lg font-medium">No special dates yet</p>
+													<p>Create your first special date to get started</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, sd := range specialDates {
+											<tr class="hover:bg-base-50">
+												<td class="font-medium">{ sd.Name }</td>
+												<td>{ sd.Date }</td>
+												<td class="text-right">
+													<a href={ templ.SafeURL("/special-dates/" + sd.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+														@IconPencil("w-4 h-4")
+													</a>
+												</td>
+											</tr>
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}
+
+templ PageEditSpecialDate(child templ.Component) {
+	@Layout("/special-dates", child)
+}
+
+templ SpecialDateEditView(specialDate SpecialDate) {
+	<main class="flex-1 flex flex-col">
+		if specialDate.ID != "" {
+			@Header("Edit Special Date", DeleteSpecialDateButton(specialDate.ID))
+		} else {
+			@Header("New Special Date", BackButton("/special-dates"))
+		}
+		@SpecialDateForm(specialDate)
+	</main>
+}
+
+templ DeleteSpecialDateButton(id string) {
+	<form method="post" action={ "/special-dates/" + id + "/delete?next=" + templ.EscapeString("/special-dates") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ SpecialDateForm(specialDate SpecialDate) {
+	<div class="flex flex-col lg:flex-row gap-6 m-6">
+		<div class="flex-1">
+			<form action={ "/special-dates/?next=" + templ.EscapeString("/special-dates") } method="post">
+				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
+					<legend class="fieldset-legend">Special Date Details</legend>
+					<input type="hidden" name="id" value={ specialDate.ID }/>
+					<label class="label">Name</label>
+					<input type="text" class="input" placeholder="Birthday, Anniversary, Holiday, etc." name="name" value={ specialDate.Name }/>
+					<label class="label">Date</label>
+					<input type="date" class="input" name="date" value={ specialDate.Date }/>
+					@SaveButton(specialDate.ID != "")
+				</fieldset>
+			</form>
+		</div>
+	</div>
+}

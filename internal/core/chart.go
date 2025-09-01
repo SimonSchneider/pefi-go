@@ -115,9 +115,14 @@ type PredictionFinancialEntity struct {
 	Color     string                      `json:"color"`
 	Snapshots []PredictionBalanceSnapshot `json:"snapshots"`
 }
+type Markline struct {
+	Date int64  `json:"date"`
+	Name string `json:"name"`
+}
 type PredictionSetupEvent struct {
-	Max      int64                       `json:"max"`
-	Entities []PredictionFinancialEntity `json:"entities"`
+	Max       int64                       `json:"max"`
+	Entities  []PredictionFinancialEntity `json:"entities"`
+	Marklines []Markline                  `json:"marklines"`
 }
 
 type PredictionEventHandler interface {
@@ -143,6 +148,10 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	accountTypes, err := q.ListAccountTypes(ctx)
 	if err != nil {
 		return fmt.Errorf("listing account types for Prediction: %w", err)
+	}
+	specialDates, err := q.GetSpecialDates(ctx)
+	if err != nil {
+		return fmt.Errorf("listing special dates for Prediction: %w", err)
 	}
 	accountTypesById := KeyBy(accountTypes, func(at pdb.AccountType) string { return at.ID })
 	accsById := make(map[string]pdb.Account, len(accs))
@@ -240,7 +249,7 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 
 	h := &GroupingEventHandler{eventHandler: eventHandler, ucfg: ucfg, accsById: accsById, accountTypesById: accountTypesById, groupBy: params.GroupBy, q1: q1, q2: q2}
 
-	if err := h.Setup(entities, endDate); err != nil {
+	if err := h.Setup(entities, endDate, specialDates); err != nil {
 		return fmt.Errorf("setting up grouping event handler: %w", err)
 	}
 
@@ -266,7 +275,7 @@ type GroupingEventHandler struct {
 	currentAccs map[string]uncertain.Value
 }
 
-func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Date) error {
+func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Date, specialDates []pdb.SpecialDate) error {
 	for _, e := range h.accsById {
 		if e.TypeID == nil {
 			h.accountTypesById[""] = pdb.AccountType{
@@ -347,11 +356,23 @@ func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Dat
 		})
 		sssEntities = append(sssEntities, ent)
 	}
+	marklines := make([]Markline, 0, len(specialDates))
+	for _, sd := range specialDates {
+		day, err := date.ParseDate(sd.Date)
+		if err != nil {
+			return fmt.Errorf("parsing special date: %w", err)
+		}
+		marklines = append(marklines, Markline{
+			Date: day.ToStdTime().UnixMilli(),
+			Name: sd.Name,
+		})
+	}
 	h.currentDate = endDate
 	h.currentAccs = make(map[string]uncertain.Value, len(h.accsById))
 	return h.eventHandler.Setup(PredictionSetupEvent{
-		Max:      endDate.ToStdTime().UnixMilli(),
-		Entities: sssEntities,
+		Max:       endDate.ToStdTime().UnixMilli(),
+		Entities:  sssEntities,
+		Marklines: marklines,
 	})
 }
 
@@ -387,7 +408,6 @@ func (h *GroupingEventHandler) Snapshot(id string, day date.Date, balance uncert
 }
 
 func (h *GroupingEventHandler) Flush() error {
-	fmt.Printf("Flushing: %+v\n", h.currentAccs)
 	for id, balance := range h.currentAccs {
 		q := balance.Quantiles()
 		err := h.eventHandler.Snapshot(PredictionBalanceSnapshot{

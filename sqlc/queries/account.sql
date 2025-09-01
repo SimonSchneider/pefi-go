@@ -179,3 +179,23 @@ RETURNING *;
 -- name: DeleteAccountType :exec
 DELETE FROM account_type
 WHERE id = ?;
+-- name: GetSpecialDates :many
+SELECT *
+FROM special_date
+ORDER BY date,
+  name,
+  id;
+-- name: GetSpecialDate :one
+SELECT *
+FROM special_date
+WHERE id = ?;
+-- name: UpsertSpecialDate :one
+INSERT INTO special_date (id, name, date)
+VALUES (?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET name = EXCLUDED.name,
+  date = EXCLUDED.date
+RETURNING *;
+-- name: DeleteSpecialDate :exec
+DELETE FROM special_date
+WHERE id = ?;

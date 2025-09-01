@@ -74,29 +74,7 @@ myChart.setOption({
             xAxisIndex: 0
         }
     ],
-    series: [
-        {
-            id: 'today',
-            name: 'Today',
-            type: 'line',
-            markLine: {
-                symbol: ['none', 'none'],
-                data: [
-                    {
-                        xAxis: new Date(),
-                        lineStyle: {
-                            color: '#ff0000',
-                            type: 'dashed',
-                        },
-                        label: {
-                            formatter: 'Today',
-                            color: '#ff0000',
-                        }
-                    }
-                ]
-            }
-        }
-    ]
+    series: []
 });
 
 const addPointToSeries = (seriesName, day, balance) => (series[seriesName].data || []).push([day, balance]);
@@ -184,12 +162,60 @@ evtSource.addEventListener('setup', (event) => {
         addSeries(e);
         e.snapshots.forEach(s => addDataPoint(s));
     })
+    console.log(data.marklines);
+    const today = new Date();
+    const today2 = new Date();
+    today2.setDate(today2.getUTCDate() + 1000);
     myChart.setOption({
         legend: {
             data: data.entities.map(e => ({ name: e.name })),
         },
         xAxis: { max: data.max },
-        series: Object.values(series),
+        series: Object.values(series).concat([
+            {
+                id: 'today',
+                name: 'Today',
+                type: 'line',
+                markLine: {
+                    symbol: ['none', 'none'],
+                    data: [
+                        {
+                            xAxis: today,
+                            lineStyle: {
+                                color: '#ff0000',
+                                type: 'dashed',
+                            },
+                            label: {
+                                formatter: 'Today',
+                                color: '#ff0000',
+                            }
+                        }
+                    ]
+                },
+            },
+            ...data.marklines.map((m, idx) => ({
+                id: m.name,
+                name: m.name,
+                type: 'line',
+                markLine: {
+                    symbol: ['none', 'none'],
+                    data: [
+                        {
+                            xAxis: new Date(m.date),
+                            lineStyle: {
+                                color: '#ff0000',
+                                type: 'dashed',
+                            },
+                            label: {
+                                offset: [0, idx % 2 !== 0 ? 0 : -15],
+                                formatter: m.name,
+                                color: '#ff0000',
+                            }
+                        }
+                    ]
+                }
+            })),
+        ]),
     })
 });
 

@@ -121,6 +121,16 @@ func (q *Queries) DeleteSnapshot(ctx context.Context, arg DeleteSnapshotParams) 
 	return err
 }
 
+const deleteSpecialDate = `-- name: DeleteSpecialDate :exec
+DELETE FROM special_date
+WHERE id = ?
+`
+
+func (q *Queries) DeleteSpecialDate(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteSpecialDate, id)
+	return err
+}
+
 const deleteTransferTemplate = `-- name: DeleteTransferTemplate :exec
 DELETE FROM transfer_template
 WHERE id = ?
@@ -305,6 +315,50 @@ func (q *Queries) GetSnapshotsByAccounts(ctx context.Context, ids []string) ([]A
 	for rows.Next() {
 		var i AccountSnapshot
 		if err := rows.Scan(&i.AccountID, &i.Date, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSpecialDate = `-- name: GetSpecialDate :one
+SELECT id, name, date
+FROM special_date
+WHERE id = ?
+`
+
+func (q *Queries) GetSpecialDate(ctx context.Context, id string) (SpecialDate, error) {
+	row := q.db.QueryRowContext(ctx, getSpecialDate, id)
+	var i SpecialDate
+	err := row.Scan(&i.ID, &i.Name, &i.Date)
+	return i, err
+}
+
+const getSpecialDates = `-- name: GetSpecialDates :many
+SELECT id, name, date
+FROM special_date
+ORDER BY date,
+  name,
+  id
+`
+
+func (q *Queries) GetSpecialDates(ctx context.Context) ([]SpecialDate, error) {
+	rows, err := q.db.QueryContext(ctx, getSpecialDates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SpecialDate
+	for rows.Next() {
+		var i SpecialDate
+		if err := rows.Scan(&i.ID, &i.Name, &i.Date); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -725,6 +779,28 @@ func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) 
 	row := q.db.QueryRowContext(ctx, upsertSnapshot, arg.AccountID, arg.Date, arg.Balance)
 	var i AccountSnapshot
 	err := row.Scan(&i.AccountID, &i.Date, &i.Balance)
+	return i, err
+}
+
+const upsertSpecialDate = `-- name: UpsertSpecialDate :one
+INSERT INTO special_date (id, name, date)
+VALUES (?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET name = EXCLUDED.name,
+  date = EXCLUDED.date
+RETURNING id, name, date
+`
+
+type UpsertSpecialDateParams struct {
+	ID   string
+	Name string
+	Date string
+}
+
+func (q *Queries) UpsertSpecialDate(ctx context.Context, arg UpsertSpecialDateParams) (SpecialDate, error) {
+	row := q.db.QueryRowContext(ctx, upsertSpecialDate, arg.ID, arg.Name, arg.Date)
+	var i SpecialDate
+	err := row.Scan(&i.ID, &i.Name, &i.Date)
 	return i, err
 }
 

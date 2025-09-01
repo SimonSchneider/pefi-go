@@ -40,6 +40,12 @@ type GrowthModel struct {
 	UpdatedAt        int64
 }
 
+type SpecialDate struct {
+	ID   string
+	Name string
+	Date string
+}
+
 type TransferTemplate struct {
 	ID            string
 	Name          string
