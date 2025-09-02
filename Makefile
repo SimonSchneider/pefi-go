@@ -2,7 +2,7 @@ PORT := 3009
 
 watch-tw:
 	@echo "Watching for changes..."
-	@./vendor-bin/tailwindcss -i tailwind/styles.css -o static/public/styles-tw.css --watch
+	@./vendor-bin/tailwindcss -i tailwind/styles.css -o static/public/styles-tw.css --watch --minify
 
 watch-templ:
 	@go tool templ generate --watch --proxy="http://localhost:$(PORT)" --cmd="go run cmd/main.go -addr :$(PORT) -watch -dburl tmp.db.sqlite"
