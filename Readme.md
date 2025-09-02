@@ -3,6 +3,9 @@
 ### TODO
 
 - A 100% transfer from a non fixed distribution will still 0 it out.
+- Grouped transfer-templates for easier management.
+    - no grouping within the prediction, just for the management in the UI.
+    - this will allow setting changes for salary from certain dates etc.
 - Add categories to transfer-templates
 - Add transfer run for a specific date for doing the money depositing split for that month
 - Model startup shares
