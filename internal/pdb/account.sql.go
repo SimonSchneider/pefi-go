@@ -329,7 +329,7 @@ func (q *Queries) GetSnapshotsByAccounts(ctx context.Context, ids []string) ([]A
 }
 
 const getSpecialDate = `-- name: GetSpecialDate :one
-SELECT id, name, date
+SELECT id, name, date, color
 FROM special_date
 WHERE id = ?
 `
@@ -337,12 +337,17 @@ WHERE id = ?
 func (q *Queries) GetSpecialDate(ctx context.Context, id string) (SpecialDate, error) {
 	row := q.db.QueryRowContext(ctx, getSpecialDate, id)
 	var i SpecialDate
-	err := row.Scan(&i.ID, &i.Name, &i.Date)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Date,
+		&i.Color,
+	)
 	return i, err
 }
 
 const getSpecialDates = `-- name: GetSpecialDates :many
-SELECT id, name, date
+SELECT id, name, date, color
 FROM special_date
 ORDER BY date,
   name,
@@ -358,7 +363,12 @@ func (q *Queries) GetSpecialDates(ctx context.Context) ([]SpecialDate, error) {
 	var items []SpecialDate
 	for rows.Next() {
 		var i SpecialDate
-		if err := rows.Scan(&i.ID, &i.Name, &i.Date); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Date,
+			&i.Color,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -783,24 +793,36 @@ func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) 
 }
 
 const upsertSpecialDate = `-- name: UpsertSpecialDate :one
-INSERT INTO special_date (id, name, date)
-VALUES (?, ?, ?) ON CONFLICT (id) DO
+INSERT INTO special_date (id, name, date, color)
+VALUES (?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
-  date = EXCLUDED.date
-RETURNING id, name, date
+  date = EXCLUDED.date,
+  color = EXCLUDED.color
+RETURNING id, name, date, color
 `
 
 type UpsertSpecialDateParams struct {
-	ID   string
-	Name string
-	Date string
+	ID    string
+	Name  string
+	Date  string
+	Color *string
 }
 
 func (q *Queries) UpsertSpecialDate(ctx context.Context, arg UpsertSpecialDateParams) (SpecialDate, error) {
-	row := q.db.QueryRowContext(ctx, upsertSpecialDate, arg.ID, arg.Name, arg.Date)
+	row := q.db.QueryRowContext(ctx, upsertSpecialDate,
+		arg.ID,
+		arg.Name,
+		arg.Date,
+		arg.Color,
+	)
 	var i SpecialDate
-	err := row.Scan(&i.ID, &i.Name, &i.Date)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Date,
+		&i.Color,
+	)
 	return i, err
 }
 

@@ -116,8 +116,9 @@ type PredictionFinancialEntity struct {
 	Snapshots []PredictionBalanceSnapshot `json:"snapshots"`
 }
 type Markline struct {
-	Date int64  `json:"date"`
-	Name string `json:"name"`
+	Date  int64  `json:"date"`
+	Color string `json:"color"`
+	Name  string `json:"name"`
 }
 type PredictionSetupEvent struct {
 	Max       int64                       `json:"max"`
@@ -149,10 +150,18 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	if err != nil {
 		return fmt.Errorf("listing account types for Prediction: %w", err)
 	}
-	specialDates, err := q.GetSpecialDates(ctx)
+	specialDates, err := ListSpecialDates(ctx, db)
 	if err != nil {
 		return fmt.Errorf("listing special dates for Prediction: %w", err)
 	}
+	specialDates = append(specialDates, SpecialDate{
+		ID:   "today",
+		Name: "Today",
+		Date: date.Today(),
+	})
+	sort.Slice(specialDates, func(i, j int) bool {
+		return specialDates[i].Date.Before(specialDates[j].Date)
+	})
 	accountTypesById := KeyBy(accountTypes, func(at pdb.AccountType) string { return at.ID })
 	accsById := make(map[string]pdb.Account, len(accs))
 	startDate := date.Today()
@@ -275,7 +284,7 @@ type GroupingEventHandler struct {
 	currentAccs map[string]uncertain.Value
 }
 
-func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Date, specialDates []pdb.SpecialDate) error {
+func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Date, specialDates []SpecialDate) error {
 	for _, e := range h.accsById {
 		if e.TypeID == nil {
 			h.accountTypesById[""] = pdb.AccountType{
@@ -358,13 +367,10 @@ func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Dat
 	}
 	marklines := make([]Markline, 0, len(specialDates))
 	for _, sd := range specialDates {
-		day, err := date.ParseDate(sd.Date)
-		if err != nil {
-			return fmt.Errorf("parsing special date: %w", err)
-		}
 		marklines = append(marklines, Markline{
-			Date: day.ToStdTime().UnixMilli(),
-			Name: sd.Name,
+			Date:  sd.Date.ToStdTime().UnixMilli(),
+			Color: sd.Color,
+			Name:  sd.Name,
 		})
 	}
 	h.currentDate = endDate

@@ -190,11 +190,12 @@ SELECT *
 FROM special_date
 WHERE id = ?;
 -- name: UpsertSpecialDate :one
-INSERT INTO special_date (id, name, date)
-VALUES (?, ?, ?) ON CONFLICT (id) DO
+INSERT INTO special_date (id, name, date, color)
+VALUES (?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
-  date = EXCLUDED.date
+  date = EXCLUDED.date,
+  color = EXCLUDED.color
 RETURNING *;
 -- name: DeleteSpecialDate :exec
 DELETE FROM special_date

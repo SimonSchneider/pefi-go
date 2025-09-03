@@ -1,17 +1,17 @@
 const colors = [
-    [`#F4A6A6`, `#D32F2F`],
-    [`#F7C59F`, `#F57C00`],
-    [`#FBE8A6`, `#FFB300`],
-    [`#FFF7AE`, `#FBC02D`],
-    [`#B2D8B2`, `#388E3C`],
-    [`#A8DAD3`, `#00897B`],
-    [`#B2EBF2`, `#00ACC1`],
-    [`#A6C8FF`, `#1976D2`],
-    [`#C5CAE9`, `#303F9F`],
-    [`#D1C4E9`, `#7B1FA2`],
-    [`#F8BBD0`, `#C2185B`],
-    [`#D7CCC8`, `#795548`],
-    [`#E0E0E0`, `#616161`],
+    `#D32F2F`,
+    `#F57C00`,
+    `#FFB300`,
+    `#FBC02D`,
+    `#388E3C`,
+    `#00897B`,
+    `#00ACC1`,
+    `#1976D2`,
+    `#303F9F`,
+    `#7B1FA2`,
+    `#C2185B`,
+    `#795548`,
+    `#616161`,
 ];
 
 const myChart = echarts.init(document.getElementById('main'), null, {
@@ -25,12 +25,12 @@ const batchInterval = 100;
 const series = {};
 
 function getColor(idx) {
-    return colors[idx % colors.length][1];
+    return colors[idx % colors.length];
 }
 
 function lightenColor(color) {
     const [r, g, b] = color.match(/\w\w/g).map(c => parseInt(c, 16));
-    return `rgba(${r}, ${g}, ${b}, 0.3)`;
+    return `rgba(${r}, ${g}, ${b}, 0.2)`;
 }
 
 myChart.setOption({
@@ -171,51 +171,28 @@ evtSource.addEventListener('setup', (event) => {
             data: data.entities.map(e => ({ name: e.name })),
         },
         xAxis: { max: data.max },
-        series: Object.values(series).concat([
-            {
-                id: 'today',
-                name: 'Today',
-                type: 'line',
-                markLine: {
-                    symbol: ['none', 'none'],
-                    data: [
-                        {
-                            xAxis: today,
-                            lineStyle: {
-                                color: '#ff0000',
-                                type: 'dashed',
-                            },
-                            label: {
-                                formatter: 'Today',
-                                color: '#ff0000',
-                            }
+        series: Object.values(series).concat(data.marklines.map((m, idx) => ({
+            id: m.name,
+            name: m.name,
+            type: 'line',
+            markLine: {
+                symbol: ['none', 'none'],
+                data: [
+                    {
+                        xAxis: new Date(m.date),
+                        lineStyle: {
+                            color: m.color || '#000000',
+                            type: 'dashed',
+                        },
+                        label: {
+                            offset: [0, idx % 2 !== 0 ? 0 : -15],
+                            formatter: m.name,
+                            color: m.color || '#000000',
                         }
-                    ]
-                },
-            },
-            ...data.marklines.map((m, idx) => ({
-                id: m.name,
-                name: m.name,
-                type: 'line',
-                markLine: {
-                    symbol: ['none', 'none'],
-                    data: [
-                        {
-                            xAxis: new Date(m.date),
-                            lineStyle: {
-                                color: '#ff0000',
-                                type: 'dashed',
-                            },
-                            label: {
-                                offset: [0, idx % 2 !== 0 ? 0 : -15],
-                                formatter: m.name,
-                                color: '#ff0000',
-                            }
-                        }
-                    ]
-                }
-            })),
-        ]),
+                    }
+                ]
+            }
+        }))),
     })
 });
 

@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 )
 
 func SpecialDatesPage(db *sql.DB) http.Handler {
@@ -64,29 +66,39 @@ func HandlerSpecialDateDelete(db *sql.DB) http.Handler {
 }
 
 type SpecialDate struct {
-	ID   string
-	Name string
-	Date string
+	ID    string
+	Name  string
+	Date  date.Date
+	Color string
 }
 
 type SpecialDateInput struct {
-	ID   string
-	Name string
-	Date string
+	ID    string
+	Name  string
+	Date  date.Date
+	Color string
 }
 
 func (s *SpecialDateInput) FromForm(r *http.Request) error {
 	s.ID = r.FormValue("id")
 	s.Name = r.FormValue("name")
-	s.Date = r.FormValue("date")
+	if err := shttp.Parse(&s.Date, date.ParseDate, r.FormValue("date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing start date: %w", err)
+	}
+	s.Color = r.FormValue("color")
 	return nil
 }
 
 func specialDateFromDB(sd pdb.SpecialDate) SpecialDate {
+	day, err := date.ParseDate(sd.Date)
+	if err != nil {
+		panic(fmt.Errorf("parsing date: %w", err))
+	}
 	return SpecialDate{
-		ID:   sd.ID,
-		Name: sd.Name,
-		Date: sd.Date,
+		ID:    sd.ID,
+		Name:  sd.Name,
+		Date:  day,
+		Color: ui.OrDefault(sd.Color),
 	}
 }
 
@@ -106,15 +118,17 @@ func UpsertSpecialDate(ctx context.Context, db *sql.DB, inp SpecialDateInput) (S
 	)
 	if inp.ID != "" {
 		sd, err = q.UpsertSpecialDate(ctx, pdb.UpsertSpecialDateParams{
-			ID:   inp.ID,
-			Name: inp.Name,
-			Date: inp.Date,
+			ID:    inp.ID,
+			Name:  inp.Name,
+			Date:  inp.Date.String(),
+			Color: ui.WithDefaultNull(inp.Color),
 		})
 	} else {
 		sd, err = q.UpsertSpecialDate(ctx, pdb.UpsertSpecialDateParams{
-			ID:   sid.MustNewString(15),
-			Name: inp.Name,
-			Date: inp.Date,
+			ID:    sid.MustNewString(15),
+			Name:  inp.Name,
+			Date:  inp.Date.String(),
+			Color: ui.WithDefaultNull(inp.Color),
 		})
 	}
 	if err != nil {

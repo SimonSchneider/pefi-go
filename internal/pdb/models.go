@@ -41,9 +41,10 @@ type GrowthModel struct {
 }
 
 type SpecialDate struct {
-	ID   string
-	Name string
-	Date string
+	ID    string
+	Name  string
+	Date  string
+	Color *string
 }
 
 type TransferTemplate struct {

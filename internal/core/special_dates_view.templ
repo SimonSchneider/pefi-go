@@ -17,6 +17,7 @@ templ SpecialDatesView(specialDates []SpecialDate) {
 									<tr>
 										<th class="font-semibold">Name</th>
 										<th class="font-semibold">Date</th>
+										<th class="font-semibold">Color</th>
 										<th class="font-semibold text-right sticky">Actions</th>
 									</tr>
 								</thead>
@@ -38,6 +39,9 @@ templ SpecialDatesView(specialDates []SpecialDate) {
 											<tr class="hover:bg-base-50">
 												<td class="font-medium">{ sd.Name }</td>
 												<td>{ sd.Date }</td>
+												<td>
+													<span class="badge" style={ "background-color: " + sd.Color }>{ sd.Name }</span>
+												</td>
 												<td class="text-right">
 													<a href={ templ.SafeURL("/special-dates/" + sd.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
 														@IconPencil("w-4 h-4")
@@ -90,6 +94,8 @@ templ SpecialDateForm(specialDate SpecialDate) {
 					<input type="text" class="input" placeholder="Birthday, Anniversary, Holiday, etc." name="name" value={ specialDate.Name }/>
 					<label class="label">Date</label>
 					<input type="date" class="input" name="date" value={ specialDate.Date }/>
+					<label class="label">Color</label>
+					<input type="color" class="input" name="color" value={ specialDate.Color }/>
 					@SaveButton(specialDate.ID != "")
 				</fieldset>
 			</form>
