@@ -10,6 +10,7 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
+	"github.com/SimonSchneider/pefigo/internal/finance"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
@@ -156,4 +157,32 @@ func GetGrowthModel(ctx context.Context, db *sql.DB, id string) (GrowthModel, er
 		return GrowthModel{}, fmt.Errorf("failed to convert growth model from db: %w", err)
 	}
 	return gm, nil
+}
+
+type GrowthModels []GrowthModel
+
+func (gms GrowthModels) ToFinance() finance.GrowthModel {
+	fgms := make([]finance.GrowthModel, 0, len(gms))
+	for _, gm := range gms {
+		switch gm.Type {
+		case "fixed":
+			fgms = append(fgms, &finance.FixedGrowth{
+				TimeFrameGrowth: finance.TimeFrameGrowth{
+					StartDate: gm.StartDate,
+					EndDate:   gm.EndDate,
+				},
+				AnnualRate: gm.AnnualRate,
+			})
+		case "lognormal":
+			fgms = append(fgms, &finance.LogNormalGrowth{
+				TimeFrameGrowth: finance.TimeFrameGrowth{
+					StartDate: gm.StartDate,
+					EndDate:   gm.EndDate,
+				},
+				AnnualRate:       gm.AnnualRate,
+				AnnualVolatility: gm.AnnualVolatility,
+			})
+		}
+	}
+	return finance.NewGrowthCombined(fgms...)
 }

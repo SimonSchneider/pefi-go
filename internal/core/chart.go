@@ -194,62 +194,18 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 			}
 		}
 		for _, snap := range snaps {
-			entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
-				Date:    snap.Date,
-				Balance: snap.Balance,
-			})
+			entity.Snapshots = append(entity.Snapshots, snap.ToFinance())
 			if snap.Date.After(startDate) {
 				startDate = snap.Date
 			}
 		}
-		fgms := make([]finance.GrowthModel, 0, len(gms))
-		for _, gm := range gms {
-			switch gm.Type {
-			case "fixed":
-				fgms = append(fgms, &finance.FixedGrowth{
-					TimeFrameGrowth: finance.TimeFrameGrowth{
-						StartDate: gm.StartDate,
-						EndDate:   gm.EndDate,
-					},
-					AnnualRate: gm.AnnualRate,
-				})
-			case "lognormal":
-				fgms = append(fgms, &finance.LogNormalGrowth{
-					TimeFrameGrowth: finance.TimeFrameGrowth{
-						StartDate: gm.StartDate,
-						EndDate:   gm.EndDate,
-					},
-					AnnualRate:       gm.AnnualRate,
-					AnnualVolatility: gm.AnnualVolatility,
-				})
-			}
-		}
-		if len(fgms) == 1 {
-			entity.GrowthModel = finance.NewGrowthCombined(fgms...)
-		}
+		entity.GrowthModel = GrowthModels(gms).ToFinance()
 		if len(entity.Snapshots) > 0 {
 			entities = append(entities, entity)
 		}
 	}
 	for _, t := range trans {
-		transfers = append(transfers, finance.TransferTemplate{
-			ID:            t.ID,
-			Name:          t.Name,
-			FromAccountID: t.FromAccountID,
-			ToAccountID:   t.ToAccountID,
-			AmountType:    finance.TransferAmountType(t.AmountType),
-			AmountFixed: finance.TransferFixed{
-				Amount: t.AmountFixed,
-			},
-			AmountPercent: finance.TransferPercent{
-				Percent: t.AmountPercent,
-			},
-			Priority:      t.Priority,
-			EffectiveFrom: t.StartDate,
-			EffectiveTo:   t.EndDate,
-			Recurrence:    t.Recurrence,
-			Enabled:       t.Enabled,
-		})
+		transfers = append(transfers, t.ToFinanceTransferTemplate())
 	}
 
 	startDate += 1

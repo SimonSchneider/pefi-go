@@ -9,6 +9,7 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/goslu/static/shttp"
+	"github.com/SimonSchneider/pefigo/internal/finance"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
@@ -65,6 +66,27 @@ func (t *TransferTemplate) FromForm(r *http.Request) error {
 	}
 	t.Enabled = r.FormValue("enabled") == "on"
 	return nil
+}
+
+func (t *TransferTemplate) ToFinanceTransferTemplate() finance.TransferTemplate {
+	return finance.TransferTemplate{
+		ID:            t.ID,
+		Name:          t.Name,
+		FromAccountID: t.FromAccountID,
+		ToAccountID:   t.ToAccountID,
+		AmountType:    finance.TransferAmountType(t.AmountType),
+		AmountFixed: finance.TransferFixed{
+			Amount: t.AmountFixed,
+		},
+		AmountPercent: finance.TransferPercent{
+			Percent: t.AmountPercent,
+		},
+		Priority:      t.Priority,
+		EffectiveFrom: t.StartDate,
+		EffectiveTo:   t.EndDate,
+		Recurrence:    t.Recurrence,
+		Enabled:       t.Enabled,
+	}
 }
 
 func transferTemplateFromDB(t pdb.TransferTemplate) (TransferTemplate, error) {

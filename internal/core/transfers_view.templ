@@ -1,0 +1,96 @@
+package core
+
+templ PageTransfers(view *TransfersView) {
+	@Layout("/transfers", TransfersContent(view))
+}
+
+templ TransfersContent(view *TransfersView) {
+	<main class="flex-1 flex flex-col">
+		@Header("Transfers")
+		<div class="flex-1 p-6 overflow-auto bg-base-50">
+			<div class="flex flex-col gap-4">
+				@TransfersForm(view)
+				if view.transfersReady {
+					@TransfersTable(view)
+				}
+			</div>
+		</div>
+	</main>
+}
+
+templ TransfersForm(view *TransfersView) {
+	<div class="flex flex-col lg:flex-row gap-6">
+		<div class="flex-1">
+			<form method="get" action={ "/transfers" }>
+				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
+					<legend class="fieldset-legend">Transfer Configuration</legend>
+					<label class="label">Date</label>
+					<input type="date" class="input" name="day" value={ view.day.String() }/>
+					if len(view.TransferTemplatesThatNeedAmount) > 0 {
+						<div class="divider">Amounts Required</div>
+						for _, t := range view.TransferTemplatesThatNeedAmount {
+							<label class="label">{ t.Name }</label>
+							<input type="number" class="input" name={ "amount_" + t.ID } value={ t.Amount } min="0"/>
+						}
+					}
+					<button type="submit" class="btn btn-primary mt-4">Calculate Transfers</button>
+				</fieldset>
+			</form>
+		</div>
+	</div>
+}
+
+templ TransfersTable(view *TransfersView) {
+	<div class="card bg-base-100 shadow-sm border border-base-300">
+		<div class="card-body">
+			<div class="overflow-x-auto">
+				<table class="table w-full">
+					<thead>
+						<tr>
+							<th class="font-semibold">From</th>
+							<th class="font-semibold">To</th>
+							<th class="font-semibold text-right">Amount</th>
+						</tr>
+					</thead>
+					<tbody>
+						if len(view.transfers) == 0 {
+							<tr>
+								<td colspan="3" class="text-center py-8 text-base-content/70">
+									<div class="flex flex-col items-center gap-2">
+										<svg class="w-12 h-12 text-base-content/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 003 3v8a3 3 0 003 3z"></path>
+										</svg>
+										<p class="text-lg font-medium">No transfers scheduled</p>
+										<p>No transfers are scheduled for this date</p>
+									</div>
+								</td>
+							</tr>
+						} else {
+							for _, t := range view.transfers {
+								<tr class="hover:bg-base-50">
+									<td class="font-medium">
+										if t.FromAccountID != "" {
+											{ view.accounts[t.FromAccountID].Name }
+										} else {
+											<span class="text-green-700">External</span>
+										}
+									</td>
+									<td>
+										if t.ToAccountID != "" {
+											{ view.accounts[t.ToAccountID].Name }
+										} else {
+											<span class="text-red-600">External</span>
+										}
+									</td>
+									<td class="text-right">
+										@BalanceBadge(t.Amount, false, "")
+									</td>
+								</tr>
+							}
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/static/shttp"
+	"github.com/SimonSchneider/pefigo/internal/finance"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
@@ -17,6 +18,13 @@ type AccountSnapshot struct {
 	AccountID string
 	Date      date.Date
 	Balance   uncertain.Value
+}
+
+func (a AccountSnapshot) ToFinance() finance.BalanceSnapshot {
+	return finance.BalanceSnapshot{
+		Date:    a.Date,
+		Balance: a.Balance,
+	}
 }
 
 type AccountSnapshotInput struct {
