@@ -30,9 +30,37 @@
 
 Asset class - (annualReturn, annualVolatility)
 
-- Savings (0-2%, 0%)
-- Funds (4%-8%, 6%-12%)
-- Stocks (7%-10%, 15%-20%)
-- Startup Stocks (20%-100%, 50%-200%)
-- Private Company Stocks (5%-15%, 20%-40%)
-- Real Estate (6%-10%, 10%-20%)
+### Suggested configurations (nominal returns, annualized)
+#### Pension funds
+
+AP7 Såfa (equity-heavy, with leverage if you’re <55)
+
+Fixed: (annualReturn = 0.09, annualVolatility = 0.23)
+
+Normal: annualReturn ~ N(0.09, 0.02), annualVolatility ~ N(0.23, 0.03)
+
+Traditionell försäkring (with guarantees / smoothing)
+
+Fixed: (annualReturn = 0.05, annualVolatility = 0.04)
+
+Normal: annualReturn ~ N(0.05, 0.01), annualVolatility ~ N(0.04, 0.01)
+
+#### Investment account (broad equity funds)
+
+Swedish equity fund (OMXS30 / Sweden IMI)
+
+Fixed: (annualReturn = 0.08, annualVolatility = 0.20)
+
+Normal: annualReturn ~ N(0.08, 0.02), annualVolatility ~ N(0.20, 0.03)
+
+#### Global index fund (MSCI World/ACWI in SEK)
+
+Fixed: (annualReturn = 0.07, annualVolatility = 0.16)
+
+Normal: annualReturn ~ N(0.07, 0.015), annualVolatility ~ N(0.16, 0.02)
+
+#### Stockholm apartment (bostadsrätt)
+
+Fixed: (annualReturn = 0.07, annualVolatility = 0.08)
+
+Normal: annualReturn ~ N(0.07, 0.015), annualVolatility ~ N(0.08, 0.02)
