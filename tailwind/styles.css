@@ -3,7 +3,8 @@
 @source "../**/*.{templ}";
 
 @plugin "./daisyui.js" {
-    themes: pastel --default, dark --prefersdark, synthwave;
+    themes: autumn --default, dim --prefersdark, autumn;
+    /* themes: pastel --default, dark --prefersdark, synthwave; */
 }
 
 .menu li>*.menu-active,

@@ -105,12 +105,12 @@ func SnapshotsTableContent(view *SnapshotsTableView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"flex-1 p-6 bg-gray-50 overflow-hidden\"><div class=\"bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden max-w-full\"><div class=\"flex-1 overflow-auto border border-gray-300 rounded-lg\"><div class=\"inline-block min-w-full align-middle\"><div class=\"overflow-hidden\"><table class=\"min-w-full divide-y divide-gray-300\"><thead class=\"bg-gray-50 sticky top-0 z-20\"><tr><th class=\"sticky left-0 bg-gray-50 z-30 px-3 py-3.5 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 min-w-32\">Date</th>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"flex-1 p-6 bg-base-100 overflow-hidden\"><div class=\"bg-base-100 rounded-lg shadow-sm border border-base-200 h-full flex flex-col overflow-hidden max-w-full\"><div class=\"flex-1 overflow-auto border border-base-300 rounded-lg\"><div class=\"inline-block min-w-full align-middle\"><div class=\"overflow-hidden\"><table class=\"min-w-full divide-y divide-base-300\"><thead class=\"bg-base-200 sticky top-0 z-20\"><tr><th class=\"sticky left-0 bg-base-200 z-30 px-3 py-3.5 text-left text-xs font-semibold text-base-content border-r border-base-300 min-w-32\">Date</th>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, account := range view.Accounts {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<th class=\"px-3 py-3.5 text-center text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0 min-w-40\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<th class=\"px-3 py-3.5 text-center text-xs font-semibold text-base-content border-r border-base-300 last:border-r-0 min-w-40\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -128,7 +128,7 @@ func SnapshotsTableContent(view *SnapshotsTableView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</tr></thead> <tbody id=\"snapshots-table-body\" class=\"divide-y divide-gray-200 bg-white\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</tr></thead> <tbody id=\"snapshots-table-body\" class=\"divide-y divide-base-200 bg-base-100\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -167,7 +167,7 @@ func SnapshotsTableRow(row *SnapshotsRow) templ.Component {
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<tr class=\"hover:bg-gray-50 even:bg-gray-50\"><td class=\"px-3 py-2 text-sm text-gray-900 border-r border-gray-300 last:border-r-0\"><input type=\"text\" class=\"w-full h-full border-0 bg-transparent text-right font-mono text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-colors px-1 py-0.5\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<tr class=\"hover:bg-base-100 even:bg-base-100\"><td class=\"px-3 py-2 text-sm text-base-content border-r border-base-300 last:border-r-0\"><input type=\"text\" class=\"w-full h-full border-0 bg-transparent text-right font-mono text-sm text-base-content placeholder-base-content focus:outline-none transition-colors px-1 py-0.5\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -232,9 +232,10 @@ func SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshotCell
 			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var9 = []any{"px-3 py-2 text-sm text-gray-900 border-r border-gray-300 last:border-r-0",
-			templ.KV("bg-green-50", snapshot.Change == BalanceIncreased),
-			templ.KV("bg-red-50", snapshot.Change == BalanceDecreased),
+		var templ_7745c5c3_Var9 = []any{"px-3 py-2 text-sm text-base-content border-r border-base-300 last:border-r-0",
+			templ.KV("bg-base-100 text-base-content", snapshot.Change == BalanceUnchanged),
+			templ.KV("bg-success text-success-content", snapshot.Change == BalanceIncreased),
+			templ.KV("bg-error text-error-content", snapshot.Change == BalanceDecreased),
 		}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var9...)
 		if templ_7745c5c3_Err != nil {
@@ -253,14 +254,14 @@ func SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshotCell
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"><input type=\"text\" class=\"w-full h-full border-0 bg-transparent text-right font-mono text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-colors px-1 py-0.5\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"><input type=\"text\" class=\"w-full h-full border-0 text-right font-mono text-sm placeholder-gray-400 focus:outline-none transition-colors px-1 py-0.5\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(getSnapshotValue(snapshot.AccountSnapshot))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 113, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 114, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -273,7 +274,7 @@ func SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshotCell
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(templ.SafeURL("/accounts/" + accountID + "/snapshots/" + date.String() + "/"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 114, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/snapshots_table_view.templ`, Line: 115, Col: 90}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
