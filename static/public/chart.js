@@ -39,11 +39,15 @@ myChart.setOption({
         selectedMode: 'multiple',
         type: 'scroll',
         orient: 'vertical',
-        top: 20,
+        bottom: '80px',
         right: 10,
     },
     grid: {
-        containLabel: true
+        containLabel: true,
+        left: '0',
+        right: '0',
+        bottom: '50px',
+        top: '40px',
     },
     animationDurationUpdate: batchInterval,
     tooltip: {
@@ -168,7 +172,6 @@ evtSource.addEventListener('setup', (event) => {
     today2.setDate(today2.getUTCDate() + 1000);
     myChart.setOption({
         legend: {
-            top: 60,
             data: data.entities.map(e => ({ name: e.name })),
         },
         xAxis: { max: data.max },
