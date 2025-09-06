@@ -22,15 +22,24 @@ templ NavItem(href string, icon templ.Component, name string, activePath string)
 	<li>
 		<a
 			href={ href }
-			class={
-				templ.KV("flex items-center gap-3 px-4 py-3 rounded-lg transition-colors", true),
-				templ.KV("bg-primary text-primary-content hover:bg-primary-focus", href == activePath),
-				templ.KV("text-base-content hover:text-base-content hover:bg-base-300", href != activePath),
+			if href == activePath {
+				class="menu-active"
 			}
 		>
 			@icon
 			<span>{ name }</span>
 		</a>
+	</li>
+}
+
+templ NavGroup(name string, children ...templ.Component) {
+	<li>
+		<h2 class="menu-title">{ name }</h2>
+		<ul class="flex flex-col gap-2">
+			for _, child := range children {
+				@child
+			}
+		</ul>
 	</li>
 }
 
@@ -48,15 +57,21 @@ templ Sidebar(page string) {
 			</div>
 		</div>
 		<nav class="flex-1 p-4">
-			<ul class="space-y-2">
+			<ul class="menu menu-md bg-base-200 rounded-box w-56 gap-4">
 				@NavItem("/", IconHome("w-5 h-5"), "Dashboard", page)
-				@NavItem("/accounts", IconCashBanknote("w-5 h-5"), "Accounts", page)
-				@NavItem("/account-types", IconTag("w-5 h-5"), "Account Types", page)
-				@NavItem("/special-dates", IconCalendar("w-5 h-5"), "Special Dates", page)
-				@NavItem("/snapshots-table", IconTable("w-5 h-5"), "Snapshots Table", page)
-				@NavItem("/transfer-templates", IconTransfer("w-5 h-5"), "Transfer Templates", page)
-				@NavItem("/transfers", IconTransfer("w-5 h-5"), "Transfers", page)
-				@NavItem("/chart", IconTrendingUp("w-5 h-5"), "Chart", page)
+				@NavGroup("Accounts",
+					NavItem("/accounts", IconCashBanknote("w-5 h-5"), "Accounts", page),
+					NavItem("/account-types", IconTag("w-5 h-5"), "Account Types", page),
+					NavItem("/snapshots-table", IconTable("w-5 h-5"), "Snapshots Table", page),
+				)
+				@NavGroup("Transfers",
+					NavItem("/transfer-templates", IconTransfer("w-5 h-5"), "Transfer Templates", page),
+					NavItem("/transfers", IconTransfer("w-5 h-5"), "Transfers", page),
+				)
+				@NavGroup("Charts",
+					NavItem("/special-dates", IconCalendar("w-5 h-5"), "Special Dates", page),
+					NavItem("/chart", IconTrendingUp("w-5 h-5"), "Chart", page),
+				)
 			</ul>
 		</nav>
 		<div class="flex-end p-4 mt-auto border-t border-base-300">

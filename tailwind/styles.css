@@ -1,6 +1,13 @@
 @import "tailwindcss" source(none);
 
 @source "../**/*.{templ}";
+
 @plugin "./daisyui.js" {
     themes: pastel --default, dark --prefersdark, synthwave;
+}
+
+.menu li>*.menu-active,
+.menu li>*:not(ul):not(.menu-title):not(details):active {
+    @apply bg-primary;
+    @apply text-primary-content;
 }

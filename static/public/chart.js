@@ -168,6 +168,7 @@ evtSource.addEventListener('setup', (event) => {
     today2.setDate(today2.getUTCDate() + 1000);
     myChart.setOption({
         legend: {
+            top: 60,
             data: data.entities.map(e => ({ name: e.name })),
         },
         xAxis: { max: data.max },
