@@ -43,18 +43,37 @@ func SnapshotsTablePage(db *sql.DB) http.Handler {
 		}
 		slices.Reverse(dates)
 		rows := make([]SnapshotsRow, 0)
-		for _, d := range dates {
+		for di, d := range dates {
 			rows = append(rows, SnapshotsRow{
 				Date:      d,
-				Snapshots: make([]AccountSnapshot, 0, len(accounts)),
+				Snapshots: make([]AccountSnapshotCell, 0, len(accounts)),
 			})
 			for _, acc := range accounts {
+				prevMean := 0.0
+				if di < len(dates)-1 {
+					prevDate := dates[di+1]
+					if prevSnap, ok := snaps[DateIDKey{Date: prevDate, ID: acc.ID}]; ok {
+						prevMean = prevSnap.Balance.Mean()
+					}
+				}
 				if snap, ok := snaps[DateIDKey{Date: d, ID: acc.ID}]; ok {
-					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, snap)
+					change := BalanceUnchanged
+					if snap.Balance.Mean() > prevMean {
+						change = BalanceIncreased
+					} else if snap.Balance.Mean() < prevMean {
+						change = BalanceDecreased
+					}
+					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, AccountSnapshotCell{
+						AccountSnapshot: snap,
+						Change:          change,
+					})
 				} else {
-					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, AccountSnapshot{
-						AccountID: acc.ID,
-						Date:      d,
+					rows[len(rows)-1].Snapshots = append(rows[len(rows)-1].Snapshots, AccountSnapshotCell{
+						AccountSnapshot: AccountSnapshot{
+							AccountID: acc.ID,
+							Date:      d,
+						},
+						Change: BalanceUnchanged,
 					})
 				}
 			}
@@ -82,6 +101,11 @@ func (d *DateInput) FromForm(r *http.Request) error {
 	return nil
 }
 
+type AccountSnapshotCell struct {
+	AccountSnapshot
+	Change BalanceChange
+}
+
 func SnapshotsTableModifyDate(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		var inp DateInput
@@ -102,7 +126,7 @@ func SnapshotsTableModifyDate(db *sql.DB) http.Handler {
 		}
 		row := SnapshotsRow{
 			Date:      inp.NewDate,
-			Snapshots: make([]AccountSnapshot, len(accs)),
+			Snapshots: make([]AccountSnapshotCell, len(accs)),
 		}
 		for i, acc := range accs {
 			balance := uncertain.Value{}
@@ -112,10 +136,12 @@ func SnapshotsTableModifyDate(db *sql.DB) http.Handler {
 					return fmt.Errorf("decoding balance: %w", err)
 				}
 			}
-			row.Snapshots[i] = AccountSnapshot{
-				AccountID: acc.ID,
-				Date:      inp.NewDate,
-				Balance:   balance,
+			row.Snapshots[i] = AccountSnapshotCell{
+				AccountSnapshot: AccountSnapshot{
+					AccountID: acc.ID,
+					Date:      inp.NewDate,
+					Balance:   balance,
+				},
 			}
 		}
 		return NewView(ctx, w, r).Render(SnapshotsTableRow(&row))
@@ -130,12 +156,14 @@ func SnapshotsTableEmptyRow(db *sql.DB) http.Handler {
 		}
 		row := SnapshotsRow{
 			Date:      date.Date(0),
-			Snapshots: make([]AccountSnapshot, len(accounts)),
+			Snapshots: make([]AccountSnapshotCell, len(accounts)),
 		}
 		for i, acc := range accounts {
-			row.Snapshots[i] = AccountSnapshot{
-				AccountID: acc.ID,
-				Date:      date.Date(0),
+			row.Snapshots[i] = AccountSnapshotCell{
+				AccountSnapshot: AccountSnapshot{
+					AccountID: acc.ID,
+					Date:      date.Date(0),
+				},
 			}
 		}
 		return NewView(ctx, w, r).Render(SnapshotsTableRow(&row))
@@ -149,21 +177,27 @@ func HandlerAccountSnapshotUpsert(db *sql.DB) http.Handler {
 			return fmt.Errorf("decoding input: %w", err)
 		}
 		accID := r.PathValue("id")
-		var snap AccountSnapshot
+		var snap AccountSnapshotCell
 		if inp.EmptyBalance {
 			if err := DeleteAccountSnapshot(ctx, db, accID, inp.Date); err != nil {
 				return fmt.Errorf("deleting existing snapshot: %w", err)
 			}
-			snap = AccountSnapshot{
-				AccountID: accID,
-				Date:      inp.Date,
+			snap = AccountSnapshotCell{
+				AccountSnapshot: AccountSnapshot{
+					AccountID: accID,
+					Date:      inp.Date,
+				},
+				Change: BalanceUnchanged,
 			}
 		} else {
 			s, err := UpsertAccountSnapshot(ctx, db, accID, inp)
 			if err != nil {
 				return fmt.Errorf("upserting snapshot: %w", err)
 			}
-			snap = s
+			snap = AccountSnapshotCell{
+				AccountSnapshot: s,
+				Change:          BalanceUnchanged,
+			}
 		}
 		if r.Header.Get("HX-Request") == "true" {
 			return NewView(ctx, w, r).Render(SnapshotCell(accID, inp.Date, snap))
@@ -182,5 +216,5 @@ type SnapshotsTableView struct {
 
 type SnapshotsRow struct {
 	Date      date.Date
-	Snapshots []AccountSnapshot
+	Snapshots []AccountSnapshotCell
 }

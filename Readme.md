@@ -6,25 +6,18 @@
 - Grouped transfer-templates for easier management.
     - no grouping within the prediction, just for the management in the UI.
     - this will allow setting changes for salary from certain dates etc.
+    - should we allow grouping transfer templates to see them as a group of the same transfer template. Ie. salary changes between these dates and then goes to this again.
 - Add categories to transfer-templates
-- Add transfer run for a specific date for doing the money depositing split for that month
 - Model startup shares
     - Model startup shares valuation based on company valuation and shares owned by the user
     - Model startup shares prediction based on future funding rounds and exit events
 - Simulation Scenario combine different transaction templates into a sceanrio and see differences
-- Should we allow grouping transfer templates to see them as a group of the same transfer template. Ie. salary changes between these dates and then goes to this again.
 
 ## Tasks
 
 ### Core
 
 - Tests for predictions
-
-### Pages
-
-#### Table
-
-- color the cells based on if balance increased or decreased
 
 ## Details
 

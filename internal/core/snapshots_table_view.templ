@@ -99,12 +99,18 @@ templ SnapshotsTableRow(row *SnapshotsRow) {
 	</tr>
 }
 
-templ SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshot) {
-	<td class="px-3 py-2 text-sm text-gray-900 border-r border-gray-300 last:border-r-0">
+templ SnapshotCell(accountID string, date date.Date, snapshot AccountSnapshotCell) {
+	<td
+		class={
+			"px-3 py-2 text-sm text-gray-900 border-r border-gray-300 last:border-r-0",
+			templ.KV("bg-green-50", snapshot.Change == BalanceIncreased),
+			templ.KV("bg-red-50", snapshot.Change == BalanceDecreased),
+		}
+	>
 		<input
 			type="text"
 			class="w-full h-full border-0 bg-transparent text-right font-mono text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-colors px-1 py-0.5"
-			value={ getSnapshotValue(snapshot) }
+			value={ getSnapshotValue(snapshot.AccountSnapshot) }
 			hx-post={ templ.SafeURL("/accounts/" + accountID + "/snapshots/" + date.String() + "/") }
 			hx-trigger="blur changed"
 			hx-target="closest td"

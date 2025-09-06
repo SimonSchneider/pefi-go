@@ -14,6 +14,14 @@ import (
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
+type BalanceChange int
+
+const (
+	BalanceUnchanged BalanceChange = iota
+	BalanceIncreased
+	BalanceDecreased
+)
+
 type AccountSnapshot struct {
 	AccountID string
 	Date      date.Date
