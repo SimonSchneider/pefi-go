@@ -105,6 +105,15 @@ func RootPage() http.Handler {
 	})
 }
 
+func getAccountTypesWithFilter(r *http.Request, accountTypes []AccountType) []AccountTypeWithFilter {
+	accountTypesWithFilter := make([]AccountTypeWithFilter, 0, len(accountTypes))
+	for _, accountType := range accountTypes {
+		exclude := r.FormValue("exclude_at_"+accountType.ID) == "on"
+		accountTypesWithFilter = append(accountTypesWithFilter, AccountTypeWithFilter{AccountType: accountType, Exclude: exclude})
+	}
+	return accountTypesWithFilter
+}
+
 func AccountsPage(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		accs, err := ListAccountsDetailed(ctx, db, date.Today())
@@ -115,7 +124,8 @@ func AccountsPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing account types: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs, accountTypes))))
+		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
+		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs, accountTypesWithFilter))))
 	})
 }
 
@@ -143,7 +153,8 @@ func AccountNewPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing account types: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypes))))
+		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter))))
 	})
 }
 
@@ -165,7 +176,8 @@ func AccountEditPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing account types: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypes))))
+		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter))))
 	})
 }
 

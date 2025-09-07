@@ -151,15 +151,20 @@ func (v *TransferTemplatesView2) GetAccount(id string) *Account {
 	return &a
 }
 
+type AccountTypeWithFilter struct {
+	AccountType
+	Exclude bool
+}
+
 type AccountsView struct {
 	Accounts         []AccountDetailed
-	AccountTypes     []AccountType
+	AccountTypes     []AccountTypeWithFilter
 	TotalBalance     float64
 	TotalAssets      float64
 	TotalLiabilities float64
 }
 
-func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountType) *AccountsView {
+func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountTypeWithFilter) *AccountsView {
 	v := &AccountsView{Accounts: accounts, AccountTypes: accountTypes}
 	for _, account := range accounts {
 		if account.LastSnapshot != nil {
@@ -174,7 +179,7 @@ func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountType) *Ac
 	return v
 }
 
-func (v *AccountsView) GetAccountType(typeID string) AccountType {
+func (v *AccountsView) GetAccountType(typeID string) AccountTypeWithFilter {
 	return findAccountType(v.AccountTypes, typeID)
 }
 
@@ -190,10 +195,10 @@ type AccountEditView2 struct {
 	Account      Account
 	Accounts     []Account
 	GrowthModels []GrowthModel
-	AccountTypes []AccountType
+	AccountTypes []AccountTypeWithFilter
 }
 
-func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountType) *AccountEditView2 {
+func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter) *AccountEditView2 {
 	return &AccountEditView2{Account: account, Accounts: accounts, GrowthModels: growthModels, AccountTypes: accountTypes}
 }
 
@@ -205,14 +210,14 @@ func (v *AccountEditView2) GetAccountTypeName(typeID string) string {
 	return findAccountType(v.AccountTypes, typeID).Name
 }
 
-func findAccountType(accountTypes []AccountType, typeID string) AccountType {
+func findAccountType(accountTypes []AccountTypeWithFilter, typeID string) AccountTypeWithFilter {
 	if typeID == "" {
-		return AccountType{}
+		return AccountTypeWithFilter{}
 	}
 	for _, at := range accountTypes {
 		if at.ID == typeID {
 			return at
 		}
 	}
-	return AccountType{}
+	return AccountTypeWithFilter{}
 }
