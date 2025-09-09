@@ -8,6 +8,8 @@
     - this will allow setting changes for salary from certain dates etc.
     - should we allow grouping transfer templates to see them as a group of the same transfer template. Ie. salary changes between these dates and then goes to this again.
 - Add categories to transfer-templates
+- Add support for taxes
+    - ISK account tax calcs
 - Model startup shares
     - Model startup shares valuation based on company valuation and shares owned by the user
     - Model startup shares prediction based on future funding rounds and exit events

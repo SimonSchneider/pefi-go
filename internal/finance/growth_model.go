@@ -1,10 +1,11 @@
 package finance
 
 import (
-	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"math"
 	"sort"
+
+	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
 type GrowthModel interface {

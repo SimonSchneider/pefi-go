@@ -2,9 +2,10 @@ package finance
 
 import (
 	"fmt"
+	"math"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"math"
 )
 
 type TransferAmountType string
@@ -101,6 +102,9 @@ func applyDailyTransfers(ucfg *uncertain.Config, accounts map[string]*ModeledEnt
 		}
 		if okTo {
 			toAccount.balance = toAccount.balance.Add(ucfg, amount)
+			if toAccount.TaxModel != nil {
+				toAccount.TaxModel.ApplyDeposit(ucfg, amount)
+			}
 		}
 	}
 	return nil

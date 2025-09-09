@@ -3,9 +3,10 @@ package finance
 import (
 	"context"
 	"fmt"
+	"sort"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"sort"
 )
 
 type BalanceSnapshot struct {
@@ -30,6 +31,8 @@ type Entity struct {
 
 	// Balance snapshots for this entity, sorted by date
 	Snapshots []BalanceSnapshot
+
+	TaxModel *ISKTaxModel // Optional tax model, if not set, no tax is applied
 
 	GrowthModel GrowthModel
 	CashFlow    *CashFlowModel // Optional cash flow model, if not set, no cash flow is applied
@@ -130,6 +133,26 @@ func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Da
 		for _, fe := range fes {
 			if fe.lastSnapshotDate.Before(day) {
 				fe.ApplyAppreciation(ucfg, fes, day)
+			}
+		}
+		for _, fe := range fes {
+			if fe.TaxModel != nil {
+				fe.TaxModel.Apply(ucfg, day, fe.balance)
+			}
+		}
+		for _, fe := range fes {
+			if fe.TaxModel != nil {
+				tax := fe.TaxModel.GetAndResetTax()
+				if tax.Zero() {
+					continue
+				}
+				destFE := fes[fe.TaxModel.DestinationID]
+				fmt.Printf("Tax: %s -> %s: %f\n", fe.ID, fe.TaxModel.DestinationID, tax.Sample(ucfg))
+				if destFE != nil {
+					destFE.balance = destFE.balance.Sub(ucfg, tax)
+				} else {
+					fe.balance = fe.balance.Sub(ucfg, tax)
+				}
 			}
 		}
 		if snapshotCron.Matches(day) {

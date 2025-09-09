@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
@@ -181,6 +182,7 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 				Upper: uncertain.NewFixed(*acc.BalanceUpperLimit),
 			}
 		}
+
 		entity := finance.Entity{
 			ID:           acc.ID,
 			Name:         acc.Name,
@@ -200,6 +202,13 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 			}
 		}
 		entity.GrowthModel = GrowthModels(gms).ToFinance()
+		if strings.Contains(acc.Name, "Investering") {
+			entity.TaxModel = &finance.ISKTaxModel{
+				TemplatePercentage: uncertain.NewFixed(0.0362),
+				TaxRate:            uncertain.NewFixed(0.3),
+				DestinationID:      acc.ID,
+			}
+		}
 		if len(entity.Snapshots) > 0 {
 			entities = append(entities, entity)
 		}
