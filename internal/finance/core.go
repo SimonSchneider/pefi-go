@@ -3,9 +3,10 @@ package finance
 import (
 	"context"
 	"fmt"
+	"sort"
+
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
-	"sort"
 )
 
 type BalanceSnapshot struct {
@@ -82,10 +83,9 @@ func (fe *ModeledEntity) ApplyAppreciation(ucfg *uncertain.Config, entities map[
 	} else if fe.CashFlow.Frequency.Matches(day) {
 		// If a destination account is specified, add interest to that account
 		if destAccount, ok := entities[fe.CashFlow.DestinationID]; ok {
-			if destAccount.lastSnapshotDate.After(day) {
-				panic("Destination account " + fe.CashFlow.DestinationID + " has a snapshot after the cash flow date " + day.String())
+			if destAccount.lastSnapshotDate.Before(day) {
+				destAccount.balance = destAccount.balance.Add(ucfg, fe.accruedAppreciation)
 			}
-			destAccount.balance = destAccount.balance.Add(ucfg, fe.accruedAppreciation)
 		} else {
 			panic("Could not find account with ID " + fe.CashFlow.DestinationID)
 		}

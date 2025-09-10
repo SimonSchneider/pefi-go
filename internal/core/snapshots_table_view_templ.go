@@ -101,7 +101,7 @@ func SnapshotsTableContent(view *SnapshotsTableView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = Header("Snapshots Table", SnapshotsTableNewRowButton()).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Header("Snapshots Table", AccountsFilter(view.AccountTypes), SnapshotsTableNewRowButton()).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -138,7 +138,7 @@ func SnapshotsTableContent(view *SnapshotsTableView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</tbody></table></div></div></div></div></div></main><script>\n\t\t// Handle Enter key navigation in the snapshots table\n\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\tif (event.key === 'Enter' && event.target.tagName === 'INPUT') {\n\t\t\t\tevent.preventDefault();\n\t\t\t\t\n\t\t\t\tconst currentInput = event.target;\n\t\t\t\tconst currentCell = currentInput.closest('td');\n\t\t\t\tconst currentRow = currentCell.closest('tr');\n\t\t\t\tconst table = currentRow.closest('table');\n\t\t\t\tconst tbody = table.querySelector('tbody');\n\t\t\t\t\n\t\t\t\t// Find the next row\n\t\t\t\tconst nextRow = currentRow.nextElementSibling;\n\t\t\t\tif (!nextRow || !nextRow.classList.contains('hover:bg-gray-50')) {\n\t\t\t\t\treturn; // No next row or not a data row\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\t// Find the same column index in the next row\n\t\t\t\tconst currentCellIndex = Array.from(currentRow.children).indexOf(currentCell);\n\t\t\t\tconst nextCell = nextRow.children[currentCellIndex];\n\t\t\t\t\n\t\t\t\tif (nextCell && nextCell.querySelector('input')) {\n\t\t\t\t\tconst nextInput = nextCell.querySelector('input');\n\t\t\t\t\tnextInput.focus();\n\t\t\t\t\tnextInput.select(); // Select all text for easy editing\n\t\t\t\t}\n\t\t\t}\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</tbody></table></div></div></div></div></div></main><script>\n\t\t// Handle Enter key navigation in the snapshots table\n\t\tdocument.addEventListener('keydown', function(event) {\n\t\t\tif (event.key === 'Enter' && event.target.tagName === 'INPUT' && event.target.type === 'text') {\n\t\t\t\tevent.preventDefault();\n\t\t\t\t\n\t\t\t\tconst currentInput = event.target;\n\t\t\t\tconst currentCell = currentInput.closest('td');\n\t\t\t\tconst currentRow = currentCell.closest('tr');\n\t\t\t\tconst table = currentRow.closest('table');\n\t\t\t\tconst tbody = table.querySelector('tbody');\n\t\t\t\t\n\t\t\t\t// Find the next row\n\t\t\t\tconst nextRow = currentRow.nextElementSibling;\n\t\t\t\tif (!nextRow || !nextRow.classList.contains('hover:bg-base-100')) {\n\t\t\t\t\treturn; // No next row or not a data row\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\t// Find the same column index in the next row\n\t\t\t\tconst currentCellIndex = Array.from(currentRow.children).indexOf(currentCell);\n\t\t\t\tconst nextCell = nextRow.children[currentCellIndex];\n\t\t\t\t\n\t\t\t\tif (nextCell && nextCell.querySelector('input')) {\n\t\t\t\t\tconst nextInput = nextCell.querySelector('input');\n\t\t\t\t\tnextInput.focus();\n\t\t\t\t\tnextInput.select(); // Select all text for easy editing\n\t\t\t\t}\n\t\t\t}\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

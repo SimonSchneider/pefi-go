@@ -105,8 +105,22 @@ func RootPage() http.Handler {
 	})
 }
 
-func getAccountTypesWithFilter(r *http.Request, accountTypes []AccountType) []AccountTypeWithFilter {
-	accountTypesWithFilter := make([]AccountTypeWithFilter, 0, len(accountTypes))
+type AccountTypesWithFilter []AccountTypeWithFilter
+
+func (a AccountTypesWithFilter) GetAccountType(typeID string) AccountTypeWithFilter {
+	if typeID == "" {
+		return AccountTypeWithFilter{}
+	}
+	for _, at := range a {
+		if at.ID == typeID {
+			return at
+		}
+	}
+	return AccountTypeWithFilter{}
+}
+
+func getAccountTypesWithFilter(r *http.Request, accountTypes []AccountType) AccountTypesWithFilter {
+	accountTypesWithFilter := make(AccountTypesWithFilter, 0, len(accountTypes))
 	for _, accountType := range accountTypes {
 		exclude := r.FormValue("exclude_at_"+accountType.ID) == "on"
 		accountTypesWithFilter = append(accountTypesWithFilter, AccountTypeWithFilter{AccountType: accountType, Exclude: exclude})

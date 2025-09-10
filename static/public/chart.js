@@ -166,7 +166,6 @@ evtSource.addEventListener('setup', (event) => {
         addSeries(e);
         e.snapshots.forEach(s => addDataPoint(s));
     })
-    console.log(data.marklines);
     const today = new Date();
     const today2 = new Date();
     today2.setDate(today2.getUTCDate() + 1000);

@@ -158,7 +158,7 @@ type AccountTypeWithFilter struct {
 
 type AccountsView struct {
 	Accounts         []AccountDetailed
-	AccountTypes     []AccountTypeWithFilter
+	AccountTypes     AccountTypesWithFilter
 	TotalBalance     float64
 	TotalAssets      float64
 	TotalLiabilities float64
@@ -180,7 +180,7 @@ func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountTypeWithF
 }
 
 func (v *AccountsView) GetAccountType(typeID string) AccountTypeWithFilter {
-	return findAccountType(v.AccountTypes, typeID)
+	return v.AccountTypes.GetAccountType(typeID)
 }
 
 func KeyBy[T any](items []T, key func(T) string) map[string]T {
@@ -195,7 +195,7 @@ type AccountEditView2 struct {
 	Account      Account
 	Accounts     []Account
 	GrowthModels []GrowthModel
-	AccountTypes []AccountTypeWithFilter
+	AccountTypes AccountTypesWithFilter
 }
 
 func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter) *AccountEditView2 {
@@ -207,17 +207,5 @@ func (v *AccountEditView2) IsEdit() bool {
 }
 
 func (v *AccountEditView2) GetAccountTypeName(typeID string) string {
-	return findAccountType(v.AccountTypes, typeID).Name
-}
-
-func findAccountType(accountTypes []AccountTypeWithFilter, typeID string) AccountTypeWithFilter {
-	if typeID == "" {
-		return AccountTypeWithFilter{}
-	}
-	for _, at := range accountTypes {
-		if at.ID == typeID {
-			return at
-		}
-	}
-	return AccountTypeWithFilter{}
+	return v.AccountTypes.GetAccountType(typeID).Name
 }

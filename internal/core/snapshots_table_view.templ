@@ -15,7 +15,7 @@ templ SnapshotsTableNewRowButton() {
 
 templ SnapshotsTableContent(view *SnapshotsTableView) {
 	<main class="flex-1 flex flex-col overflow-hidden">
-		@Header("Snapshots Table", SnapshotsTableNewRowButton())
+		@Header("Snapshots Table", AccountsFilter(view.AccountTypes), SnapshotsTableNewRowButton())
 		<div class="flex-1 p-6 bg-base-100 overflow-hidden">
 			<div class="bg-base-100 rounded-lg shadow-sm border border-base-200 h-full flex flex-col overflow-hidden max-w-full">
 				<div class="flex-1 overflow-auto border border-base-300 rounded-lg">
@@ -49,7 +49,7 @@ templ SnapshotsTableContent(view *SnapshotsTableView) {
 	<script>
 		// Handle Enter key navigation in the snapshots table
 		document.addEventListener('keydown', function(event) {
-			if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
+			if (event.key === 'Enter' && event.target.tagName === 'INPUT' && event.target.type === 'text') {
 				event.preventDefault();
 				
 				const currentInput = event.target;
@@ -60,7 +60,7 @@ templ SnapshotsTableContent(view *SnapshotsTableView) {
 				
 				// Find the next row
 				const nextRow = currentRow.nextElementSibling;
-				if (!nextRow || !nextRow.classList.contains('hover:bg-gray-50')) {
+				if (!nextRow || !nextRow.classList.contains('hover:bg-base-100')) {
 					return; // No next row or not a data row
 				}
 				

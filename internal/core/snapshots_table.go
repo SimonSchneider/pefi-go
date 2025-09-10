@@ -16,13 +16,22 @@ import (
 
 func SnapshotsTablePage(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accounts, err := ListAccounts(ctx, db)
+		allAccounts, err := ListAccounts(ctx, db)
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
-		ids := make([]string, len(accounts))
-		for i, acc := range accounts {
-			ids[i] = acc.ID
+		accountTypes, err := ListAccountTypes(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing account types: %w", err)
+		}
+		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
+		ids := make([]string, 0, len(allAccounts))
+		accounts := make([]Account, 0, len(allAccounts))
+		for _, acc := range allAccounts {
+			if !accountTypesWithFilter.GetAccountType(acc.TypeID).Exclude {
+				ids = append(ids, acc.ID)
+				accounts = append(accounts, acc)
+			}
 		}
 		// Snapshots are ordered by date
 		snapshots, err := ListAccountsSnapshots(ctx, db, ids)
@@ -80,8 +89,9 @@ func SnapshotsTablePage(db *sql.DB) http.Handler {
 		}
 
 		return NewView(ctx, w, r).Render(Page("Snapshots Table", PageSnapshotsTable(&SnapshotsTableView{
-			Accounts: accounts,
-			Rows:     rows,
+			Accounts:     accounts,
+			Rows:         rows,
+			AccountTypes: accountTypesWithFilter,
 		})))
 	})
 }
@@ -210,8 +220,9 @@ func HandlerAccountSnapshotUpsert(db *sql.DB) http.Handler {
 
 type SnapshotsTableView struct {
 	*RequestDetails
-	Accounts []Account
-	Rows     []SnapshotsRow
+	Accounts     []Account
+	Rows         []SnapshotsRow
+	AccountTypes []AccountTypeWithFilter
 }
 
 type SnapshotsRow struct {
