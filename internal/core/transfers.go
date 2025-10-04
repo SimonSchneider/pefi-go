@@ -3,9 +3,11 @@ package core
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
@@ -188,4 +190,87 @@ func SimplifyTransfers(transfers []Transfer) []Transfer {
 	})
 
 	return result
+}
+
+func TransferChartPage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return NewView(ctx, w, r).Render(Page("Transfers Chart", PageTransfersChart()))
+	})
+}
+
+func TransferChartData(db *sql.DB) http.Handler {
+	type ItemStyle struct {
+		Color string `json:"color"`
+	}
+	type TransferChartData struct {
+		Name      string    `json:"name"`
+		Label     string    `json:"label"`
+		ItemStyle ItemStyle `json:"itemStyle"`
+	}
+	type TransferChartLink struct {
+		Source string  `json:"source"`
+		Target string  `json:"target"`
+		Value  float64 `json:"value"`
+		Label  string  `json:"label"`
+	}
+	type TransferChartDataEnvelope struct {
+		Data  []TransferChartData `json:"data"`
+		Links []TransferChartLink `json:"links"`
+	}
+
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		transfersTemplates, err := ListTransferTemplates(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing transfer templates: %w", err)
+		}
+		accounts, err := ListAccounts(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing accounts: %w", err)
+		}
+		accountTypes, err := ListAccountTypes(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing account types: %w", err)
+		}
+		accountTypesById := KeyBy(accountTypes, func(a AccountType) string { return a.ID })
+		ttsWithAmounts := makeTransferTemplatesWithAmount(transfersTemplates, date.Today())
+
+		chartData := make([]TransferChartData, 0, len(accounts))
+		for _, a := range accounts {
+			at := accountTypesById[a.TypeID]
+			chartData = append(chartData, TransferChartData{Name: a.Name, Label: a.Name, ItemStyle: ItemStyle{Color: at.Color}})
+		}
+		chartData = append(chartData, TransferChartData{Name: "Income", Label: "Income", ItemStyle: ItemStyle{Color: "#388E3C"}})
+		chartData = append(chartData, TransferChartData{Name: "Expenses", Label: "Expenses", ItemStyle: ItemStyle{Color: "#D32F2F"}})
+
+		accountsById := KeyBy(accounts, func(a Account) string { return a.ID })
+		chartLinks := make([]TransferChartLink, 0, len(ttsWithAmounts))
+		for _, t := range ttsWithAmounts {
+			if strings.Contains(string(t.Name), "Matkort") {
+				continue
+			}
+			if t.Amount > 0 && t.Enabled && strings.Contains(string(t.Recurrence), "*") {
+				link := TransferChartLink{Source: t.FromAccountID, Target: t.ToAccountID, Label: t.Name, Value: t.Amount}
+				if t.FromAccountID == "" {
+					link.Source = "Income"
+				} else {
+					link.Source = accountsById[t.FromAccountID].Name
+				}
+				if t.ToAccountID == "" {
+					link.Target = "Expenses"
+				} else {
+					link.Target = accountsById[t.ToAccountID].Name
+				}
+				chartLinks = append(chartLinks, link)
+			}
+		}
+
+		data := TransferChartDataEnvelope{
+			Data:  chartData,
+			Links: chartLinks,
+		}
+		if err := json.NewEncoder(w).Encode(data); err != nil {
+			return fmt.Errorf("encoding JSON: %w", err)
+		}
+		return nil
+	})
 }
