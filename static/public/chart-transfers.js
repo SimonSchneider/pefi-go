@@ -36,8 +36,6 @@ async function load() {
     const raw = await fetch(`data${window.location.search}`);
     const data = await raw.json();
 
-    console.log(data);
-
     myChart.setOption({
         series: [{
             type: 'sankey',
