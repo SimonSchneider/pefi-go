@@ -2,6 +2,21 @@ package core;
 
 import "fmt"
 
+templ PageChart(p PredictionParams) {
+	@Layout("/chart", ChartContent(p))
+}
+
+templ ChartContent(p PredictionParams) {
+	<main class="flex-1 flex flex-col">
+		@Header("Chart", ChartControls(p))
+		<div class="flex-1 p-6 overflow-auto bg-base-50">
+			<div id="main" style="width: 100%; height: 100%;"></div>
+			<script src="/static/public/echarts.min.js"></script>
+			<script src="/static/public/chart.js"></script>
+		</div>
+	</main>
+}
+
 templ ChartControls(p PredictionParams) {
 	<form method="GET" class="flex items-center gap-4">
 		<div class="form-control">
@@ -9,9 +24,24 @@ templ ChartControls(p PredictionParams) {
 				<span class="label-text">Group By</span>
 			</label>
 			<select name="group_by" class="select select-bordered w-24">
-				<option value="none" if p.GroupBy == "none" { selected }>None</option>
-				<option value="type" if p.GroupBy == "type" { selected }>Type</option>
-				<option value="total" if p.GroupBy == "total" { selected }>Total</option>
+				<option
+					value="none"
+					if p.GroupBy == "none" {
+						selected
+					}
+				>None</option>
+				<option
+					value="type"
+					if p.GroupBy == "type" {
+						selected
+					}
+				>Type</option>
+				<option
+					value="total"
+					if p.GroupBy == "total" {
+						selected
+					}
+				>Total</option>
 			</select>
 		</div>
 		<div class="form-control">
@@ -68,15 +98,4 @@ templ ChartControls(p PredictionParams) {
 			Run
 		</button>
 	</form>
-}
-
-templ ChartContent(p PredictionParams) {
-	<main class="flex-1 flex flex-col">
-		@Header("Chart", ChartControls(p))
-		<div class="flex-1 p-6 overflow-auto bg-base-50">
-			<div id="main" style="width: 100%; height: 100%;"></div>
-			<script src="/static/public/echarts.min.js"></script>
-			<script src="/static/public/chart.js"></script>
-		</div>
-	</main>
 }

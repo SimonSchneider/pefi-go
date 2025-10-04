@@ -259,6 +259,8 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 
 	// Transfers
 	mux.Handle("GET /transfers", TransfersPage(db))
+	mux.Handle("GET /transfers/chart/{$}", TransferChartPage(db))
+	mux.Handle("GET /transfers/chart/data", TransferChartData(db))
 
 	// Chart
 	mux.Handle("GET /chart", ChartPage())
