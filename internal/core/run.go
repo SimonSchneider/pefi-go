@@ -46,7 +46,7 @@ func Run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, 
 			return ctx
 		},
 		Addr:    cfg.Addr,
-		Handler: srvu.With(NewHandler(db, public), srvu.WithCompression(), srvu.WithLogger(logger)),
+		Handler: srvu.With(NewHandler(db, public), http.NewCrossOriginProtection().Handler, srvu.WithCompression(), srvu.WithLogger(logger)),
 	}
 	logger.Printf("starting chore server, listening on %s\n  sqliteDB: %s", cfg.Addr, cfg.DbURL)
 	return srvu.RunServerGracefully(ctx, srv, logger)
