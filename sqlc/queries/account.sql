@@ -118,10 +118,11 @@ INSERT INTO transfer_template (
     start_date,
     end_date,
     enabled,
+    parent_template_id,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
   from_account_id = EXCLUDED.from_account_id,
@@ -134,6 +135,7 @@ SET name = EXCLUDED.name,
   start_date = EXCLUDED.start_date,
   end_date = EXCLUDED.end_date,
   enabled = EXCLUDED.enabled,
+  parent_template_id = EXCLUDED.parent_template_id,
   updated_at = EXCLUDED.updated_at
 RETURNING *;
 -- name: DeleteTransferTemplate :exec
@@ -200,3 +202,42 @@ RETURNING *;
 -- name: DeleteSpecialDate :exec
 DELETE FROM special_date
 WHERE id = ?;
+-- name: ListTransferTemplateCategories :many
+SELECT *
+FROM transfer_template_category
+ORDER BY name,
+  id;
+-- name: GetTransferTemplateCategory :one
+SELECT *
+FROM transfer_template_category
+WHERE id = ?;
+-- name: UpsertTransferTemplateCategory :one
+INSERT INTO transfer_template_category (id, name, color, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET name = EXCLUDED.name,
+  color = EXCLUDED.color,
+  updated_at = EXCLUDED.updated_at
+RETURNING *;
+-- name: DeleteTransferTemplateCategory :exec
+DELETE FROM transfer_template_category
+WHERE id = ?;
+-- name: GetCategoriesForTransferTemplate :many
+SELECT c.*
+FROM transfer_template_category c
+  INNER JOIN transfer_template_category_assignment a ON c.id = a.category_id
+WHERE a.transfer_template_id = ?;
+-- name: AssignCategoryToTransferTemplate :exec
+INSERT INTO transfer_template_category_assignment (transfer_template_id, category_id)
+VALUES (?, ?) ON CONFLICT DO NOTHING;
+-- name: RemoveCategoryFromTransferTemplate :exec
+DELETE FROM transfer_template_category_assignment
+WHERE transfer_template_id = ?
+  AND category_id = ?;
+-- name: GetChildTemplates :many
+SELECT *
+FROM transfer_template
+WHERE parent_template_id = ?
+ORDER BY start_date,
+  name,
+  id;

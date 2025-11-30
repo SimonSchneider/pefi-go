@@ -65,6 +65,9 @@ func HandlerAccountGrowthModelDelete(db *sql.DB) http.Handler {
 
 func HandlerTransferTemplateUpsert(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := r.ParseForm(); err != nil {
+			return fmt.Errorf("parsing form: %w", err)
+		}
 		var inp TransferTemplate
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
@@ -73,6 +76,46 @@ func HandlerTransferTemplateUpsert(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("upserting transfer template: %w", err)
 		}
+
+		// Handle category assignments
+		// Get existing categories
+		existingCategories, _ := GetCategoriesForTemplate(ctx, db, t.ID)
+		existingCategoryMap := make(map[string]bool)
+		for _, c := range existingCategories {
+			existingCategoryMap[c.ID] = true
+		}
+
+		// Parse category IDs from form (multiple values with same name)
+		categoryIDs := r.Form["category_ids"]
+		if len(categoryIDs) == 0 {
+			// Try single value
+			if catID := r.FormValue("category_ids"); catID != "" {
+				categoryIDs = []string{catID}
+			}
+		}
+
+		newCategoryMap := make(map[string]bool)
+		for _, catID := range categoryIDs {
+			if catID != "" {
+				newCategoryMap[catID] = true
+				if !existingCategoryMap[catID] {
+					// Assign new category
+					if err := AssignCategoryToTemplate(ctx, db, t.ID, catID); err != nil {
+						return fmt.Errorf("assigning category: %w", err)
+					}
+				}
+			}
+		}
+
+		// Remove categories that are no longer assigned
+		for _, existingCat := range existingCategories {
+			if !newCategoryMap[existingCat.ID] {
+				if err := RemoveCategoryFromTemplate(ctx, db, t.ID, existingCat.ID); err != nil {
+					return fmt.Errorf("removing category: %w", err)
+				}
+			}
+		}
+
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfers/%s", t.ID))
 		return nil
 	})
@@ -96,6 +139,60 @@ func HandlerTransferTemplateDelete(db *sql.DB) http.Handler {
 		}
 		shttp.RedirectToNext(w, r, "/")
 		return nil
+	})
+}
+
+// Transfer Template Category Handlers
+func HandlerTransferTemplateCategoryUpsert(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp TransferTemplateCategory
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		c, err := UpsertCategory(ctx, db, inp)
+		if err != nil {
+			return fmt.Errorf("upserting category: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfer-template-categories/%s", c.ID))
+		return nil
+	})
+}
+
+func HandlerTransferTemplateCategoryDelete(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := DeleteCategory(ctx, db, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting category: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/transfer-template-categories")
+		return nil
+	})
+}
+
+func TransferTemplateCategoriesPage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		categories, err := ListCategories(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing categories: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfer Template Categories", PageTransferTemplateCategories(NewTransferTemplateCategoriesView(categories))))
+	})
+}
+
+func TransferTemplateCategoryNewPage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return NewView(ctx, w, r).Render(Page("Transfer Template Categories", PageEditTransferTemplateCategory(&TransferTemplateCategoryEditView{})))
+	})
+}
+
+func TransferTemplateCategoryEditPage(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		c, err := GetCategory(ctx, db, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting category: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfer Template Categories", PageEditTransferTemplateCategory(&TransferTemplateCategoryEditView{
+			Category: c,
+		})))
 	})
 }
 
@@ -201,8 +298,18 @@ func TransferTemplatesNewPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
+		categories, err := ListCategories(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing categories: %w", err)
+		}
+		allTemplates, err := ListTransferTemplates(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing templates: %w", err)
+		}
 		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(&TransferTemplateEditView{
-			Accounts: accs,
+			Accounts:     accs,
+			Categories:   categories,
+			AllTemplates: allTemplates,
 		})))
 	})
 }
@@ -218,9 +325,19 @@ func TransferTemplatesEditPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
+		categories, err := ListCategories(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing categories: %w", err)
+		}
+		allTemplates, err := ListTransferTemplates(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing templates: %w", err)
+		}
 		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(&TransferTemplateEditView{
 			Accounts:         accs,
 			TransferTemplate: t,
+			Categories:       categories,
+			AllTemplates:     allTemplates,
 		})))
 	})
 }
@@ -275,6 +392,13 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux.Handle("POST /transfers/{$}", HandlerTransferTemplateUpsert(db))
 	mux.Handle("POST /transfers/{id}/duplicate", HandlerTransferTemplateDuplicate(db))
 	mux.Handle("POST /transfers/{id}/delete", HandlerTransferTemplateDelete(db))
+
+	// Transfer template categories
+	mux.Handle("GET /transfer-template-categories", TransferTemplateCategoriesPage(db))
+	mux.Handle("GET /transfer-template-categories/new", TransferTemplateCategoryNewPage(db))
+	mux.Handle("GET /transfer-template-categories/{id}/edit", TransferTemplateCategoryEditPage(db))
+	mux.Handle("POST /transfer-template-categories/{$}", HandlerTransferTemplateCategoryUpsert(db))
+	mux.Handle("POST /transfer-template-categories/{id}/delete", HandlerTransferTemplateCategoryDelete(db))
 
 	mux.Handle("POST /sleep/{$}", srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		// Simulate a long-running operation

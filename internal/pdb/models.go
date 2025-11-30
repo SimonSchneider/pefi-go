@@ -48,20 +48,34 @@ type SpecialDate struct {
 }
 
 type TransferTemplate struct {
-	ID            string
-	Name          string
-	FromAccountID *string
-	ToAccountID   *string
-	AmountType    string
-	AmountFixed   string
-	AmountPercent float64
-	Priority      int64
-	Recurrence    string
-	StartDate     int64
-	EndDate       *int64
-	Enabled       bool
-	CreatedAt     int64
-	UpdatedAt     int64
+	ID               string
+	Name             string
+	FromAccountID    *string
+	ToAccountID      *string
+	AmountType       string
+	AmountFixed      string
+	AmountPercent    float64
+	Priority         int64
+	Recurrence       string
+	StartDate        int64
+	EndDate          *int64
+	Enabled          bool
+	CreatedAt        int64
+	UpdatedAt        int64
+	ParentTemplateID *string
+}
+
+type TransferTemplateCategory struct {
+	ID        string
+	Name      string
+	Color     *string
+	CreatedAt int64
+	UpdatedAt int64
+}
+
+type TransferTemplateCategoryAssignment struct {
+	TransferTemplateID string
+	CategoryID         string
 }
 
 type User struct {

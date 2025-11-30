@@ -52,6 +52,8 @@ type TransferTemplateEditView struct {
 	*RequestDetails
 	TransferTemplate TransferTemplate
 	Accounts         []Account
+	Categories       []TransferTemplateCategory
+	AllTemplates     []TransferTemplate // For selecting parent template
 }
 
 func (c TransferTemplateEditView) IsEdit() bool {
@@ -208,4 +210,21 @@ func (v *AccountEditView2) IsEdit() bool {
 
 func (v *AccountEditView2) GetAccountTypeName(typeID string) string {
 	return v.AccountTypes.GetAccountType(typeID).Name
+}
+
+// Transfer Template Category Views
+type TransferTemplateCategoriesView struct {
+	Categories []TransferTemplateCategory
+}
+
+func NewTransferTemplateCategoriesView(categories []TransferTemplateCategory) *TransferTemplateCategoriesView {
+	return &TransferTemplateCategoriesView{Categories: categories}
+}
+
+type TransferTemplateCategoryEditView struct {
+	Category TransferTemplateCategory
+}
+
+func (v TransferTemplateCategoryEditView) IsEdit() bool {
+	return v.Category.ID != ""
 }

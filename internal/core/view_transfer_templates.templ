@@ -101,6 +101,58 @@ templ TransferTemplateForm(view *TransferTemplateEditView) {
 						{{ endDate = view.TransferTemplate.EndDate.String() }}
 					}
 					<input type="text" class="input" name="end_date" value={ endDate }/>
+					<label class="label">Parent Template (Optional)</label>
+					<select class="select" name="parent_template_id">
+						<option value="">None</option>
+						for _, tpl := range view.AllTemplates {
+							{{ selected := false }}
+							if view.TransferTemplate.ParentTemplateID != nil && *view.TransferTemplate.ParentTemplateID == tpl.ID {
+								{{ selected = true }}
+							}
+							{{ skip := false }}
+							if view.TransferTemplate.ID != "" && tpl.ID == view.TransferTemplate.ID {
+								{{ skip = true }}
+							}
+							if !skip {
+								<option
+									value={ tpl.ID }
+									if selected {
+										selected
+									}
+								>{ tpl.Name }</option>
+							}
+						}
+					</select>
+					<div class="text-sm text-base-content/70 mt-1">
+						Link this template to a parent template to group templates that represent the same transfer but active during different time periods.
+					</div>
+					<label class="label">Categories</label>
+					<div class="flex flex-col gap-2">
+						for _, cat := range view.Categories {
+							{{ isSelected := false }}
+							for _, assignedCat := range view.TransferTemplate.Categories {
+								if assignedCat.ID == cat.ID {
+									{{ isSelected = true }}
+									break
+								}
+							}
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									class="checkbox"
+									name="category_ids"
+									value={ cat.ID }
+									if isSelected {
+										checked
+									}
+								/>
+								@CategoryBadge(cat)
+							</label>
+						}
+					</div>
+					<div class="text-sm text-base-content/70 mt-1">
+						<a href="/transfer-template-categories/new" class="link link-primary">Create new category</a>
+					</div>
 					<label class="label">Enabled</label>
 					<input
 						type="checkbox"
@@ -127,8 +179,41 @@ templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
 }
 
 templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateWithAmount) {
-	<tr class="hover:bg-base-50">
-		<td class="font-medium">{ t.Name }</td>
+	{{ isParent := len(t.ChildTemplates) > 0 }}
+	{{ isChild := t.ParentTemplate != nil }}
+	<tr
+		class="hover:bg-base-50"
+		if isParent {
+			data-template-id={ t.ID }
+		}
+		if isChild {
+			data-parent-id={ t.ParentTemplate.ID }
+			class="hover:bg-base-50 bg-base-50/50 hidden"
+		}
+	>
+		<td class="font-medium">
+			<div class="flex flex-col gap-1">
+				<div class="flex items-center gap-2">
+					if isParent {
+						<button 
+							type="button" 
+							class="collapse-toggle btn btn-ghost btn-xs p-0 min-h-0 h-4 w-4" 
+							title="Toggle children"
+							onclick="window.toggleTemplateChildren(this)"
+						>
+							<svg class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+							</svg>
+						</button>
+						<span class="badge badge-primary badge-sm">Parent ({ len(t.ChildTemplates) })</span>
+					} else if isChild {
+						<span class="w-4"></span>
+						<span class="badge badge-outline badge-sm">Child of { t.ParentTemplate.Name }</span>
+					}
+					<span>{ t.Name }</span>
+				</div>
+			</div>
+		</td>
 		<td>
 			<div class="flex flex-col gap-1">
 				{{ from := view.GetAccount(t.FromAccountID) }}
@@ -152,6 +237,17 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 					<span class="text-base-content/50">{ t.Priority }</span>
 				} else {
 					<span class="badge badge-secondary">one-time</span>
+				}
+			</div>
+		</td>
+		<td>
+			<div class="flex flex-wrap gap-1">
+				if len(t.Categories) > 0 {
+					for _, cat := range t.Categories {
+						@CategoryBadge(cat)
+					}
+				} else {
+					<span class="text-base-content/50 text-sm">-</span>
 				}
 			</div>
 		</td>
@@ -240,12 +336,18 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
 						<div class="overflow-x-auto">
+							<style>
+								tr[data-parent-id].hidden { display: none !important; }
+								tr[data-template-id].collapsed .collapse-toggle svg { transform: rotate(-90deg); }
+								tr[data-parent-id] { border-left: 2px solid hsl(var(--p)); }
+							</style>
 							<table class="table w-full">
 								<thead>
 									<tr>
 										<th class="font-semibold sticky">Name</th>
 										<th class="font-semibold">From → To</th>
 										<th class="font-semibold">Recurrence</th>
+										<th class="font-semibold">Categories</th>
 										<th class="font-semibold text-right">Amount</th>
 										<th class="font-semibold text-right">Estimated Amount</th>
 										<th class="font-semibold text-right">Enabled</th>
@@ -258,7 +360,7 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 								<tbody>
 									if len(view.TransferTemplates) == 0 {
 										<tr>
-											<td colspan="6" class="text-center py-8 text-base-content/70">
+											<td colspan="9" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No accounts yet</p>
@@ -267,8 +369,26 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 											</td>
 										</tr>
 									} else {
+										{{ rendered := make(map[string]bool) }}
 										for _, tpl := range view.TransferTemplates {
-											@TransferTemplateTableRow(view, &tpl)
+											{{ isChild := tpl.ParentTemplate != nil }}
+											{{ isParent := len(tpl.ChildTemplates) > 0 }}
+											if !isChild {
+												@TransferTemplateTableRow(view, &tpl)
+												{{ rendered[tpl.ID] = true }}
+												if isParent {
+													for _, child := range tpl.ChildTemplates {
+														{{ childWithAmount := TransferTemplateWithAmount{TransferTemplate: child, SimDate: tpl.SimDate, Amount: 0} }}
+														@TransferTemplateTableRow(view, &childWithAmount)
+														{{ rendered[child.ID] = true }}
+													}
+												}
+											}
+										}
+										for _, tpl := range view.TransferTemplates {
+											if !rendered[tpl.ID] {
+												@TransferTemplateTableRow(view, &tpl)
+											}
 										}
 									}
 								</tbody>
