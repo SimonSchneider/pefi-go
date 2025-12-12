@@ -242,7 +242,7 @@ func AccountsPage(db *sql.DB) http.Handler {
 
 func TransferTemplatesPage(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		transferTemplates, err := ListTransferTemplates(ctx, db)
+		transferTemplates, err := ListTransferTemplatesWithChildren(ctx, db)
 		if err != nil {
 			return fmt.Errorf("listing transfer templates: %w", err)
 		}
@@ -302,7 +302,7 @@ func TransferTemplatesNewPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing categories: %w", err)
 		}
-		allTemplates, err := ListTransferTemplates(ctx, db)
+		allTemplates, err := ListTransferTemplatesWithChildren(ctx, db)
 		if err != nil {
 			return fmt.Errorf("listing templates: %w", err)
 		}
@@ -329,7 +329,7 @@ func TransferTemplatesEditPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing categories: %w", err)
 		}
-		allTemplates, err := ListTransferTemplates(ctx, db)
+		allTemplates, err := ListTransferTemplatesWithChildren(ctx, db)
 		if err != nil {
 			return fmt.Errorf("listing templates: %w", err)
 		}

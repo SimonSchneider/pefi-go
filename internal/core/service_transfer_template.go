@@ -187,11 +187,20 @@ func ListTransferTemplates(ctx context.Context, db *sql.DB) ([]TransferTemplate,
 		}
 		parsedTemplates = append(parsedTemplates, template)
 	}
+	return parsedTemplates, nil
+}
+
+func ListTransferTemplatesWithChildren(ctx context.Context, db *sql.DB) ([]TransferTemplate, error) {
+	parsedTemplates, err := ListTransferTemplates(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all templates: %w", err)
+	}
 	byId := make(map[string]int)
 	for i := range parsedTemplates {
 		byId[parsedTemplates[i].ID] = i
 	}
-	for _, template := range parsedTemplates {
+	for i := range parsedTemplates {
+		template := &parsedTemplates[i]
 		// Populate categories
 		categories, err := GetCategoriesForTemplate(ctx, db, template.ID)
 		if err == nil {
@@ -202,7 +211,7 @@ func ListTransferTemplates(ctx context.Context, db *sql.DB) ([]TransferTemplate,
 			parentIndex, ok := byId[*template.ParentTemplateID]
 			if ok {
 				template.ParentTemplate = &parsedTemplates[parentIndex]
-				parsedTemplates[parentIndex].ChildTemplates = append(parsedTemplates[parentIndex].ChildTemplates, template)
+				parsedTemplates[parentIndex].ChildTemplates = append(parsedTemplates[parentIndex].ChildTemplates, *template)
 			}
 		}
 	}

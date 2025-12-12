@@ -58,7 +58,7 @@ func TransfersPage(db *sql.DB) http.Handler {
 			return fmt.Errorf("parsing transfers view input: %w", err)
 		}
 		view := inp.ToView()
-		allTransferTemplates, err := ListTransferTemplates(ctx, db)
+		allTransferTemplates, err := ListTransferTemplatesWithChildren(ctx, db)
 		if err != nil {
 			return fmt.Errorf("listing transfer templates: %w", err)
 		}
