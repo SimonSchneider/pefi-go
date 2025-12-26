@@ -10,6 +10,21 @@ import (
 	"strings"
 )
 
+const assignCategoryToTransferTemplate = `-- name: AssignCategoryToTransferTemplate :exec
+INSERT INTO transfer_template_category_assignment (transfer_template_id, category_id)
+VALUES (?, ?) ON CONFLICT DO NOTHING
+`
+
+type AssignCategoryToTransferTemplateParams struct {
+	TransferTemplateID string
+	CategoryID         string
+}
+
+func (q *Queries) AssignCategoryToTransferTemplate(ctx context.Context, arg AssignCategoryToTransferTemplateParams) error {
+	_, err := q.db.ExecContext(ctx, assignCategoryToTransferTemplate, arg.TransferTemplateID, arg.CategoryID)
+	return err
+}
+
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO account (
     id,
@@ -141,6 +156,16 @@ func (q *Queries) DeleteTransferTemplate(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteTransferTemplateCategory = `-- name: DeleteTransferTemplateCategory :exec
+DELETE FROM transfer_template_category
+WHERE id = ?
+`
+
+func (q *Queries) DeleteTransferTemplateCategory(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteTransferTemplateCategory, id)
+	return err
+}
+
 const getAccount = `-- name: GetAccount :one
 SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id
 FROM account
@@ -175,6 +200,90 @@ func (q *Queries) GetAccountType(ctx context.Context, id string) (AccountType, e
 	var i AccountType
 	err := row.Scan(&i.ID, &i.Name, &i.Color)
 	return i, err
+}
+
+const getCategoriesForTransferTemplate = `-- name: GetCategoriesForTransferTemplate :many
+SELECT c.id, c.name, c.color, c.created_at, c.updated_at
+FROM transfer_template_category c
+  INNER JOIN transfer_template_category_assignment a ON c.id = a.category_id
+WHERE a.transfer_template_id = ?
+`
+
+func (q *Queries) GetCategoriesForTransferTemplate(ctx context.Context, transferTemplateID string) ([]TransferTemplateCategory, error) {
+	rows, err := q.db.QueryContext(ctx, getCategoriesForTransferTemplate, transferTemplateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TransferTemplateCategory
+	for rows.Next() {
+		var i TransferTemplateCategory
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getChildTemplates = `-- name: GetChildTemplates :many
+SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id
+FROM transfer_template
+WHERE parent_template_id = ?
+ORDER BY start_date,
+  name,
+  id
+`
+
+func (q *Queries) GetChildTemplates(ctx context.Context, parentTemplateID *string) ([]TransferTemplate, error) {
+	rows, err := q.db.QueryContext(ctx, getChildTemplates, parentTemplateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TransferTemplate
+	for rows.Next() {
+		var i TransferTemplate
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.FromAccountID,
+			&i.ToAccountID,
+			&i.AmountType,
+			&i.AmountFixed,
+			&i.AmountPercent,
+			&i.Priority,
+			&i.Recurrence,
+			&i.StartDate,
+			&i.EndDate,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentTemplateID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getGrowthModel = `-- name: GetGrowthModel :one
@@ -383,7 +492,7 @@ func (q *Queries) GetSpecialDates(ctx context.Context) ([]SpecialDate, error) {
 }
 
 const getTransferTemplate = `-- name: GetTransferTemplate :one
-SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
+SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id
 FROM transfer_template
 WHERE id = ?
 `
@@ -406,12 +515,32 @@ func (q *Queries) GetTransferTemplate(ctx context.Context, id string) (TransferT
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentTemplateID,
+	)
+	return i, err
+}
+
+const getTransferTemplateCategory = `-- name: GetTransferTemplateCategory :one
+SELECT id, name, color, created_at, updated_at
+FROM transfer_template_category
+WHERE id = ?
+`
+
+func (q *Queries) GetTransferTemplateCategory(ctx context.Context, id string) (TransferTemplateCategory, error) {
+	row := q.db.QueryRowContext(ctx, getTransferTemplateCategory, id)
+	var i TransferTemplateCategory
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Color,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getTransferTemplates = `-- name: GetTransferTemplates :many
-SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
+SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id
 FROM transfer_template
 ORDER BY recurrence,
   priority,
@@ -445,6 +574,7 @@ func (q *Queries) GetTransferTemplates(ctx context.Context) ([]TransferTemplate,
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParentTemplateID,
 		); err != nil {
 			return nil, err
 		}
@@ -603,6 +733,58 @@ func (q *Queries) ListLatestSnapshotPerAccount(ctx context.Context) ([]AccountSn
 		return nil, err
 	}
 	return items, nil
+}
+
+const listTransferTemplateCategories = `-- name: ListTransferTemplateCategories :many
+SELECT id, name, color, created_at, updated_at
+FROM transfer_template_category
+ORDER BY name,
+  id
+`
+
+func (q *Queries) ListTransferTemplateCategories(ctx context.Context) ([]TransferTemplateCategory, error) {
+	rows, err := q.db.QueryContext(ctx, listTransferTemplateCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TransferTemplateCategory
+	for rows.Next() {
+		var i TransferTemplateCategory
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Color,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeCategoryFromTransferTemplate = `-- name: RemoveCategoryFromTransferTemplate :exec
+DELETE FROM transfer_template_category_assignment
+WHERE transfer_template_id = ?
+  AND category_id = ?
+`
+
+type RemoveCategoryFromTransferTemplateParams struct {
+	TransferTemplateID string
+	CategoryID         string
+}
+
+func (q *Queries) RemoveCategoryFromTransferTemplate(ctx context.Context, arg RemoveCategoryFromTransferTemplateParams) error {
+	_, err := q.db.ExecContext(ctx, removeCategoryFromTransferTemplate, arg.TransferTemplateID, arg.CategoryID)
+	return err
 }
 
 const updateAccount = `-- name: UpdateAccount :one
@@ -840,10 +1022,11 @@ INSERT INTO transfer_template (
     start_date,
     end_date,
     enabled,
+    parent_template_id,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
   from_account_id = EXCLUDED.from_account_id,
@@ -856,25 +1039,27 @@ SET name = EXCLUDED.name,
   start_date = EXCLUDED.start_date,
   end_date = EXCLUDED.end_date,
   enabled = EXCLUDED.enabled,
+  parent_template_id = EXCLUDED.parent_template_id,
   updated_at = EXCLUDED.updated_at
-RETURNING id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at
+RETURNING id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id
 `
 
 type UpsertTransferTemplateParams struct {
-	ID            string
-	Name          string
-	FromAccountID *string
-	ToAccountID   *string
-	AmountType    string
-	AmountFixed   string
-	AmountPercent float64
-	Priority      int64
-	Recurrence    string
-	StartDate     int64
-	EndDate       *int64
-	Enabled       bool
-	CreatedAt     int64
-	UpdatedAt     int64
+	ID               string
+	Name             string
+	FromAccountID    *string
+	ToAccountID      *string
+	AmountType       string
+	AmountFixed      string
+	AmountPercent    float64
+	Priority         int64
+	Recurrence       string
+	StartDate        int64
+	EndDate          *int64
+	Enabled          bool
+	ParentTemplateID *string
+	CreatedAt        int64
+	UpdatedAt        int64
 }
 
 func (q *Queries) UpsertTransferTemplate(ctx context.Context, arg UpsertTransferTemplateParams) (TransferTemplate, error) {
@@ -891,6 +1076,7 @@ func (q *Queries) UpsertTransferTemplate(ctx context.Context, arg UpsertTransfer
 		arg.StartDate,
 		arg.EndDate,
 		arg.Enabled,
+		arg.ParentTemplateID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -908,6 +1094,44 @@ func (q *Queries) UpsertTransferTemplate(ctx context.Context, arg UpsertTransfer
 		&i.StartDate,
 		&i.EndDate,
 		&i.Enabled,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ParentTemplateID,
+	)
+	return i, err
+}
+
+const upsertTransferTemplateCategory = `-- name: UpsertTransferTemplateCategory :one
+INSERT INTO transfer_template_category (id, name, color, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET name = EXCLUDED.name,
+  color = EXCLUDED.color,
+  updated_at = EXCLUDED.updated_at
+RETURNING id, name, color, created_at, updated_at
+`
+
+type UpsertTransferTemplateCategoryParams struct {
+	ID        string
+	Name      string
+	Color     *string
+	CreatedAt int64
+	UpdatedAt int64
+}
+
+func (q *Queries) UpsertTransferTemplateCategory(ctx context.Context, arg UpsertTransferTemplateCategoryParams) (TransferTemplateCategory, error) {
+	row := q.db.QueryRowContext(ctx, upsertTransferTemplateCategory,
+		arg.ID,
+		arg.Name,
+		arg.Color,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i TransferTemplateCategory
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Color,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

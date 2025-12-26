@@ -1,16 +1,40 @@
 package core;
 
-templ PageTransfersChart() {
-	@Layout("/transfers/chart", TransfersChartContent())
+templ PageTransfersChart(groupBy TransferChartGroupBy) {
+	@Layout("/transfers/chart", TransfersChartContent(groupBy))
 }
 
-templ TransfersChartContent() {
+templ TransfersChartContent(groupBy TransferChartGroupBy) {
 	<main class="flex-1 flex flex-col">
-		@Header("Chart")
+		@Header("Chart", TransfersChartControls(groupBy))
 		<div class="flex-1 p-6 overflow-auto bg-base-50">
 			<div id="main" style="width: 100%; height: 100%;"></div>
 			<script src="/static/public/echarts.min.js"></script>
 			<script src="/static/public/chart-transfers.js"></script>
 		</div>
 	</main>
+}
+
+templ TransfersChartControls(groupBy TransferChartGroupBy) {
+	<form method="GET" class="flex items-center gap-4">
+		<div class="form-control">
+			<label class="label">
+				<span class="label-text">Group By</span>
+			</label>
+			<select name="group_by" class="select select-bordered w-32" onchange="this.form.submit()">
+				<option
+					value="account"
+					if groupBy == "account" {
+						selected
+					}
+				>Account</option>
+				<option
+					value="account_type"
+					if groupBy == "account_type" {
+						selected
+					}
+				>Account Type</option>
+			</select>
+		</div>
+	</form>
 }

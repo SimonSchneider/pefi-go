@@ -10,6 +10,7 @@ templ Page(name string, child templ.Component) {
 			<link rel="icon" href="/static/public/favicon.webp"/>
 			<link rel="stylesheet" href="/static/public/styles-tw.css"/>
 			<script src="/static/public/htmx.min.js"></script>
+			<script src="/static/public/transfer-templates-collapse.js"></script>
 			<title>{ name }</title>
 		</head>
 		<body class="bg-base-100">
@@ -66,6 +67,7 @@ templ Sidebar(page string) {
 				)
 				@NavGroup("Transfers",
 					NavItem("/transfer-templates", IconTransfer("w-5 h-5"), "Transfer Templates", page),
+					NavItem("/transfer-template-categories", IconTag("w-5 h-5"), "Categories", page),
 					NavItem("/transfers", IconTransfer("w-5 h-5"), "Transfers", page),
 					NavItem("/transfers/chart", IconChartSankey("w-5 h-5"), "Transfers Chart", page),
 				)

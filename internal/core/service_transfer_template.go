@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
@@ -26,9 +27,15 @@ type TransferTemplate struct {
 	Priority      int64     // lower number = happens earlier
 	Recurrence    date.Cron // e.g. "*-*-25"
 
-	StartDate date.Date
-	EndDate   *date.Date
-	Enabled   bool
+	StartDate        date.Date
+	EndDate          *date.Date
+	Enabled          bool
+	ParentTemplateID *string
+
+	// Populated fields (not stored directly)
+	Categories     []TransferTemplateCategory
+	ParentTemplate *TransferTemplate
+	ChildTemplates []TransferTemplate
 }
 
 func (t *TransferTemplate) FromForm(r *http.Request) error {
@@ -65,6 +72,12 @@ func (t *TransferTemplate) FromForm(r *http.Request) error {
 		t.EndDate = nil
 	}
 	t.Enabled = r.FormValue("enabled") == "on"
+	parentTemplateID := r.FormValue("parent_template_id")
+	if parentTemplateID != "" {
+		t.ParentTemplateID = &parentTemplateID
+	} else {
+		t.ParentTemplateID = nil
+	}
 	return nil
 }
 
@@ -100,18 +113,19 @@ func transferTemplateFromDB(t pdb.TransferTemplate) (TransferTemplate, error) {
 		return TransferTemplate{}, fmt.Errorf("decoding amount fixed: %w", err)
 	}
 	return TransferTemplate{
-		ID:            t.ID,
-		Name:          t.Name,
-		FromAccountID: ui.OrDefault(t.FromAccountID),
-		ToAccountID:   ui.OrDefault(t.ToAccountID),
-		AmountType:    t.AmountType,
-		AmountFixed:   amountFixed,
-		AmountPercent: t.AmountPercent,
-		Priority:      t.Priority,
-		Recurrence:    date.Cron(t.Recurrence),
-		StartDate:     date.Date(t.StartDate),
-		EndDate:       endDate,
-		Enabled:       t.Enabled,
+		ID:               t.ID,
+		Name:             t.Name,
+		FromAccountID:    ui.OrDefault(t.FromAccountID),
+		ToAccountID:      ui.OrDefault(t.ToAccountID),
+		AmountType:       t.AmountType,
+		AmountFixed:      amountFixed,
+		AmountPercent:    t.AmountPercent,
+		Priority:         t.Priority,
+		Recurrence:       date.Cron(t.Recurrence),
+		StartDate:        date.Date(t.StartDate),
+		EndDate:          endDate,
+		Enabled:          t.Enabled,
+		ParentTemplateID: t.ParentTemplateID,
 	}, nil
 }
 
@@ -129,18 +143,21 @@ func UpsertTransferTemplate(ctx context.Context, db *sql.DB, inp TransferTemplat
 		inp.ID = sid.MustNewString(32)
 	}
 	t, err := pdb.New(db).UpsertTransferTemplate(ctx, pdb.UpsertTransferTemplateParams{
-		ID:            inp.ID,
-		Name:          inp.Name,
-		FromAccountID: ui.WithDefaultNull(inp.FromAccountID),
-		ToAccountID:   ui.WithDefaultNull(inp.ToAccountID),
-		AmountType:    inp.AmountType,
-		AmountFixed:   amountFixed,
-		AmountPercent: inp.AmountPercent,
-		Priority:      inp.Priority,
-		Recurrence:    string(inp.Recurrence),
-		StartDate:     int64(inp.StartDate),
-		EndDate:       endDate,
-		Enabled:       inp.Enabled,
+		ID:               inp.ID,
+		Name:             inp.Name,
+		FromAccountID:    ui.WithDefaultNull(inp.FromAccountID),
+		ToAccountID:      ui.WithDefaultNull(inp.ToAccountID),
+		AmountType:       inp.AmountType,
+		AmountFixed:      amountFixed,
+		AmountPercent:    inp.AmountPercent,
+		Priority:         inp.Priority,
+		Recurrence:       string(inp.Recurrence),
+		StartDate:        int64(inp.StartDate),
+		EndDate:          endDate,
+		Enabled:          inp.Enabled,
+		ParentTemplateID: inp.ParentTemplateID,
+		CreatedAt:        time.Now().Unix(),
+		UpdatedAt:        time.Now().Unix(),
 	})
 	if err != nil {
 		return TransferTemplate{}, fmt.Errorf("failed to upsert  template: %w", err)
@@ -162,13 +179,47 @@ func ListTransferTemplates(ctx context.Context, db *sql.DB) ([]TransferTemplate,
 	if err != nil {
 		return nil, fmt.Errorf("failed to list  templates: %w", err)
 	}
-	var result []TransferTemplate
+	var parsedTemplates []TransferTemplate
 	for _, t := range templates {
 		template, err := transferTemplateFromDB(t)
 		if err != nil {
 			return nil, fmt.Errorf("converting transfer template from DB: %w", err)
 		}
-		result = append(result, template)
+		parsedTemplates = append(parsedTemplates, template)
+	}
+	return parsedTemplates, nil
+}
+
+func ListTransferTemplatesWithChildren(ctx context.Context, db *sql.DB) ([]TransferTemplate, error) {
+	parsedTemplates, err := ListTransferTemplates(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all templates: %w", err)
+	}
+	byId := make(map[string]int)
+	for i := range parsedTemplates {
+		byId[parsedTemplates[i].ID] = i
+	}
+	for i := range parsedTemplates {
+		template := &parsedTemplates[i]
+		// Populate categories
+		categories, err := GetCategoriesForTemplate(ctx, db, template.ID)
+		if err == nil {
+			template.Categories = categories
+		}
+		// Populate parent template
+		if template.ParentTemplateID != nil {
+			parentIndex, ok := byId[*template.ParentTemplateID]
+			if ok {
+				template.ParentTemplate = &parsedTemplates[parentIndex]
+				parsedTemplates[parentIndex].ChildTemplates = append(parsedTemplates[parentIndex].ChildTemplates, *template)
+			}
+		}
+	}
+	result := make([]TransferTemplate, 0, len(parsedTemplates))
+	for _, t := range parsedTemplates {
+		if t.ParentTemplateID == nil {
+			result = append(result, t)
+		}
 	}
 	return result, nil
 }
@@ -178,7 +229,28 @@ func GetTransferTemplate(ctx context.Context, db *sql.DB, id string) (TransferTe
 	if err != nil {
 		return TransferTemplate{}, fmt.Errorf("failed to get transfer template: %w", err)
 	}
-	return transferTemplateFromDB(t)
+	template, err := transferTemplateFromDB(t)
+	if err != nil {
+		return TransferTemplate{}, err
+	}
+	// Populate categories
+	categories, err := GetCategoriesForTemplate(ctx, db, template.ID)
+	if err == nil {
+		template.Categories = categories
+	}
+	// Populate parent template
+	if template.ParentTemplateID != nil {
+		parent, err := GetTransferTemplate(ctx, db, *template.ParentTemplateID)
+		if err == nil {
+			template.ParentTemplate = &parent
+		}
+	}
+	// Populate child templates (only if this is a parent)
+	children, err := GetChildTemplates(ctx, db, template.ID)
+	if err == nil && len(children) > 0 {
+		template.ChildTemplates = children
+	}
+	return template, nil
 }
 
 func DeleteTransferTemplate(ctx context.Context, db *sql.DB, id string) error {
@@ -186,4 +258,20 @@ func DeleteTransferTemplate(ctx context.Context, db *sql.DB, id string) error {
 		return fmt.Errorf("failed to delete  template: %w", err)
 	}
 	return nil
+}
+
+func GetChildTemplates(ctx context.Context, db *sql.DB, parentID string) ([]TransferTemplate, error) {
+	templates, err := pdb.New(db).GetChildTemplates(ctx, &parentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get child templates: %w", err)
+	}
+	var result []TransferTemplate
+	for _, t := range templates {
+		template, err := transferTemplateFromDB(t)
+		if err != nil {
+			return nil, fmt.Errorf("converting transfer template from DB: %w", err)
+		}
+		result = append(result, template)
+	}
+	return result, nil
 }

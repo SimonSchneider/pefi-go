@@ -1,0 +1,111 @@
+package core
+
+templ PageTransferTemplateCategories(view *TransferTemplateCategoriesView) {
+	@Layout("/transfer-template-categories", TransferTemplateCategoriesContent(view))
+}
+
+templ TransferTemplateCategoriesContent(view *TransferTemplateCategoriesView) {
+	<main class="flex-1 flex flex-col">
+		@Header("Transfer Template Categories", NewButton("/transfer-template-categories/new", IconPlus("w-4 h-4"), "New Category"))
+		<div class="flex-1 p-6 overflow-auto bg-base-50">
+			<div class="flex flex-col gap-4">
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead>
+									<tr>
+										<th class="font-semibold">Name</th>
+										<th class="font-semibold">Color</th>
+										<th class="font-semibold text-right sticky">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(view.Categories) == 0 {
+										<tr>
+											<td colspan="3" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													@NoDataImg()
+													<p class="text-lg font-medium">No categories yet</p>
+													<p>Create your first category to get started</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, cat := range view.Categories {
+											<tr class="hover:bg-base-50">
+												<td class="font-medium">{ cat.Name }</td>
+												<td>
+													@CategoryBadge(cat)
+												</td>
+												<td class="text-right">
+													<a href={ templ.SafeURL("/transfer-template-categories/" + cat.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+														@IconPencil("w-4 h-4")
+													</a>
+												</td>
+											</tr>
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}
+
+templ CategoryBadge(cat TransferTemplateCategory) {
+	if cat.Color != nil && *cat.Color != "" {
+		<span class="badge" style={ "background-color: " + *cat.Color }>{ cat.Name }</span>
+	} else {
+		<span class="badge">{ cat.Name }</span>
+	}
+}
+
+templ PageEditTransferTemplateCategory(view *TransferTemplateCategoryEditView) {
+	@Layout("/transfer-template-categories", EditTransferTemplateCategoryContent(view))
+}
+
+templ EditTransferTemplateCategoryContent(view *TransferTemplateCategoryEditView) {
+	<main class="flex-1 flex flex-col">
+		if view.IsEdit() {
+			@Header("Edit Category", DeleteCategoryButton(view.Category.ID))
+		} else {
+			@Header("New Category", BackButton("/transfer-template-categories"))
+		}
+		@CategoryForm(view)
+	</main>
+}
+
+templ DeleteCategoryButton(id string) {
+	<form method="post" action={ "/transfer-template-categories/" + id + "/delete?next=" + templ.EscapeString("/transfer-template-categories") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ CategoryForm(view *TransferTemplateCategoryEditView) {
+	<div class="flex flex-col lg:flex-row gap-6 m-6">
+		<div class="flex-1">
+			<form action={ "/transfer-template-categories/?next=" + templ.EscapeString("/transfer-template-categories") } method="post">
+				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
+					<legend class="fieldset-legend">Category Details</legend>
+					<input type="hidden" name="id" value={ view.Category.ID }/>
+					<label class="label">Name</label>
+					<input type="text" class="input" placeholder="Bills, Entertainment, etc." name="name" value={ view.Category.Name }/>
+					<label class="label">Color</label>
+					{{ colorValue := "" }}
+					if view.Category.Color != nil {
+						{{ colorValue = *view.Category.Color }}
+					}
+					<input type="color" class="input" name="color" value={ colorValue }/>
+					@SaveButton(view.IsEdit())
+				</fieldset>
+			</form>
+		</div>
+	</div>
+}
+
