@@ -3,7 +3,8 @@
 @source "../**/*.{templ}";
 
 @plugin "./daisyui.js" {
-    themes: emerald --default, dim --prefersdark, cupcake;
+    /*themes: emerald --default, dim --prefersdark, cupcake;*/
+    themes: emerald --default, cupcake;
 }
 
 .menu li>*.menu-active,
