@@ -27,8 +27,9 @@ type Account struct {
 
 type AccountDetailed struct {
 	Account
-	LastSnapshot *AccountSnapshot
-	GrowthModel  *GrowthModel
+	LastSnapshot        *AccountSnapshot
+	GrowthModel         *GrowthModel
+	StartupShareAccount *StartupShareAccount
 }
 
 type AccountInput struct {
@@ -123,7 +124,7 @@ func accountsListFromDB(dbAccs []pdb.Account) []Account {
 	return accs
 }
 
-func accountsListFromDBDetailed(dbAccs []pdb.Account, snapshots map[string]pdb.AccountSnapshot, growthModels map[string]pdb.GrowthModel) []AccountDetailed {
+func accountsListFromDBDetailed(dbAccs []pdb.Account, snapshots map[string]pdb.AccountSnapshot, growthModels map[string]pdb.GrowthModel, startupShareAccounts map[string]pdb.StartupShareAccount) []AccountDetailed {
 	accs := make([]AccountDetailed, len(dbAccs))
 	for i := range dbAccs {
 		accs[i].Account = accountFromDB(dbAccs[i])
@@ -137,6 +138,10 @@ func accountsListFromDBDetailed(dbAccs []pdb.Account, snapshots map[string]pdb.A
 				panic(err)
 			}
 			accs[i].GrowthModel = &gmd
+		}
+		if ssa, ok := startupShareAccounts[accs[i].ID]; ok {
+			ssaCore := startupShareAccountFromDB(ssa)
+			accs[i].StartupShareAccount = &ssaCore
 		}
 	}
 	return accs
@@ -175,5 +180,18 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 	for _, growthModel := range growthModels {
 		growthModelsMap[growthModel.AccountID] = growthModel
 	}
-	return accountsListFromDBDetailed(accs, snapshotsMap, growthModelsMap), nil
+	// Load startup share accounts for all accounts
+	startupShareAccountsMap := make(map[string]pdb.StartupShareAccount)
+	for _, acc := range accs {
+		ssa, err := pdb.New(db).GetStartupShareAccount(ctx, acc.ID)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, fmt.Errorf("failed to get startup share account: %w", err)
+			}
+			// No startup share account for this account, skip
+			continue
+		}
+		startupShareAccountsMap[acc.ID] = ssa
+	}
+	return accountsListFromDBDetailed(accs, snapshotsMap, growthModelsMap, startupShareAccountsMap), nil
 }

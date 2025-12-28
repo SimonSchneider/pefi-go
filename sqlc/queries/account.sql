@@ -241,3 +241,96 @@ WHERE parent_template_id = ?
 ORDER BY start_date,
   name,
   id;
+-- name: UpsertStartupShareAccount :one
+INSERT INTO startup_share_account (
+    account_id,
+    shares_owned,
+    total_shares,
+    purchase_price_per_share,
+    tax_rate,
+    valuation_discount_factor
+  )
+VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (account_id) DO
+UPDATE
+SET shares_owned = EXCLUDED.shares_owned,
+  total_shares = EXCLUDED.total_shares,
+  purchase_price_per_share = EXCLUDED.purchase_price_per_share,
+  tax_rate = EXCLUDED.tax_rate,
+  valuation_discount_factor = EXCLUDED.valuation_discount_factor
+RETURNING *;
+-- name: GetStartupShareAccount :one
+SELECT *
+FROM startup_share_account
+WHERE account_id = ?;
+-- name: DeleteStartupShareAccount :exec
+DELETE FROM startup_share_account
+WHERE account_id = ?;
+-- name: UpsertInvestmentRound :one
+INSERT INTO investment_round (
+    id,
+    account_id,
+    date,
+    valuation,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (account_id, date) DO
+UPDATE
+SET valuation = EXCLUDED.valuation,
+  updated_at = EXCLUDED.updated_at
+RETURNING *;
+-- name: GetInvestmentRound :one
+SELECT *
+FROM investment_round
+WHERE id = ?;
+-- name: ListInvestmentRounds :many
+SELECT *
+FROM investment_round
+WHERE account_id = ?
+ORDER BY date DESC,
+  id;
+-- name: GetLatestInvestmentRound :one
+SELECT *
+FROM investment_round
+WHERE account_id = ?
+  AND date <= ?
+ORDER BY date DESC
+LIMIT 1;
+-- name: DeleteInvestmentRound :exec
+DELETE FROM investment_round
+WHERE id = ?;
+-- name: UpsertStartupShareOption :one
+INSERT INTO startup_share_option (
+    id,
+    account_id,
+    source_account_id,
+    shares,
+    strike_price_per_share,
+    grant_date,
+    end_date,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET account_id = EXCLUDED.account_id,
+  source_account_id = EXCLUDED.source_account_id,
+  shares = EXCLUDED.shares,
+  strike_price_per_share = EXCLUDED.strike_price_per_share,
+  grant_date = EXCLUDED.grant_date,
+  end_date = EXCLUDED.end_date,
+  updated_at = EXCLUDED.updated_at
+RETURNING *;
+-- name: GetStartupShareOption :one
+SELECT *
+FROM startup_share_option
+WHERE id = ?;
+-- name: ListStartupShareOptions :many
+SELECT *
+FROM startup_share_option
+WHERE account_id = ?
+ORDER BY grant_date,
+  id;
+-- name: DeleteStartupShareOption :exec
+DELETE FROM startup_share_option
+WHERE id = ?;

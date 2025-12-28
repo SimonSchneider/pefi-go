@@ -271,6 +271,10 @@ func (u Value) Mul(cfg *Config, v Value) Value {
 	return u.operate(cfg, v, func(a, b float64) float64 { return a * b })
 }
 
+func (u Value) Div(cfg *Config, v Value) Value {
+	return u.operate(cfg, v, func(a, b float64) float64 { return a / b })
+}
+
 func (u Value) Exp() Value {
 	return NewMapped(func(cfg *Config) float64 {
 		return math.Exp(u.Sample(cfg))

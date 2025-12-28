@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -22,6 +23,32 @@ func HandlerAccountUpsert(db *sql.DB) http.Handler {
 		acc, err := UpsertAccount(ctx, db, inp)
 		if err != nil {
 			return fmt.Errorf("upserting account: %w", err)
+		}
+		// Handle startup share account configuration
+		enableStartupShares := r.FormValue("enable_startup_shares") == "on"
+		if enableStartupShares {
+			// User wants to enable/update startup shares
+			var ssaInp StartupShareAccountInput
+			if err := srvu.Decode(r, &ssaInp, false); err == nil {
+				ssaInp.AccountID = acc.ID
+				// Convert tax rate and discount factor from percentage to decimal
+				ssaInp.TaxRate = ssaInp.TaxRate / 100.0
+				ssaInp.ValuationDiscountFactor = ssaInp.ValuationDiscountFactor / 100.0
+				_, err := UpsertStartupShareAccount(ctx, db, ssaInp)
+				if err != nil {
+					return fmt.Errorf("upserting startup share account: %w", err)
+				}
+			}
+		} else {
+			// User unchecked the box, delete startup share account if it exists
+			_, err := GetStartupShareAccount(ctx, db, acc.ID)
+			if err == nil {
+				// Startup share account exists, delete it
+				if err := DeleteStartupShareAccount(ctx, db, acc.ID); err != nil {
+					return fmt.Errorf("deleting startup share account: %w", err)
+				}
+			}
+			// If it doesn't exist (sql.ErrNoRows), that's fine, nothing to do
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", acc.ID))
 		return nil
@@ -59,6 +86,84 @@ func HandlerAccountGrowthModelDelete(db *sql.DB) http.Handler {
 			return fmt.Errorf("deleting account growth model: %w", err)
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", r.PathValue("id")))
+		return nil
+	})
+}
+
+func HandlerStartupShareAccountUpsert(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp StartupShareAccountInput
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		// Convert tax rate and discount factor from percentage to decimal
+		inp.TaxRate = inp.TaxRate / 100.0
+		inp.ValuationDiscountFactor = inp.ValuationDiscountFactor / 100.0
+		_, err := UpsertStartupShareAccount(ctx, db, inp)
+		if err != nil {
+			return fmt.Errorf("upserting startup share account: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", inp.AccountID))
+		return nil
+	})
+}
+
+func HandlerInvestmentRoundUpsert(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp InvestmentRoundInput
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := UpsertInvestmentRound(ctx, db, inp)
+		if err != nil {
+			return fmt.Errorf("upserting investment round: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", inp.AccountID))
+		return nil
+	})
+}
+
+func HandlerInvestmentRoundDelete(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		roundID := r.PathValue("id")
+		round, err := GetInvestmentRound(ctx, db, roundID)
+		if err != nil {
+			return fmt.Errorf("getting investment round: %w", err)
+		}
+		if err := DeleteInvestmentRound(ctx, db, roundID); err != nil {
+			return fmt.Errorf("deleting investment round: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", round.AccountID))
+		return nil
+	})
+}
+
+func HandlerStartupShareOptionUpsert(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp StartupShareOptionInput
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := UpsertStartupShareOption(ctx, db, inp)
+		if err != nil {
+			return fmt.Errorf("upserting startup share option: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", inp.AccountID))
+		return nil
+	})
+}
+
+func HandlerStartupShareOptionDelete(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		optionID := r.PathValue("id")
+		option, err := GetStartupShareOption(ctx, db, optionID)
+		if err != nil {
+			return fmt.Errorf("getting startup share option: %w", err)
+		}
+		if err := DeleteStartupShareOption(ctx, db, optionID); err != nil {
+			return fmt.Errorf("deleting startup share option: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", option.AccountID))
 		return nil
 	})
 }
@@ -265,7 +370,7 @@ func AccountNewPage(db *sql.DB) http.Handler {
 			return fmt.Errorf("listing account types: %w", err)
 		}
 		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter))))
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter, nil, nil, nil))))
 	})
 }
 
@@ -288,7 +393,30 @@ func AccountEditPage(db *sql.DB) http.Handler {
 			return fmt.Errorf("listing account types: %w", err)
 		}
 		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter))))
+
+		// Load startup share data if account has startup share configuration
+		var startupShareAccount *StartupShareAccount
+		var investmentRounds []InvestmentRound
+		var options []StartupShareOption
+		ssa, err := GetStartupShareAccount(ctx, db, acc.ID)
+		if err == nil {
+			startupShareAccount = &ssa
+			investmentRounds, err = ListInvestmentRounds(ctx, db, acc.ID)
+			if err != nil {
+				return fmt.Errorf("listing investment rounds: %w", err)
+			}
+			options, err = ListStartupShareOptions(ctx, db, acc.ID)
+			if err != nil {
+				return fmt.Errorf("listing startup share options: %w", err)
+			}
+		} else if errors.Is(err, sql.ErrNoRows) {
+			// Account doesn't have startup share configuration, which is fine
+			// Leave startupShareAccount, investmentRounds, and options as nil/empty
+		} else {
+			return fmt.Errorf("getting startup share account: %w", err)
+		}
+
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter, startupShareAccount, investmentRounds, options))))
 	})
 }
 
@@ -388,6 +516,13 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 
 	mux.Handle("POST /growth-models/", HandlerAccountGrowthModelUpsert(db))
 	mux.Handle("POST /growth-models/{id}/delete", HandlerAccountGrowthModelDelete(db))
+
+	// Startup shares
+	mux.Handle("POST /startup-share-accounts/", HandlerStartupShareAccountUpsert(db))
+	mux.Handle("POST /investment-rounds/", HandlerInvestmentRoundUpsert(db))
+	mux.Handle("POST /investment-rounds/{id}/delete", HandlerInvestmentRoundDelete(db))
+	mux.Handle("POST /startup-share-options/", HandlerStartupShareOptionUpsert(db))
+	mux.Handle("POST /startup-share-options/{id}/delete", HandlerStartupShareOptionDelete(db))
 
 	mux.Handle("POST /transfers/{$}", HandlerTransferTemplateUpsert(db))
 	mux.Handle("POST /transfers/{id}/duplicate", HandlerTransferTemplateDuplicate(db))

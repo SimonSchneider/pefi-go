@@ -61,7 +61,7 @@ func (fe *ModeledEntity) Init(day date.Date) {
 	fe.balance = latestSnapshot.Balance
 }
 
-func (fe *ModeledEntity) ApplyGrowth(ucfg *uncertain.Config, date date.Date) {
+func (fe *ModeledEntity) ApplyGrowth(ucfg *uncertain.Config, entities map[string]*ModeledEntity, date date.Date) {
 	if fe.GrowthModel == nil || !fe.GrowthModel.IsActiveOn(date) {
 		return // No growth model or not active on this date
 	}
@@ -69,7 +69,7 @@ func (fe *ModeledEntity) ApplyGrowth(ucfg *uncertain.Config, date date.Date) {
 		fe.accruedAppreciation = uncertain.NewFixed(0.0) // Initialize if not set
 	}
 	totalBalance := fe.balance.Add(ucfg, fe.accruedAppreciation)
-	dailyGrowth := fe.GrowthModel.Apply(ucfg, date, totalBalance)
+	dailyGrowth := fe.GrowthModel.Apply(ucfg, date, entities, totalBalance)
 	fe.accruedAppreciation = fe.accruedAppreciation.Add(ucfg, dailyGrowth)
 }
 
@@ -124,7 +124,7 @@ func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Da
 
 		for _, fe := range fes {
 			if fe.lastSnapshotDate.Before(day) {
-				fe.ApplyGrowth(ucfg, day)
+				fe.ApplyGrowth(ucfg, fes, day)
 			}
 		}
 		for _, fe := range fes {

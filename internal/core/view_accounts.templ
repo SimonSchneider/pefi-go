@@ -85,6 +85,38 @@ templ AccountForm(view *AccountEditView2) {
 							>{ acc.Name }</option>
 						}
 					</select>
+					<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4 mt-4">
+						<legend class="fieldset-legend">Startup Share Details</legend>
+						<div class="form-control">
+							<label class="label cursor-pointer">
+								<span class="label-text">Enable startup shares</span>
+								<input type="checkbox" class="checkbox" name="enable_startup_shares" id="enable_startup_shares" onchange="toggleStartupShareFields()"
+									if view.HasStartupShareAccount() {
+										checked
+									}
+								/>
+							</label>
+						</div>
+						<div id="startup_share_fields" style={ view.GetStartupShareFieldsStyle() }>
+							<label class="label">Shares Owned</label>
+							<input type="number" step="any" class="input" placeholder="1000" name="shares_owned" value={ view.GetStartupShareSharesOwned() }/>
+							<label class="label">Total Shares</label>
+							<input type="number" step="any" class="input" placeholder="10000" name="total_shares" value={ view.GetStartupShareTotalShares() }/>
+							<label class="label">Purchase Price per Share</label>
+							<input type="number" step="any" class="input" placeholder="0.10" name="purchase_price_per_share" value={ view.GetStartupSharePurchasePrice() }/>
+							<label class="label">Tax Rate (%)</label>
+							<input type="number" step="any" class="input" placeholder="15" name="tax_rate" value={ view.GetStartupShareTaxRate() }/>
+							<label class="label">Valuation Discount Factor (%)</label>
+							<input type="number" step="any" class="input" placeholder="50" name="valuation_discount_factor" value={ view.GetStartupShareDiscountFactor() }/>
+						</div>
+					</fieldset>
+					<script>
+						function toggleStartupShareFields() {
+							const checkbox = document.getElementById("enable_startup_shares");
+							const fields = document.getElementById("startup_share_fields");
+							fields.style.display = checkbox.checked ? "block" : "none";
+						}
+					</script>
 					@SaveButton(view.IsEdit())
 				</fieldset>
 			</form>
@@ -105,15 +137,127 @@ templ AccountForm(view *AccountEditView2) {
 					</div>
 				</fieldset>
 			</div>
+			if view.StartupShareAccount != nil {
+				<!-- Investment Rounds Box -->
+				for _, round := range view.InvestmentRounds {
+					<form id={ "delete-round-form-" + round.ID } action={ "/investment-rounds/" + round.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+				}
+				<div class="flex-1">
+					<fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4">
+						<legend class="fieldset-legend">Investment Rounds</legend>
+						<div class="space-y-3">
+							for _, round := range view.InvestmentRounds {
+								@InvestmentRoundForm(view.Account.ID, round)
+							}
+							@InvestmentRoundForm(view.Account.ID, InvestmentRound{})
+						</div>
+					</fieldset>
+				</div>
+				<!-- Options Box -->
+				for _, option := range view.Options {
+					<form id={ "delete-option-form-" + option.ID } action={ "/startup-share-options/" + option.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+				}
+				<div class="flex-1">
+					<fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4">
+						<legend class="fieldset-legend">Options</legend>
+						<div class="space-y-3">
+							for _, option := range view.Options {
+								@StartupShareOptionForm(view.Account.ID, view.Accounts, option)
+							}
+							@StartupShareOptionForm(view.Account.ID, view.Accounts, StartupShareOption{})
+						</div>
+					</fieldset>
+				</div>
+			}
 		}
 	</div>
 }
 
+templ InvestmentRoundForm(accountID string, round InvestmentRound) {
+	<form method="post" action={ "/investment-rounds/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") }>
+		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
+			if round.ID != "" {
+				<button type="submit" form={ "delete-round-form-" + round.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+					@IconX("w-3 h-3")
+				</button>
+			}
+			<input type="hidden" name="id" value={ round.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
+			<div class="flex flex-col gap-2">
+				<div class="flex flex-row gap-2">
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Date</label>
+						<input type="text" class="input input-sm w-full" placeholder="Date" name="date" value={ round.GetDateString() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Valuation</label>
+						<input type="number" step="any" class="input input-sm w-full" placeholder="Valuation" name="valuation" value={ round.GetValuationString() }/>
+					</div>
+					<div class="flex items-end">
+						@SaveButton(round.ID != "")
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
+templ StartupShareOptionForm(accountID string, accounts []Account, option StartupShareOption) {
+	<form method="post" action={ "/startup-share-options/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") }>
+		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
+			if option.ID != "" {
+				<button type="submit" form={ "delete-option-form-" + option.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+					@IconX("w-3 h-3")
+				</button>
+			}
+			<input type="hidden" name="id" value={ option.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
+			<div class="flex flex-col gap-2">
+				<div class="flex flex-row gap-2">
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Shares</label>
+						<input type="number" step="any" class="input input-sm w-full" placeholder="Shares" name="shares" value={ option.GetSharesString() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Strike Price per Share</label>
+						<input type="number" step="any" class="input input-sm w-full" placeholder="Strike Price" name="strike_price_per_share" value={ option.GetStrikePriceString() }/>
+					</div>
+				</div>
+				<div class="flex flex-row gap-2">
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Source Account</label>
+						<select class="select select-sm w-full" name="source_account_id">
+							<option value="">Select source account</option>
+							for _, acc := range accounts {
+								<option
+									value={ acc.ID }
+									if acc.ID == option.SourceAccountID {
+										selected
+									}
+								>{ acc.Name }</option>
+							}
+						</select>
+					</div>
+				</div>
+				<div class="flex flex-row gap-2">
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Grant Date</label>
+						<input type="text" class="input input-sm w-full" placeholder="Grant Date" name="grant_date" value={ option.GetGrantDateString() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">End Date</label>
+						<input type="text" class="input input-sm w-full" placeholder="End Date" name="end_date" value={ option.GetEndDateString() }/>
+					</div>
+					<div class="flex items-end">
+						@SaveButton(option.ID != "")
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
 templ GrowthModelForm(accountID string, growthModel GrowthModel) {
-	{{ endDate := "" }}
-	if growthModel.ID != "" && growthModel.EndDate != nil {
-		{{ endDate = growthModel.EndDate.String() }}
-	}
 	<form method="post" action={ "/growth-models/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") }>
 		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
 			if growthModel.ID != "" {
@@ -158,7 +302,7 @@ templ GrowthModelForm(accountID string, growthModel GrowthModel) {
 					</div>
 					<div class="form-control flex-2">
 						<label class="label label-text text-xs pb-1">End Date</label>
-						<input type="text" class="input input-sm w-full" placeholder="End" name="end_date" value={ endDate }/>
+						<input type="text" class="input input-sm w-full" placeholder="End" name="end_date" value={ growthModel.GetEndDateString() }/>
 					</div>
 					<div class="flex items-end">
 						@SaveButton(growthModel.ID != "")
