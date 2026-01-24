@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"time"
 
@@ -165,6 +166,7 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	accountTypesById := KeyBy(accountTypes, func(at pdb.AccountType) string { return at.ID })
 	accsById := make(map[string]pdb.Account, len(accs))
 	startDate := date.Today()
+	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), params.Samples)
 	for _, acc := range accs {
 		accsById[acc.ID] = acc
 		snaps, err := ListAccountSnapshots(ctx, db, acc.ID)
@@ -193,13 +195,70 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 				DestinationID: ui.OrDefault(acc.CashFlowDestinationID),
 			}
 		}
-		for _, snap := range snaps {
-			entity.Snapshots = append(entity.Snapshots, snap.ToFinance())
-			if snap.Date.After(startDate) {
-				startDate = snap.Date
+		ssa, err := GetStartupShareAccount(ctx, db, acc.ID)
+		if err == nil && ssa.AccountID == acc.ID {
+			rounds, err := ListInvestmentRounds(ctx, db, acc.ID)
+			if err != nil {
+				return fmt.Errorf("listing investment rounds for account %s: %w", acc.ID, err)
 			}
+			opts, err := ListStartupShareOptions(ctx, db, acc.ID)
+			if err != nil {
+				return fmt.Errorf("listing startup share options for account %s: %w", acc.ID, err)
+			}
+			slices.Reverse(rounds)
+
+			currentValuation := uncertain.NewFixed(0.0)
+			investmentRounds := make(map[date.Date]finance.StartupGrowthInvestmentRound)
+			for _, round := range rounds {
+				investmentRounds[round.Date] = finance.StartupGrowthInvestmentRound{
+					PreMoneyValuation: uncertain.NewFixed(round.Valuation),
+					Investment:        uncertain.NewFixed(0), // TODO: support investment
+				}
+				if round.Date < startDate {
+					currentValuation = uncertain.NewFixed(round.Valuation)
+				}
+			}
+
+			options := make(map[date.Date]finance.StartupGrowthOption)
+			for _, opt := range opts {
+				options[opt.EndDate] = finance.StartupGrowthOption{
+					StrikePricePerShare: uncertain.NewFixed(opt.StrikePricePerShare),
+					NumShares:           uncertain.NewFixed(opt.Shares),
+					SourceAccountID:     opt.SourceAccountID,
+				}
+			}
+
+			startupGrowthModel := &finance.StartupGrowth{
+				TimeFrameGrowth: finance.TimeFrameGrowth{
+					StartDate: 0,
+					EndDate:   nil,
+				},
+				TotalShares: uncertain.NewFixed(ssa.TotalShares),
+				OwnedShares: uncertain.NewFixed(ssa.SharesOwned),
+				Valuation:   currentValuation,
+
+				TaxRate:               uncertain.NewFixed(ssa.TaxRate),
+				DiscountFactor:        uncertain.NewFixed(ssa.ValuationDiscountFactor),
+				PurchasePricePerShare: uncertain.NewFixed(ssa.PurchasePricePerShare),
+
+				InvestmentRounds: investmentRounds,
+				Options:          options,
+			}
+			entity.GrowthModel = startupGrowthModel
+			entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
+				Date:    startDate,
+				Balance: startupGrowthModel.Balance(ucfg),
+			})
+		} else {
+			// Add regular snapshots for non-startup-share accounts
+			for _, snap := range snaps {
+				entity.Snapshots = append(entity.Snapshots, snap.ToFinance())
+				if snap.Date.After(startDate) {
+					startDate = snap.Date
+				}
+			}
+			entity.GrowthModel = GrowthModels(gms).ToFinance()
 		}
-		entity.GrowthModel = GrowthModels(gms).ToFinance()
 		if len(entity.Snapshots) > 0 {
 			entities = append(entities, entity)
 		}
@@ -210,7 +269,6 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 
 	startDate += 1
 	endDate := startDate.Add(params.Duration)
-	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), params.Samples)
 
 	h := &GroupingEventHandler{eventHandler: eventHandler, ucfg: ucfg, accsById: accsById, accountTypesById: accountTypesById, groupBy: params.GroupBy, q1: q1, q2: q2}
 

@@ -1,16 +1,18 @@
 package finance
 
 import (
-	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
+	"fmt"
 	"math"
 	"sort"
+
+	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
 type GrowthModel interface {
 	StartsOn() date.Date // Returns the start date of the growth model
 	IsActiveOn(date date.Date) bool
-	Apply(ucfg *uncertain.Config, day date.Date, totalBalance uncertain.Value) (delta uncertain.Value)
+	Apply(ucfg *uncertain.Config, day date.Date, entities map[string]*ModeledEntity, totalBalance uncertain.Value) (delta uncertain.Value)
 }
 
 type TimeFrameGrowth struct {
@@ -61,7 +63,7 @@ func (g *GrowthCombined) IsActiveOn(day date.Date) bool {
 	return false
 }
 
-func (g *GrowthCombined) Apply(ucfg *uncertain.Config, day date.Date, totalBalance uncertain.Value) uncertain.Value {
+func (g *GrowthCombined) Apply(ucfg *uncertain.Config, day date.Date, entities map[string]*ModeledEntity, totalBalance uncertain.Value) uncertain.Value {
 	// find the first growth that is active on the given day
 	i, found := sort.Find(len(g.Growths), func(i int) int {
 		if g.Growths[i].StartsOn().After(day) {
@@ -75,20 +77,21 @@ func (g *GrowthCombined) Apply(ucfg *uncertain.Config, day date.Date, totalBalan
 	if !found {
 		return uncertain.NewFixed(0.0) // No growth applicable
 	}
-	gr := g.Growths[i].Apply(ucfg, day, totalBalance)
+	gr := g.Growths[i].Apply(ucfg, day, entities, totalBalance)
 	return gr
 }
 
 var _ GrowthModel = &GrowthCombined{}
 var _ GrowthModel = &FixedGrowth{}
 var _ GrowthModel = &LogNormalGrowth{}
+var _ GrowthModel = &StartupGrowth{}
 
 type FixedGrowth struct {
 	TimeFrameGrowth
 	AnnualRate uncertain.Value // Annual growth rate, e.g. 0.05 for 5%
 }
 
-func (i *FixedGrowth) Apply(ucfg *uncertain.Config, day date.Date, totalBalance uncertain.Value) uncertain.Value {
+func (i *FixedGrowth) Apply(ucfg *uncertain.Config, day date.Date, entities map[string]*ModeledEntity, totalBalance uncertain.Value) uncertain.Value {
 	dailyGrowthFactor := i.AnnualRate.Add(ucfg, uncertain.NewFixed(1)).Pow(ucfg, uncertain.NewFixed(1.0/365.0))
 	return totalBalance.Mul(ucfg, dailyGrowthFactor.Sub(ucfg, uncertain.NewFixed(1)))
 }
@@ -99,7 +102,7 @@ type LogNormalGrowth struct {
 	AnnualVolatility uncertain.Value // Optional, can be used for more complex models
 }
 
-func (i *LogNormalGrowth) Apply(ucfg *uncertain.Config, day date.Date, totalBalance uncertain.Value) uncertain.Value {
+func (i *LogNormalGrowth) Apply(ucfg *uncertain.Config, day date.Date, entities map[string]*ModeledEntity, totalBalance uncertain.Value) uncertain.Value {
 	dailyMu := i.AnnualRate.Mul(ucfg, uncertain.NewFixed(1.0/365.0))
 	dailySigma := i.AnnualVolatility.Mul(ucfg, uncertain.NewFixed(1.0/math.Sqrt(365)))
 	if !i.AnnualVolatility.Valid() {
@@ -119,4 +122,72 @@ func (i *LogNormalGrowth) Apply(ucfg *uncertain.Config, day date.Date, totalBala
 	dailyGrowth := dailyLogReturn.Exp().Sub(ucfg, uncertain.NewFixed(1))
 
 	return totalBalance.Mul(ucfg, dailyGrowth)
+}
+
+type StartupGrowthInvestmentRound struct {
+	PreMoneyValuation uncertain.Value
+	Investment        uncertain.Value
+}
+
+type StartupGrowthOption struct {
+	StrikePricePerShare uncertain.Value
+	NumShares           uncertain.Value
+	SourceAccountID     string
+}
+
+type StartupGrowth struct {
+	TimeFrameGrowth
+	TotalShares uncertain.Value
+	OwnedShares uncertain.Value
+	Valuation   uncertain.Value
+
+	TaxRate               uncertain.Value
+	DiscountFactor        uncertain.Value
+	PurchasePricePerShare uncertain.Value
+
+	InvestmentRounds map[date.Date]StartupGrowthInvestmentRound
+	Options          map[date.Date]StartupGrowthOption
+}
+
+func (s *StartupGrowth) Apply(ucfg *uncertain.Config, day date.Date, entities map[string]*ModeledEntity, totalBalance uncertain.Value) uncertain.Value {
+	var changed bool
+	if round, ok := s.InvestmentRounds[day]; ok {
+		pricePerShare := round.PreMoneyValuation.Div(ucfg, s.TotalShares)
+		issuedShares := round.Investment.Div(ucfg, pricePerShare)
+		s.TotalShares = s.TotalShares.Add(ucfg, issuedShares)
+		s.Valuation = round.PreMoneyValuation.Add(ucfg, round.Investment)
+		changed = true
+	}
+	if opt, ok := s.Options[day]; ok {
+		sourceAccount, ok := entities[opt.SourceAccountID]
+		if !ok {
+			panic(fmt.Sprintf("no account found for %s", opt.SourceAccountID))
+		}
+		currentPricePerShare := s.Valuation.Div(ucfg, s.TotalShares)
+		if currentPricePerShare.Mean() > opt.StrikePricePerShare.Mean() {
+			strikeCost := opt.StrikePricePerShare.Mul(ucfg, opt.NumShares)
+			sourceAccount.balance = sourceAccount.balance.Sub(ucfg, strikeCost)
+			s.TotalShares = s.TotalShares.Add(ucfg, opt.NumShares)
+			s.Valuation = s.Valuation.Add(ucfg, strikeCost)
+			s.OwnedShares = s.OwnedShares.Add(ucfg, opt.NumShares)
+			changed = true
+		}
+	}
+	if changed {
+		return s.Balance(ucfg).Sub(ucfg, totalBalance)
+	}
+	return uncertain.NewFixed(0.0)
+}
+
+func (s *StartupGrowth) Balance(ucfg *uncertain.Config) uncertain.Value {
+	fractionOwned := s.OwnedShares.Div(ucfg, s.TotalShares)
+	grossValue := s.Valuation.Mul(ucfg, fractionOwned)
+	discountedGrossValue := grossValue.Mul(ucfg, s.DiscountFactor)
+	purchasePrice := s.PurchasePricePerShare.Mul(ucfg, s.OwnedShares)
+	if purchasePrice.Mean() > discountedGrossValue.Mean() {
+		return discountedGrossValue
+	}
+	capitalGains := discountedGrossValue.Sub(ucfg, purchasePrice)
+	tax := capitalGains.Mul(ucfg, s.TaxRate)
+	return discountedGrossValue.Sub(ucfg, tax)
 }

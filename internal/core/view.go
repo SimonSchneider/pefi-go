@@ -194,14 +194,120 @@ func KeyBy[T any](items []T, key func(T) string) map[string]T {
 }
 
 type AccountEditView2 struct {
-	Account      Account
-	Accounts     []Account
-	GrowthModels []GrowthModel
-	AccountTypes AccountTypesWithFilter
+	Account             Account
+	Accounts            []Account
+	GrowthModels        []GrowthModel
+	AccountTypes        AccountTypesWithFilter
+	StartupShareAccount *StartupShareAccount
+	InvestmentRounds    []InvestmentRound
+	Options             []StartupShareOption
 }
 
-func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter) *AccountEditView2 {
-	return &AccountEditView2{Account: account, Accounts: accounts, GrowthModels: growthModels, AccountTypes: accountTypes}
+func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter, startupShareAccount *StartupShareAccount, investmentRounds []InvestmentRound, options []StartupShareOption) *AccountEditView2 {
+	return &AccountEditView2{
+		Account:             account,
+		Accounts:            accounts,
+		GrowthModels:        growthModels,
+		AccountTypes:        accountTypes,
+		StartupShareAccount: startupShareAccount,
+		InvestmentRounds:    investmentRounds,
+		Options:             options,
+	}
+}
+
+func (v *AccountEditView2) GetStartupShareSharesOwned() string {
+	if v.StartupShareAccount == nil {
+		return "0"
+	}
+	return fmt.Sprintf("%.2f", v.StartupShareAccount.SharesOwned)
+}
+
+func (v *AccountEditView2) GetStartupShareTotalShares() string {
+	if v.StartupShareAccount == nil {
+		return "0"
+	}
+	return fmt.Sprintf("%.2f", v.StartupShareAccount.TotalShares)
+}
+
+func (v *AccountEditView2) GetStartupSharePurchasePrice() string {
+	if v.StartupShareAccount == nil {
+		return "0"
+	}
+	return fmt.Sprintf("%.10f", v.StartupShareAccount.PurchasePricePerShare)
+}
+
+func (v *AccountEditView2) GetStartupShareTaxRate() string {
+	if v.StartupShareAccount == nil {
+		return "15"
+	}
+	return fmt.Sprintf("%.2f", v.StartupShareAccount.TaxRate*100)
+}
+
+func (v *AccountEditView2) GetStartupShareDiscountFactor() string {
+	if v.StartupShareAccount == nil {
+		return "50"
+	}
+	return fmt.Sprintf("%.2f", v.StartupShareAccount.ValuationDiscountFactor*100)
+}
+
+func (v *AccountEditView2) HasStartupShareAccount() bool {
+	return v.StartupShareAccount != nil
+}
+
+func (v *AccountEditView2) GetStartupShareFieldsStyle() string {
+	if v.HasStartupShareAccount() {
+		return "display: block;"
+	}
+	return "display: none;"
+}
+
+func (ir InvestmentRound) GetDateString() string {
+	if ir.ID == "" {
+		return ""
+	}
+	return ir.Date.String()
+}
+
+func (ir InvestmentRound) GetValuationString() string {
+	if ir.ID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", ir.Valuation)
+}
+
+func (opt StartupShareOption) GetSharesString() string {
+	if opt.ID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", opt.Shares)
+}
+
+func (opt StartupShareOption) GetStrikePriceString() string {
+	if opt.ID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", opt.StrikePricePerShare)
+}
+
+func (opt StartupShareOption) GetGrantDateString() string {
+	if opt.ID == "" {
+		return ""
+	}
+	return opt.GrantDate.String()
+}
+
+func (opt StartupShareOption) GetEndDateString() string {
+	if opt.ID == "" {
+		return ""
+	}
+	return opt.EndDate.String()
+}
+
+func (gm GrowthModel) GetEndDateString() string {
+	if gm.ID == "" || gm.EndDate == nil {
+		return ""
+	}
+	return gm.EndDate.String()
 }
 
 func (v *AccountEditView2) IsEdit() bool {

@@ -1,4 +1,5 @@
 PORT := 3002
+IMAGE ?= ghcr.io/simonschneider/pefigo:main
 
 watch-tw:
 	@echo "Watching for changes..."
@@ -18,3 +19,7 @@ generate:
 run:
 	@echo "Running the application..."
 	@go run cmd/*.go -addr ":$(PORT)" -watch -dburl ":memory:"
+
+docker-build:
+	@echo "Building Docker image..."
+	@podman build --platform linux/amd64 -t $(IMAGE) .
