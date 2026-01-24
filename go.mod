@@ -3,12 +3,12 @@ module github.com/SimonSchneider/pefigo
 go 1.25.4
 
 require (
-	github.com/SimonSchneider/goslu v0.1.5
+	github.com/SimonSchneider/goslu v0.1.6
 	github.com/a-h/templ v0.3.924
 	github.com/ncruces/go-sqlite3 v0.26.0
 )
 
-replace github.com/SimonSchneider/goslu => ../goslu
+// replace github.com/SimonSchneider/goslu => ../goslu
 
 require (
 	cel.dev/expr v0.19.1 // indirect

@@ -88,19 +88,32 @@ func TransfersPage(db *sql.DB) http.Handler {
 			}
 			view.accounts = make(map[string]Account)
 			for _, a := range accounts {
+				// Skip startup share accounts
+				if a.StartupShareAccount != nil {
+					continue
+				}
+				// Skip accounts without snapshots
+				if a.LastSnapshot == nil {
+					continue
+				}
+
 				view.accounts[a.ID] = a.Account
 				ul := uncertain.Value{}
 				if a.BalanceUpperLimit != nil {
 					ul = uncertain.NewFixed(*a.BalanceUpperLimit)
 				}
-				entities = append(entities, finance.Entity{
+				entity := finance.Entity{
 					ID:   a.ID,
 					Name: a.Name,
 					BalanceLimit: finance.BalanceLimit{
 						Upper: ul,
 					},
 					Snapshots: []finance.BalanceSnapshot{a.LastSnapshot.ToFinance()},
-				})
+				}
+				if a.GrowthModel != nil {
+					entity.GrowthModel = GrowthModels([]GrowthModel{*a.GrowthModel}).ToFinance()
+				}
+				entities = append(entities, entity)
 			}
 
 			for _, t := range view.TransferTemplatesThatNeedAmount {
