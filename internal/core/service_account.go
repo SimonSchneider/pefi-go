@@ -21,6 +21,7 @@ type Account struct {
 	CashFlowFrequency     string
 	CashFlowDestinationID string
 	TypeID                string
+	BudgetCategoryID      *string
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
@@ -39,6 +40,7 @@ type AccountInput struct {
 	CashFlowFrequency     string
 	CashFlowDestinationID string
 	TypeID                string
+	BudgetCategoryID      *string
 }
 
 func (a *AccountInput) FromForm(r *http.Request) error {
@@ -50,6 +52,10 @@ func (a *AccountInput) FromForm(r *http.Request) error {
 	a.CashFlowFrequency = r.FormValue("cash_flow_frequency")
 	a.CashFlowDestinationID = r.FormValue("cash_flow_destination_id")
 	a.TypeID = r.FormValue("type_id")
+	budgetCategoryID := r.FormValue("budget_category_id")
+	if budgetCategoryID != "" {
+		a.BudgetCategoryID = &budgetCategoryID
+	}
 	return nil
 }
 
@@ -61,6 +67,7 @@ func accountFromDB(a pdb.Account) Account {
 		CashFlowFrequency:     ui.OrDefault(a.CashFlowFrequency),
 		CashFlowDestinationID: ui.OrDefault(a.CashFlowDestinationID),
 		TypeID:                ui.OrDefault(a.TypeID),
+		BudgetCategoryID:      a.BudgetCategoryID,
 		CreatedAt:             time.UnixMilli(a.CreatedAt),
 		UpdatedAt:             time.UnixMilli(a.UpdatedAt),
 	}
@@ -88,6 +95,7 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
+			BudgetCategoryID:      inp.BudgetCategoryID,
 			UpdatedAt:             time.Now().UnixMilli(),
 		})
 	} else {
@@ -98,6 +106,7 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
+			BudgetCategoryID:      inp.BudgetCategoryID,
 			CreatedAt:             time.Now().UnixMilli(),
 			UpdatedAt:             time.Now().UnixMilli(),
 		})
@@ -157,6 +166,33 @@ func ListAccounts(ctx context.Context, db *sql.DB) ([]Account, error) {
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func ListBudgetAccounts(ctx context.Context, db *sql.DB, today date.Date) ([]AccountDetailed, error) {
+	budgetAccs, err := pdb.New(db).GetBudgetAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list budget accounts: %w", err)
+	}
+	if len(budgetAccs) == 0 {
+		return nil, nil
+	}
+	snapshots, err := pdb.New(db).ListLatestSnapshotPerAccount(ctx)
+	if err != nil {
+		return nil, err
+	}
+	snapshotsMap := make(map[string]pdb.AccountSnapshot)
+	for _, snapshot := range snapshots {
+		snapshotsMap[snapshot.AccountID] = snapshot
+	}
+	growthModels, err := pdb.New(db).ListActiveGrowthModels(ctx, ptr(int64(today)))
+	if err != nil {
+		return nil, err
+	}
+	growthModelsMap := make(map[string]pdb.GrowthModel)
+	for _, growthModel := range growthModels {
+		growthModelsMap[growthModel.AccountID] = growthModel
+	}
+	return accountsListFromDBDetailed(budgetAccs, snapshotsMap, growthModelsMap, nil), nil
 }
 
 func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]AccountDetailed, error) {

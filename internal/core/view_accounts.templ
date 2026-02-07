@@ -85,6 +85,25 @@ templ AccountForm(view *AccountEditView2) {
 							>{ acc.Name }</option>
 						}
 					</select>
+					<label class="label">Budget Category</label>
+					<select class="select" name="budget_category_id">
+						<option value="">None (not in budget)</option>
+						for _, cat := range view.Categories {
+							{{ accBudgetSelected := false }}
+							if view.Account.BudgetCategoryID != nil && *view.Account.BudgetCategoryID == cat.ID {
+								{{ accBudgetSelected = true }}
+							}
+							<option
+								value={ cat.ID }
+								if accBudgetSelected {
+									selected
+								}
+							>{ cat.Name }</option>
+						}
+					</select>
+					<div class="text-sm text-base-content/70 mt-1">
+						Assign a budget category to include this account's interest in the monthly budget summary
+					</div>
 					<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4 mt-4">
 						<legend class="fieldset-legend">Startup Share Details</legend>
 						<div class="form-control">
@@ -366,6 +385,14 @@ templ AccountTableRow(view *AccountsView, account *AccountDetailed) {
 				<span class="text-base-content/50"></span>
 			}
 		</td>
+		<td>
+			{{ budgetCat := view.GetBudgetCategory(account.BudgetCategoryID) }}
+			if budgetCat != nil {
+				@CategoryBadge(*budgetCat)
+			} else {
+				<span class="text-base-content/50 text-sm">-</span>
+			}
+		</td>
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-2">
 				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/accounts/" + account.ID + "/edit" }>
@@ -421,13 +448,14 @@ templ AccountsContent(view *AccountsView) {
 										<th class="font-semibold">Last Snapshot</th>
 										<th class="font-semibold">Growth Model</th>
 										<th class="font-semibold">Growth Rate</th>
+										<th class="font-semibold">Budget</th>
 										<th class="font-semibold text-right sticky">Actions</th>
 									</tr>
 								</thead>
 								<tbody>
 									if len(view.Accounts) == 0 {
 										<tr>
-											<td colspan="6" class="text-center py-8 text-base-content/70">
+											<td colspan="8" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No accounts yet</p>

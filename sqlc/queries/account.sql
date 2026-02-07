@@ -9,7 +9,8 @@ SET name = ?,
   balance_upper_limit = ?,
   cash_flow_frequency = ?,
   cash_flow_destination_id = ?,
-  type_id = ?
+  type_id = ?,
+  budget_category_id = ?
 WHERE id = ?
 RETURNING *;
 -- name: DeleteAccount :one
@@ -29,10 +30,11 @@ INSERT INTO account (
     cash_flow_frequency,
     cash_flow_destination_id,
     type_id,
+    budget_category_id,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 -- name: GetSnapshotsByAccount :many
 SELECT *
@@ -119,10 +121,11 @@ INSERT INTO transfer_template (
     end_date,
     enabled,
     parent_template_id,
+    budget_category_id,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
   from_account_id = EXCLUDED.from_account_id,
@@ -136,6 +139,7 @@ SET name = EXCLUDED.name,
   end_date = EXCLUDED.end_date,
   enabled = EXCLUDED.enabled,
   parent_template_id = EXCLUDED.parent_template_id,
+  budget_category_id = EXCLUDED.budget_category_id,
   updated_at = EXCLUDED.updated_at
 RETURNING *;
 -- name: DeleteTransferTemplate :exec
@@ -334,3 +338,9 @@ ORDER BY grant_date,
 -- name: DeleteStartupShareOption :exec
 DELETE FROM startup_share_option
 WHERE id = ?;
+-- name: GetBudgetAccounts :many
+SELECT *
+FROM account
+WHERE budget_category_id IS NOT NULL
+ORDER BY name,
+  id;

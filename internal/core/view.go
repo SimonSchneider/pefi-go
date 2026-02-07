@@ -132,12 +132,17 @@ func initMap[K comparable, V any](m map[K]V, ks ...K) map[K]V {
 type TransferTemplatesView2 struct {
 	TransferTemplates []TransferTemplateWithAmount
 	Accounts          map[string]Account
+	Categories        map[string]TransferTemplateCategory
 	MonthlyIncome     float64
 	MonthlyExpenses   float64
 }
 
-func NewTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account) *TransferTemplatesView2 {
-	v := &TransferTemplatesView2{TransferTemplates: makeTransferTemplatesWithAmount(transferTemplates, date.Today()), Accounts: KeyBy(accounts, func(a Account) string { return a.ID })}
+func NewTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
+	v := &TransferTemplatesView2{
+		TransferTemplates: makeTransferTemplatesWithAmount(transferTemplates, date.Today()),
+		Accounts:          KeyBy(accounts, func(a Account) string { return a.ID }),
+		Categories:        KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
+	}
 	for _, t := range v.TransferTemplates {
 		if t.FromAccountID == "" {
 			v.MonthlyIncome += t.Amount
@@ -146,6 +151,17 @@ func NewTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []
 		}
 	}
 	return v
+}
+
+func (v *TransferTemplatesView2) GetBudgetCategory(id *string) *TransferTemplateCategory {
+	if id == nil {
+		return nil
+	}
+	cat, ok := v.Categories[*id]
+	if !ok {
+		return nil
+	}
+	return &cat
 }
 
 func (v *TransferTemplatesView2) GetAccount(id string) *Account {
@@ -161,13 +177,18 @@ type AccountTypeWithFilter struct {
 type AccountsView struct {
 	Accounts         []AccountDetailed
 	AccountTypes     AccountTypesWithFilter
+	Categories       map[string]TransferTemplateCategory
 	TotalBalance     float64
 	TotalAssets      float64
 	TotalLiabilities float64
 }
 
-func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountTypeWithFilter) *AccountsView {
-	v := &AccountsView{Accounts: accounts, AccountTypes: accountTypes}
+func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountTypeWithFilter, categories []TransferTemplateCategory) *AccountsView {
+	v := &AccountsView{
+		Accounts:     accounts,
+		AccountTypes: accountTypes,
+		Categories:   KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
+	}
 	for _, account := range accounts {
 		if account.LastSnapshot != nil {
 			v.TotalBalance += account.LastSnapshot.Balance.Mean()
@@ -179,6 +200,17 @@ func NewAccountsView(accounts []AccountDetailed, accountTypes []AccountTypeWithF
 		}
 	}
 	return v
+}
+
+func (v *AccountsView) GetBudgetCategory(id *string) *TransferTemplateCategory {
+	if id == nil {
+		return nil
+	}
+	cat, ok := v.Categories[*id]
+	if !ok {
+		return nil
+	}
+	return &cat
 }
 
 func (v *AccountsView) GetAccountType(typeID string) AccountTypeWithFilter {
@@ -198,17 +230,19 @@ type AccountEditView2 struct {
 	Accounts            []Account
 	GrowthModels        []GrowthModel
 	AccountTypes        AccountTypesWithFilter
+	Categories          []TransferTemplateCategory
 	StartupShareAccount *StartupShareAccount
 	InvestmentRounds    []InvestmentRound
 	Options             []StartupShareOption
 }
 
-func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter, startupShareAccount *StartupShareAccount, investmentRounds []InvestmentRound, options []StartupShareOption) *AccountEditView2 {
+func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter, categories []TransferTemplateCategory, startupShareAccount *StartupShareAccount, investmentRounds []InvestmentRound, options []StartupShareOption) *AccountEditView2 {
 	return &AccountEditView2{
 		Account:             account,
 		Accounts:            accounts,
 		GrowthModels:        growthModels,
 		AccountTypes:        accountTypes,
+		Categories:          categories,
 		StartupShareAccount: startupShareAccount,
 		InvestmentRounds:    investmentRounds,
 		Options:             options,

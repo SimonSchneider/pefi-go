@@ -341,7 +341,11 @@ func AccountsPage(db *sql.DB) http.Handler {
 			return fmt.Errorf("listing account types: %w", err)
 		}
 		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
-		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs, accountTypesWithFilter))))
+		categories, err := ListCategories(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing categories: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs, accountTypesWithFilter, categories))))
 	})
 }
 
@@ -355,7 +359,11 @@ func TransferTemplatesPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageTransferTemplates(NewTransferTemplatesView2(transferTemplates, accounts))))
+		categories, err := ListCategories(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing categories: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageTransferTemplates(NewTransferTemplatesView2(transferTemplates, accounts, categories))))
 	})
 }
 
@@ -370,7 +378,11 @@ func AccountNewPage(db *sql.DB) http.Handler {
 			return fmt.Errorf("listing account types: %w", err)
 		}
 		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter, nil, nil, nil))))
+		categories, err := ListCategories(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing categories: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter, categories, nil, nil, nil))))
 	})
 }
 
@@ -416,7 +428,11 @@ func AccountEditPage(db *sql.DB) http.Handler {
 			return fmt.Errorf("getting startup share account: %w", err)
 		}
 
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter, startupShareAccount, investmentRounds, options))))
+		categories, err := ListCategories(ctx, db)
+		if err != nil {
+			return fmt.Errorf("listing categories: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter, categories, startupShareAccount, investmentRounds, options))))
 	})
 }
 
@@ -506,6 +522,9 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux.Handle("GET /transfers", TransfersPage(db))
 	mux.Handle("GET /transfers/chart/{$}", TransferChartPage(db))
 	mux.Handle("GET /transfers/chart/data", TransferChartData(db))
+
+	// Budget
+	mux.Handle("GET /budget", BudgetPage(db))
 
 	// Chart
 	mux.Handle("GET /chart", ChartPage())

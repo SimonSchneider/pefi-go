@@ -31,6 +31,7 @@ type TransferTemplate struct {
 	EndDate          *date.Date
 	Enabled          bool
 	ParentTemplateID *string
+	BudgetCategoryID *string
 
 	// Populated fields (not stored directly)
 	Categories     []TransferTemplateCategory
@@ -72,6 +73,12 @@ func (t *TransferTemplate) FromForm(r *http.Request) error {
 		t.EndDate = nil
 	}
 	t.Enabled = r.FormValue("enabled") == "on"
+	budgetCategoryID := r.FormValue("budget_category_id")
+	if budgetCategoryID != "" {
+		t.BudgetCategoryID = &budgetCategoryID
+	} else {
+		t.BudgetCategoryID = nil
+	}
 	parentTemplateID := r.FormValue("parent_template_id")
 	if parentTemplateID != "" {
 		t.ParentTemplateID = &parentTemplateID
@@ -126,6 +133,7 @@ func transferTemplateFromDB(t pdb.TransferTemplate) (TransferTemplate, error) {
 		EndDate:          endDate,
 		Enabled:          t.Enabled,
 		ParentTemplateID: t.ParentTemplateID,
+		BudgetCategoryID: t.BudgetCategoryID,
 	}, nil
 }
 
@@ -156,6 +164,7 @@ func UpsertTransferTemplate(ctx context.Context, db *sql.DB, inp TransferTemplat
 		EndDate:          endDate,
 		Enabled:          inp.Enabled,
 		ParentTemplateID: inp.ParentTemplateID,
+		BudgetCategoryID: inp.BudgetCategoryID,
 		CreatedAt:        time.Now().Unix(),
 		UpdatedAt:        time.Now().Unix(),
 	})
