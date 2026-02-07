@@ -245,6 +245,19 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 				Options:          options,
 			}
 			entity.GrowthModel = startupGrowthModel
+			// Generate historic snapshots from past investment rounds
+			for _, round := range rounds {
+				if round.Date >= startDate {
+					continue
+				}
+				savedValuation := startupGrowthModel.Valuation
+				startupGrowthModel.Valuation = uncertain.NewFixed(round.Valuation)
+				entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
+					Date:    round.Date,
+					Balance: startupGrowthModel.Balance(ucfg),
+				})
+				startupGrowthModel.Valuation = savedValuation
+			}
 			entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
 				Date:    startDate,
 				Balance: startupGrowthModel.Balance(ucfg),
