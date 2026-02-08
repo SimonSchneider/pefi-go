@@ -23,3 +23,10 @@ run:
 docker-build:
 	@echo "Building Docker image..."
 	@podman build --platform linux/amd64 -t $(IMAGE) .
+
+docker-push:
+	@echo "Pushing Docker image..."
+	@podman push $(IMAGE)
+
+docker-build-push: docker-build docker-push
+	@echo "Docker image built and pushed successfully."

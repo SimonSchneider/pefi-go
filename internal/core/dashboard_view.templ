@@ -117,6 +117,7 @@ templ DashboardAccountTypeCard(group AccountTypeGroup) {
 							<td>{ acc.Name }</td>
 							<td class="text-right">
 								if acc.LastSnapshot != nil {
+									<span class="text-xs text-base-content/50 mr-2">{ acc.LastSnapshot.Date.String() }</span>
 									@BalanceBadge(acc.LastSnapshot.Balance.Mean(), true, "")
 								} else {
 									<span class="text-base-content/40">—</span>
