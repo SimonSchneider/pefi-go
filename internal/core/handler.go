@@ -262,11 +262,6 @@ func TransferTemplateCategoryEditPage(db *sql.DB) http.Handler {
 	})
 }
 
-func RootPage() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return NewView(ctx, w, r).Render(Page("App", App()))
-	})
-}
 
 type AccountTypesWithFilter []AccountTypeWithFilter
 
@@ -451,7 +446,7 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
 
-	mux.Handle("GET /{$}", RootPage())
+	mux.Handle("GET /{$}", DashboardPage(db))
 	mux.Handle("GET /accounts", AccountsPage(db))
 	mux.Handle("GET /accounts/new", AccountNewPage(db))
 	mux.Handle("GET /accounts/{id}/edit", AccountEditPage(db))
