@@ -1,5 +1,7 @@
 package core
 
+import "github.com/SimonSchneider/pefigo/internal/ui"
+
 templ PageAccountTypes(child templ.Component) {
 	@Layout("/account-types", child)
 }
@@ -13,7 +15,7 @@ templ AccountTypesView(accountTypes []AccountType) {
 					<div class="card-body">
 						<div class="overflow-x-auto">
 							<table class="table w-full">
-								<thead>
+								<thead class="bg-base-200/60">
 									<tr>
 										<th class="font-semibold">Name</th>
 										<th class="font-semibold">Color</th>
@@ -23,7 +25,7 @@ templ AccountTypesView(accountTypes []AccountType) {
 								<tbody>
 									if len(accountTypes) == 0 {
 										<tr>
-											<td colspan="2" class="text-center py-8 text-base-content/70">
+											<td colspan="3" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No account types yet</p>
@@ -33,7 +35,7 @@ templ AccountTypesView(accountTypes []AccountType) {
 										</tr>
 									} else {
 										for _, at := range accountTypes {
-											<tr class="hover:bg-base-50">
+											<tr class="hover:bg-base-200/50 transition-colors">
 												<td class="font-medium">{ at.Name }</td>
 												<td>
 													@AccountTypeBadge(at)
@@ -57,7 +59,7 @@ templ AccountTypesView(accountTypes []AccountType) {
 }
 
 templ AccountTypeBadge(at AccountType) {
-	<span class="badge" style={ "background-color: " + at.Color }>{ at.Name }</span>
+	<span class="badge badge-sm font-medium" style={ ui.BadgeStyle(at.Color) }>{ at.Name }</span>
 }
 
 templ PageEditAccountType(child templ.Component) {
@@ -84,18 +86,24 @@ templ DeleteAccountTypeButton(id string) {
 }
 
 templ AccountTypeForm(accountType AccountType) {
-	<div class="flex flex-col lg:flex-row gap-6 m-6">
-		<div class="flex-1">
+	<div class="flex-1 p-6 overflow-auto bg-base-50">
+		<div class="max-w-lg mx-auto">
 			<form action={ "/account-types/?next=" + templ.EscapeString("/account-types") } method="post">
-				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
-					<legend class="fieldset-legend">Account Type Details</legend>
-					<input type="hidden" name="id" value={ accountType.ID }/>
-					<label class="label">Name</label>
-					<input type="text" class="input" placeholder="Asset, Pension, Checking, etc." name="name" value={ accountType.Name }/>
-					<label class="label">Color</label>
-					<input type="color" class="input" name="color" value={ accountType.Color }/>
-					@SaveButton(accountType.ID != "")
-				</fieldset>
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Account Type Details</h3>
+						<input type="hidden" name="id" value={ accountType.ID }/>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Name</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="Asset, Pension, Checking, etc." name="name" value={ accountType.Name }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Color</span></label>
+							<input type="color" class="input input-bordered w-full" name="color" value={ accountType.Color }/>
+						</div>
+						@SaveButton(accountType.ID != "")
+					</div>
+				</div>
 			</form>
 		</div>
 	</div>

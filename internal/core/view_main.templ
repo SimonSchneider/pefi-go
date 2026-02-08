@@ -108,11 +108,11 @@ templ Sidebar(page string) {
 }
 
 templ Header(title string, btns ...templ.Component) {
-	<header class="h-16 bg-base-100 border-b border-base-300 flex items-center justify-between px-6">
+	<header class="h-16 bg-base-100 border-b border-base-300 shadow-sm flex items-center justify-between px-6">
 		<div class="flex items-center gap-4">
-			<h2 class="text-xl font-semibold text-base-content">{ title }</h2>
+			<h2 class="text-2xl font-bold text-base-content">{ title }</h2>
 		</div>
-		<div class="flex items-center gap-4">
+		<div class="flex items-center gap-3">
 			for _, btn := range btns {
 				@btn
 			}

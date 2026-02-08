@@ -3,13 +3,15 @@ package core
 import "github.com/SimonSchneider/pefigo/internal/ui"
 
 templ SaveButton(isEdit bool) {
-	<button class="btn btn-primary mt-4" type="submit">
-		if isEdit {
-			Save
-		} else {
-			Create
-		}
-	</button>
+	<div class="flex gap-2 mt-6 pt-4 border-t border-base-200">
+		<button class="btn btn-primary" type="submit">
+			if isEdit {
+				Save Changes
+			} else {
+				Create
+			}
+		</button>
+	</div>
 }
 
 templ StatCard(title string, value string, desc string, icon templ.Component) {

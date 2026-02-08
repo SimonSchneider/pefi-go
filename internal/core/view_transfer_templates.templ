@@ -37,157 +37,216 @@ templ DeleteTransferTemplateButton(id string) {
 }
 
 templ TransferTemplateForm(view *TransferTemplateEditView) {
-	<div class="flex flex-col lg:flex-row gap-6">
-		<div class="flex-1">
-			<form action={ "/transfers/?next=" + templ.EscapeString("/transfer-templates") } method="post">
-				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
-					<legend class="fieldset-legend">Transfer Template Details</legend>
-					<input type="hidden" name="id" value={ view.TransferTemplate.ID }/>
-					<label class="label">Name</label>
-					<input type="text" class="input" placeholder="Salary Transfer" name="name" value={ view.TransferTemplate.Name }/>
-					<label class="label">From Account</label>
-					<select class="select" name="from_account_id">
-						<option value="">External (Income)</option>
-						for _, acc := range view.Accounts {
-							<option
-								value={ acc.ID }
-								if acc.ID == view.TransferTemplate.FromAccountID {
-									selected
+	<form action={ "/transfers/?next=" + templ.EscapeString("/transfer-templates") } method="post">
+		<input type="hidden" name="id" value={ view.TransferTemplate.ID }/>
+		<div class="max-w-4xl mx-auto">
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				<!-- Basic Information -->
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body p-5">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Basic Information</h3>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Name</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="Salary Transfer" name="name" value={ view.TransferTemplate.Name }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">From Account</span></label>
+							<select class="select select-bordered w-full" name="from_account_id">
+								<option value="">External (Income)</option>
+								for _, acc := range view.Accounts {
+									<option
+										value={ acc.ID }
+										if acc.ID == view.TransferTemplate.FromAccountID {
+											selected
+										}
+									>{ acc.Name }</option>
 								}
-							>{ acc.Name }</option>
-						}
-					</select>
-					<label class="label">To Account</label>
-					<select class="select" name="to_account_id">
-						<option value="">External (Expense)</option>
-						for _, acc := range view.Accounts {
-							<option
-								value={ acc.ID }
-								if acc.ID == view.TransferTemplate.ToAccountID {
-									selected
+							</select>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">To Account</span></label>
+							<select class="select select-bordered w-full" name="to_account_id">
+								<option value="">External (Expense)</option>
+								for _, acc := range view.Accounts {
+									<option
+										value={ acc.ID }
+										if acc.ID == view.TransferTemplate.ToAccountID {
+											selected
+										}
+									>{ acc.Name }</option>
 								}
-							>{ acc.Name }</option>
-						}
-					</select>
-					<label class="label">Amount Type</label>
-					<select class="select" name="amount_type" id="amount-type-select">
-						<option
-							value="fixed"
-							if view.TransferTemplate.AmountType == "fixed" {
-								selected
-							}
-						>Fixed Amount</option>
-						<option
-							value="percent"
-							if view.TransferTemplate.AmountType == "percent" {
-								selected
-							}
-						>Percentage</option>
-					</select>
-					<label class="label">Fixed Amount</label>
-					<input type="text" class="input" placeholder="1000" name="amount_fixed" value={ view.TransferTemplate.AmountFixed.SimpleEncode() }/>
-					<label class="label">Percentage</label>
-					<input type="number" class="input" placeholder="10" step="0.01" min="0" max="100" name="amount_percent" value={ view.TransferTemplate.AmountPercent }/>
-					<label class="label">Priority</label>
-					<input type="number" class="input" placeholder="1" name="priority" value={ view.TransferTemplate.Priority }/>
-					<label class="label">Recurrence (Cron Expression)</label>
-					<input type="text" class="input" placeholder="*-*-25" name="recurrence" value={ view.TransferTemplate.Recurrence }/>
-					<div class="text-sm text-base-content/70 mt-1">
-						Leave empty for one-time transfers. Use cron syntax (e.g., "*-*-25" for monthly on 25th)
+							</select>
+						</div>
 					</div>
-					<label class="label">Start Date</label>
-					<input type="text" class="input" name="start_date" value={ view.TransferTemplate.StartDate.String() }/>
-					<label class="label">End Date (Optional)</label>
-					{{ endDate := "" }}
-					if view.TransferTemplate.EndDate != nil {
-						{{ endDate = view.TransferTemplate.EndDate.String() }}
-					}
-					<input type="text" class="input" name="end_date" value={ endDate }/>
-					<label class="label">Parent Template (Optional)</label>
-					<select class="select" name="parent_template_id">
-						<option value="">None</option>
-						for _, tpl := range view.AllTemplates {
-							{{ selected := false }}
-							if view.TransferTemplate.ParentTemplateID != nil && *view.TransferTemplate.ParentTemplateID == tpl.ID {
-								{{ selected = true }}
-							}
-							{{ skip := false }}
-							if view.TransferTemplate.ID != "" && tpl.ID == view.TransferTemplate.ID {
-								{{ skip = true }}
-							}
-							if !skip {
+				</div>
+				<!-- Amount Settings -->
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body p-5">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Amount Settings</h3>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Amount Type</span></label>
+							<select class="select select-bordered w-full" name="amount_type" id="amount-type-select">
 								<option
-									value={ tpl.ID }
-									if selected {
+									value="fixed"
+									if view.TransferTemplate.AmountType == "fixed" {
 										selected
 									}
-								>{ tpl.Name }</option>
-							}
-						}
-					</select>
-					<div class="text-sm text-base-content/70 mt-1">
-						Link this template to a parent template to group templates that represent the same transfer but active during different time periods.
-					</div>
-					<label class="label">Categories</label>
-					<div class="flex flex-col gap-2">
-						for _, cat := range view.Categories {
-							{{ isSelected := false }}
-							for _, assignedCat := range view.TransferTemplate.Categories {
-								if assignedCat.ID == cat.ID {
-									{{ isSelected = true }}
-									break
-								}
-							}
-							<label class="flex items-center gap-2 cursor-pointer">
-								<input
-									type="checkbox"
-									class="checkbox"
-									name="category_ids"
-									value={ cat.ID }
-									if isSelected {
-										checked
+								>Fixed Amount</option>
+								<option
+									value="percent"
+									if view.TransferTemplate.AmountType == "percent" {
+										selected
 									}
-								/>
-								@CategoryBadge(cat)
-							</label>
-						}
+								>Percentage</option>
+							</select>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Fixed Amount</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="1000" name="amount_fixed" value={ view.TransferTemplate.AmountFixed.SimpleEncode() }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Percentage</span></label>
+							<input type="number" class="input input-bordered w-full" placeholder="10" step="0.01" min="0" max="100" name="amount_percent" value={ view.TransferTemplate.AmountPercent }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Priority</span></label>
+							<input type="number" class="input input-bordered w-full" placeholder="1" name="priority" value={ view.TransferTemplate.Priority }/>
+						</div>
 					</div>
-					<div class="text-sm text-base-content/70 mt-1">
-						<a href="/transfer-template-categories/new" class="link link-primary">Create new category</a>
-					</div>
-					<label class="label">Budget Category</label>
-					<select class="select" name="budget_category_id">
-						<option value="">None (not in budget)</option>
-						for _, cat := range view.Categories {
-							{{ budgetSelected := false }}
-							if view.TransferTemplate.BudgetCategoryID != nil && *view.TransferTemplate.BudgetCategoryID == cat.ID {
-								{{ budgetSelected = true }}
-							}
-							<option
-								value={ cat.ID }
-								if budgetSelected {
-									selected
+				</div>
+				<!-- Schedule -->
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body p-5">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Schedule</h3>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Recurrence (Cron Expression)</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="*-*-25" name="recurrence" value={ view.TransferTemplate.Recurrence }/>
+							<div class="text-sm text-base-content/60 mt-1">
+								Leave empty for one-time transfers. Use cron syntax (e.g., "*-*-25" for monthly on 25th)
+							</div>
+						</div>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Start Date</span></label>
+								<input type="text" class="input input-bordered w-full" name="start_date" value={ view.TransferTemplate.StartDate.String() }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">End Date</span></label>
+								{{ endDate := "" }}
+								if view.TransferTemplate.EndDate != nil {
+									{{ endDate = view.TransferTemplate.EndDate.String() }}
 								}
-							>{ cat.Name }</option>
-						}
-					</select>
-					<div class="text-sm text-base-content/70 mt-1">
-						Assign a budget category to include this template in the monthly budget summary
+								<input type="text" class="input input-bordered w-full" name="end_date" value={ endDate } placeholder="Optional"/>
+							</div>
+						</div>
 					</div>
-					<label class="label">Enabled</label>
-					<input
-						type="checkbox"
-						class="checkbox"
-						name="enabled"
-						if view.TransferTemplate.Enabled {
-							checked
-						}
-					/>
-					@SaveButton(view.IsEdit())
-				</fieldset>
-			</form>
+				</div>
+				<!-- Categorization -->
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body p-5">
+						<div class="flex justify-between items-center mb-3">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Categories</h3>
+							<a href="/transfer-template-categories/new" class="link link-primary text-sm">+ Add new</a>
+						</div>
+						<div class="grid grid-cols-2 gap-2">
+							for _, cat := range view.Categories {
+								{{ isSelected := false }}
+								for _, assignedCat := range view.TransferTemplate.Categories {
+									if assignedCat.ID == cat.ID {
+										{{ isSelected = true }}
+										break
+									}
+								}
+								<label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-base-200 transition-colors">
+									<input
+										type="checkbox"
+										class="checkbox checkbox-sm"
+										name="category_ids"
+										value={ cat.ID }
+										if isSelected {
+											checked
+										}
+									/>
+									@CategoryBadge(cat)
+								</label>
+							}
+						</div>
+						<div class="form-control mt-4">
+							<label class="label"><span class="label-text font-medium">Budget Category</span></label>
+							<select class="select select-bordered w-full" name="budget_category_id">
+								<option value="">None (not in budget)</option>
+								for _, cat := range view.Categories {
+									{{ budgetSelected := false }}
+									if view.TransferTemplate.BudgetCategoryID != nil && *view.TransferTemplate.BudgetCategoryID == cat.ID {
+										{{ budgetSelected = true }}
+									}
+									<option
+										value={ cat.ID }
+										if budgetSelected {
+											selected
+										}
+									>{ cat.Name }</option>
+								}
+							</select>
+							<div class="text-sm text-base-content/60 mt-1">
+								Assign a budget category to include this template in the monthly budget summary
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- Advanced — full width -->
+				<div class="card bg-base-100 shadow-sm border border-base-300 lg:col-span-2">
+					<div class="card-body p-5">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Advanced</h3>
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Parent Template</span></label>
+								<select class="select select-bordered w-full" name="parent_template_id">
+									<option value="">None</option>
+									for _, tpl := range view.AllTemplates {
+										{{ selected := false }}
+										if view.TransferTemplate.ParentTemplateID != nil && *view.TransferTemplate.ParentTemplateID == tpl.ID {
+											{{ selected = true }}
+										}
+										{{ skip := false }}
+										if view.TransferTemplate.ID != "" && tpl.ID == view.TransferTemplate.ID {
+											{{ skip = true }}
+										}
+										if !skip {
+											<option
+												value={ tpl.ID }
+												if selected {
+													selected
+												}
+											>{ tpl.Name }</option>
+										}
+									}
+								</select>
+								<div class="text-sm text-base-content/60 mt-1">
+									Group templates that represent the same transfer but active during different time periods.
+								</div>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Enabled</span></label>
+								<label class="flex items-center gap-2 cursor-pointer">
+									<input
+										type="checkbox"
+										class="checkbox"
+										name="enabled"
+										if view.TransferTemplate.Enabled {
+											checked
+										}
+									/>
+									<span class="label-text">This template is active</span>
+								</label>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			@SaveButton(view.IsEdit())
 		</div>
-	</div>
+	</form>
 }
 
 templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
@@ -203,13 +262,15 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 	{{ isParent := len(t.ChildTemplates) > 0 }}
 	{{ isChild := t.ParentTemplate != nil }}
 	<tr
-		class="hover:bg-base-50"
+		class={
+			"hover:bg-base-200/50 transition-colors",
+			templ.KV("bg-base-50/50", isChild),
+		}
 		if isParent {
 			data-template-id={ t.ID }
 		}
 		if isChild {
 			data-parent-id={ t.ParentTemplate.ID }
-			class="hover:bg-base-50 bg-base-50/50 hidden"
 		}
 	>
 		<td class="font-medium">
@@ -371,7 +432,7 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 								tr[data-parent-id] { border-left: 2px solid hsl(var(--p)); }
 							</style>
 							<table class="table w-full">
-								<thead>
+								<thead class="bg-base-200/60">
 									<tr>
 										<th class="font-semibold sticky">Name</th>
 										<th class="font-semibold">From → To</th>
