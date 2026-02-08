@@ -182,45 +182,6 @@ func HandlerTransferTemplateUpsert(db *sql.DB) http.Handler {
 			return fmt.Errorf("upserting transfer template: %w", err)
 		}
 
-		// Handle category assignments
-		// Get existing categories
-		existingCategories, _ := GetCategoriesForTemplate(ctx, db, t.ID)
-		existingCategoryMap := make(map[string]bool)
-		for _, c := range existingCategories {
-			existingCategoryMap[c.ID] = true
-		}
-
-		// Parse category IDs from form (multiple values with same name)
-		categoryIDs := r.Form["category_ids"]
-		if len(categoryIDs) == 0 {
-			// Try single value
-			if catID := r.FormValue("category_ids"); catID != "" {
-				categoryIDs = []string{catID}
-			}
-		}
-
-		newCategoryMap := make(map[string]bool)
-		for _, catID := range categoryIDs {
-			if catID != "" {
-				newCategoryMap[catID] = true
-				if !existingCategoryMap[catID] {
-					// Assign new category
-					if err := AssignCategoryToTemplate(ctx, db, t.ID, catID); err != nil {
-						return fmt.Errorf("assigning category: %w", err)
-					}
-				}
-			}
-		}
-
-		// Remove categories that are no longer assigned
-		for _, existingCat := range existingCategories {
-			if !newCategoryMap[existingCat.ID] {
-				if err := RemoveCategoryFromTemplate(ctx, db, t.ID, existingCat.ID); err != nil {
-					return fmt.Errorf("removing category: %w", err)
-				}
-			}
-		}
-
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfers/%s", t.ID))
 		return nil
 	})

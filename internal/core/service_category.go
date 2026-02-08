@@ -89,34 +89,3 @@ func DeleteCategory(ctx context.Context, db *sql.DB, id string) error {
 	return nil
 }
 
-func GetCategoriesForTemplate(ctx context.Context, db *sql.DB, templateID string) ([]TransferTemplateCategory, error) {
-	categories, err := pdb.New(db).GetCategoriesForTransferTemplate(ctx, templateID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get categories for template: %w", err)
-	}
-	var result []TransferTemplateCategory
-	for _, c := range categories {
-		result = append(result, categoryFromDB(c))
-	}
-	return result, nil
-}
-
-func AssignCategoryToTemplate(ctx context.Context, db *sql.DB, templateID, categoryID string) error {
-	if err := pdb.New(db).AssignCategoryToTransferTemplate(ctx, pdb.AssignCategoryToTransferTemplateParams{
-		TransferTemplateID: templateID,
-		CategoryID:         categoryID,
-	}); err != nil {
-		return fmt.Errorf("failed to assign category to template: %w", err)
-	}
-	return nil
-}
-
-func RemoveCategoryFromTemplate(ctx context.Context, db *sql.DB, templateID, categoryID string) error {
-	if err := pdb.New(db).RemoveCategoryFromTransferTemplate(ctx, pdb.RemoveCategoryFromTransferTemplateParams{
-		TransferTemplateID: templateID,
-		CategoryID:         categoryID,
-	}); err != nil {
-		return fmt.Errorf("failed to remove category from template: %w", err)
-	}
-	return nil
-}

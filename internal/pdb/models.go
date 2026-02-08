@@ -105,11 +105,6 @@ type TransferTemplateCategory struct {
 	UpdatedAt int64
 }
 
-type TransferTemplateCategoryAssignment struct {
-	TransferTemplateID string
-	CategoryID         string
-}
-
 type User struct {
 	ID        string
 	Name      string

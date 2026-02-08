@@ -1,5 +1,7 @@
 package core
 
+import "github.com/SimonSchneider/pefigo/internal/ui"
+
 templ PageSpecialDates(child templ.Component) {
 	@Layout("/special-dates", child)
 }
@@ -13,7 +15,7 @@ templ SpecialDatesView(specialDates []SpecialDate) {
 					<div class="card-body">
 						<div class="overflow-x-auto">
 							<table class="table w-full">
-								<thead>
+								<thead class="bg-base-200/60">
 									<tr>
 										<th class="font-semibold">Name</th>
 										<th class="font-semibold">Date</th>
@@ -24,7 +26,7 @@ templ SpecialDatesView(specialDates []SpecialDate) {
 								<tbody>
 									if len(specialDates) == 0 {
 										<tr>
-											<td colspan="3" class="text-center py-8 text-base-content/70">
+											<td colspan="4" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No special dates yet</p>
@@ -34,16 +36,18 @@ templ SpecialDatesView(specialDates []SpecialDate) {
 										</tr>
 									} else {
 										for _, sd := range specialDates {
-											<tr class="hover:bg-base-50">
+											<tr class="hover:bg-base-200/50 transition-colors">
 												<td class="font-medium">{ sd.Name }</td>
 												<td>{ sd.Date }</td>
 												<td>
-													<span class="badge" style={ "background-color: " + sd.Color }>{ sd.Name }</span>
+													<span class="badge badge-sm font-medium" style={ ui.BadgeStyle(sd.Color) }>{ sd.Name }</span>
 												</td>
 												<td class="text-right">
-													<a href={ templ.SafeURL("/special-dates/" + sd.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
-														@IconPencil("w-4 h-4")
-													</a>
+													<div class="row-actions">
+														<a href={ templ.SafeURL("/special-dates/" + sd.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+															@IconPencil("w-4 h-4")
+														</a>
+													</div>
 												</td>
 											</tr>
 										}
@@ -82,20 +86,28 @@ templ DeleteSpecialDateButton(id string) {
 }
 
 templ SpecialDateForm(specialDate SpecialDate) {
-	<div class="flex flex-col lg:flex-row gap-6 m-6">
-		<div class="flex-1">
+	<div class="flex-1 p-6 overflow-auto bg-base-50">
+		<div class="max-w-lg mx-auto">
 			<form action={ "/special-dates/?next=" + templ.EscapeString("/special-dates") } method="post">
-				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
-					<legend class="fieldset-legend">Special Date Details</legend>
-					<input type="hidden" name="id" value={ specialDate.ID }/>
-					<label class="label">Name</label>
-					<input type="text" class="input" placeholder="Birthday, Anniversary, Holiday, etc." name="name" value={ specialDate.Name }/>
-					<label class="label">Date</label>
-					<input type="date" class="input" name="date" value={ specialDate.Date }/>
-					<label class="label">Color</label>
-					<input type="color" class="input" name="color" value={ specialDate.Color }/>
-					@SaveButton(specialDate.ID != "")
-				</fieldset>
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Special Date Details</h3>
+						<input type="hidden" name="id" value={ specialDate.ID }/>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Name</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="Birthday, Anniversary, Holiday, etc." name="name" value={ specialDate.Name }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Date</span></label>
+							<input type="date" class="input input-bordered w-full" name="date" value={ specialDate.Date }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Color</span></label>
+							<input type="color" class="input input-bordered w-full" name="color" value={ specialDate.Color }/>
+						</div>
+						@SaveButton(specialDate.ID != "")
+					</div>
+				</div>
 			</form>
 		</div>
 	</div>

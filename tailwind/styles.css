@@ -12,3 +12,10 @@
     @apply bg-primary;
     @apply text-primary-content;
 }
+
+.input:focus, .select:focus {
+    @apply ring-2 ring-primary/20;
+}
+
+tr .row-actions { opacity: 0; transition: opacity 0.15s; }
+tr:hover .row-actions { opacity: 1; }

@@ -1,5 +1,7 @@
 package core
 
+import "github.com/SimonSchneider/pefigo/internal/ui"
+
 templ PageTransferTemplateCategories(view *TransferTemplateCategoriesView) {
 	@Layout("/transfer-template-categories", TransferTemplateCategoriesContent(view))
 }
@@ -13,7 +15,7 @@ templ TransferTemplateCategoriesContent(view *TransferTemplateCategoriesView) {
 					<div class="card-body">
 						<div class="overflow-x-auto">
 							<table class="table w-full">
-								<thead>
+								<thead class="bg-base-200/60">
 									<tr>
 										<th class="font-semibold">Name</th>
 										<th class="font-semibold">Color</th>
@@ -33,15 +35,17 @@ templ TransferTemplateCategoriesContent(view *TransferTemplateCategoriesView) {
 										</tr>
 									} else {
 										for _, cat := range view.Categories {
-											<tr class="hover:bg-base-50">
+											<tr class="hover:bg-base-200/50 transition-colors">
 												<td class="font-medium">{ cat.Name }</td>
 												<td>
 													@CategoryBadge(cat)
 												</td>
 												<td class="text-right">
-													<a href={ templ.SafeURL("/transfer-template-categories/" + cat.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
-														@IconPencil("w-4 h-4")
-													</a>
+													<div class="row-actions">
+														<a href={ templ.SafeURL("/transfer-template-categories/" + cat.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+															@IconPencil("w-4 h-4")
+														</a>
+													</div>
 												</td>
 											</tr>
 										}
@@ -58,9 +62,9 @@ templ TransferTemplateCategoriesContent(view *TransferTemplateCategoriesView) {
 
 templ CategoryBadge(cat TransferTemplateCategory) {
 	if cat.Color != nil && *cat.Color != "" {
-		<span class="badge" style={ "background-color: " + *cat.Color }>{ cat.Name }</span>
+		<span class="badge badge-sm font-medium" style={ ui.BadgeStyle(*cat.Color) }>{ cat.Name }</span>
 	} else {
-		<span class="badge">{ cat.Name }</span>
+		<span class="badge badge-neutral badge-sm font-medium">{ cat.Name }</span>
 	}
 }
 
@@ -88,22 +92,28 @@ templ DeleteCategoryButton(id string) {
 }
 
 templ CategoryForm(view *TransferTemplateCategoryEditView) {
-	<div class="flex flex-col lg:flex-row gap-6 m-6">
-		<div class="flex-1">
+	<div class="flex-1 p-6 overflow-auto bg-base-50">
+		<div class="max-w-lg mx-auto">
 			<form action={ "/transfer-template-categories/?next=" + templ.EscapeString("/transfer-template-categories") } method="post">
-				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
-					<legend class="fieldset-legend">Category Details</legend>
-					<input type="hidden" name="id" value={ view.Category.ID }/>
-					<label class="label">Name</label>
-					<input type="text" class="input" placeholder="Bills, Entertainment, etc." name="name" value={ view.Category.Name }/>
-					<label class="label">Color</label>
-					{{ colorValue := "" }}
-					if view.Category.Color != nil {
-						{{ colorValue = *view.Category.Color }}
-					}
-					<input type="color" class="input" name="color" value={ colorValue }/>
-					@SaveButton(view.IsEdit())
-				</fieldset>
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Category Details</h3>
+						<input type="hidden" name="id" value={ view.Category.ID }/>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Name</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="Bills, Entertainment, etc." name="name" value={ view.Category.Name }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Color</span></label>
+							{{ colorValue := "" }}
+							if view.Category.Color != nil {
+								{{ colorValue = *view.Category.Color }}
+							}
+							<input type="color" class="input input-bordered w-full" name="color" value={ colorValue }/>
+						</div>
+						@SaveButton(view.IsEdit())
+					</div>
+				</div>
 			</form>
 		</div>
 	</div>

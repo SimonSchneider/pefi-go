@@ -38,157 +38,196 @@ templ AccountForm(view *AccountEditView2) {
 	if view.Account.BalanceUpperLimit != nil {
 		{{ balanceUpperLimit = strconv.FormatFloat(*view.Account.BalanceUpperLimit, 'f', -1, 64) }}
 	}
-	<div class="flex flex-col lg:flex-row gap-6 m-6">
-		<!-- Account Details Box -->
-		<div class="flex-1">
+	<div class="flex-1 p-6 overflow-auto bg-base-50">
+		<div class="max-w-5xl mx-auto">
 			<form action={ "/accounts/?next=" + templ.EscapeString("/accounts") } method="post">
-				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
-					<legend class="fieldset-legend">Account details</legend>
-					<input type="hidden" name="id" value={ view.Account.ID }/>
-					<label class="label">Name</label>
-					<input type="text" class="input" placeholder="Checking" name="name" value={ view.Account.Name }/>
-					<label class="label">Account Type</label>
-					<select class="select" name="type_id">
-						<option
-							value=""
-							if view.Account.TypeID == "" {
-								selected
-							}
-						>Select an account type</option>
-						for _, accountType := range view.AccountTypes {
-							<option
-								value={ accountType.ID }
-								if accountType.ID == view.Account.TypeID {
-									selected
-								}
-							>{ accountType.Name }</option>
-						}
-					</select>
-					<label class="label">Balance upper limit</label>
-					<input type="number" class="input" placeholder="1000" name="balance_upper_limit" value={ balanceUpperLimit }/>
-					<label class="label">Cash flow frequency</label>
-					<input type="text" class="input" placeholder="Name" name="cash_flow_frequency" value={ view.Account.CashFlowFrequency }/>
-					<label class="label">Cash flow destination</label>
-					<select class="select" name="cash_flow_destination_id">
-						<option
-							value=""
-							if view.Account.CashFlowDestinationID == "" {
-								selected
-							}
-						>Select a destination</option>
-						for _, acc := range view.Accounts {
-							<option
-								value={ acc.ID }
-								if acc.ID == view.Account.CashFlowDestinationID {
-									selected
-								}
-							>{ acc.Name }</option>
-						}
-					</select>
-					<label class="label">Budget Category</label>
-					<select class="select" name="budget_category_id">
-						<option value="">None (not in budget)</option>
-						for _, cat := range view.Categories {
-							{{ accBudgetSelected := false }}
-							if view.Account.BudgetCategoryID != nil && *view.Account.BudgetCategoryID == cat.ID {
-								{{ accBudgetSelected = true }}
-							}
-							<option
-								value={ cat.ID }
-								if accBudgetSelected {
-									selected
-								}
-							>{ cat.Name }</option>
-						}
-					</select>
-					<div class="text-sm text-base-content/70 mt-1">
-						Assign a budget category to include this account's interest in the monthly budget summary
-					</div>
-					<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4 mt-4">
-						<legend class="fieldset-legend">Startup Share Details</legend>
-						<div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text">Enable startup shares</span>
-								<input type="checkbox" class="checkbox" name="enable_startup_shares" id="enable_startup_shares" onchange="toggleStartupShareFields()"
-									if view.HasStartupShareAccount() {
-										checked
+				<input type="hidden" name="id" value={ view.Account.ID }/>
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+					<!-- Account Details Card -->
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Account Details</h3>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Name</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="Checking" name="name" value={ view.Account.Name }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Account Type</span></label>
+								<select class="select select-bordered w-full" name="type_id">
+									<option
+										value=""
+										if view.Account.TypeID == "" {
+											selected
+										}
+									>Select an account type</option>
+									for _, accountType := range view.AccountTypes {
+										<option
+											value={ accountType.ID }
+											if accountType.ID == view.Account.TypeID {
+												selected
+											}
+										>{ accountType.Name }</option>
 									}
-								/>
-							</label>
+								</select>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Balance Upper Limit</span></label>
+								<input type="number" class="input input-bordered w-full" placeholder="1000" name="balance_upper_limit" value={ balanceUpperLimit }/>
+							</div>
 						</div>
-						<div id="startup_share_fields" style={ view.GetStartupShareFieldsStyle() }>
-							<label class="label">Shares Owned</label>
-							<input type="number" step="any" class="input" placeholder="1000" name="shares_owned" value={ view.GetStartupShareSharesOwned() }/>
-							<label class="label">Total Shares</label>
-							<input type="number" step="any" class="input" placeholder="10000" name="total_shares" value={ view.GetStartupShareTotalShares() }/>
-							<label class="label">Purchase Price per Share</label>
-							<input type="number" step="any" class="input" placeholder="0.10" name="purchase_price_per_share" value={ view.GetStartupSharePurchasePrice() }/>
-							<label class="label">Tax Rate (%)</label>
-							<input type="number" step="any" class="input" placeholder="15" name="tax_rate" value={ view.GetStartupShareTaxRate() }/>
-							<label class="label">Valuation Discount Factor (%)</label>
-							<input type="number" step="any" class="input" placeholder="50" name="valuation_discount_factor" value={ view.GetStartupShareDiscountFactor() }/>
-						</div>
-					</fieldset>
-					<script>
-						function toggleStartupShareFields() {
-							const checkbox = document.getElementById("enable_startup_shares");
-							const fields = document.getElementById("startup_share_fields");
-							fields.style.display = checkbox.checked ? "block" : "none";
-						}
-					</script>
-					@SaveButton(view.IsEdit())
-				</fieldset>
-			</form>
-		</div>
-		if view.IsEdit() {
-			<!-- Growth Models Box -->
-			for _, growthModel := range view.GrowthModels {
-				<form id={ "delete-form-" + growthModel.ID } action={ "/growth-models/" + growthModel.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
-			}
-			<div class="flex-1">
-				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4">
-					<legend class="fieldset-legend">Growth Models</legend>
-					<div class="space-y-3">
-						for _, growthModel := range view.GrowthModels {
-							@GrowthModelForm(view.Account.ID, growthModel)
-						}
-						@GrowthModelForm(view.Account.ID, GrowthModel{})
 					</div>
-				</fieldset>
-			</div>
-			if view.StartupShareAccount != nil {
-				<!-- Investment Rounds Box -->
-				for _, round := range view.InvestmentRounds {
-					<form id={ "delete-round-form-" + round.ID } action={ "/investment-rounds/" + round.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
-				}
-				<div class="flex-1">
-					<fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4">
-						<legend class="fieldset-legend">Investment Rounds</legend>
-						<div class="space-y-3">
-							for _, round := range view.InvestmentRounds {
-								@InvestmentRoundForm(view.Account.ID, round)
-							}
-							@InvestmentRoundForm(view.Account.ID, InvestmentRound{})
+					<!-- Cash Flow Card -->
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Cash Flow & Budget</h3>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Cash Flow Frequency</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="Frequency" name="cash_flow_frequency" value={ view.Account.CashFlowFrequency }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Cash Flow Destination</span></label>
+								<select class="select select-bordered w-full" name="cash_flow_destination_id">
+									<option
+										value=""
+										if view.Account.CashFlowDestinationID == "" {
+											selected
+										}
+									>Select a destination</option>
+									for _, acc := range view.Accounts {
+										<option
+											value={ acc.ID }
+											if acc.ID == view.Account.CashFlowDestinationID {
+												selected
+											}
+										>{ acc.Name }</option>
+									}
+								</select>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Budget Category</span></label>
+								<select class="select select-bordered w-full" name="budget_category_id">
+									<option value="">None (not in budget)</option>
+									for _, cat := range view.Categories {
+										{{ accBudgetSelected := false }}
+										if view.Account.BudgetCategoryID != nil && *view.Account.BudgetCategoryID == cat.ID {
+											{{ accBudgetSelected = true }}
+										}
+										<option
+											value={ cat.ID }
+											if accBudgetSelected {
+												selected
+											}
+										>{ cat.Name }</option>
+									}
+								</select>
+								<div class="text-sm text-base-content/60 mt-1">
+									Assign a budget category to include this account's interest in the monthly budget summary
+								</div>
+							</div>
 						</div>
-					</fieldset>
+					</div>
+					<!-- Startup Shares Card — full width -->
+					<div class="card bg-base-100 shadow-sm border border-base-300 lg:col-span-2">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Startup Share Details</h3>
+							<div class="form-control">
+								<label class="flex items-center gap-2 cursor-pointer">
+									<input type="checkbox" class="checkbox" name="enable_startup_shares" id="enable_startup_shares" onchange="toggleStartupShareFields()"
+										if view.HasStartupShareAccount() {
+											checked
+										}
+									/>
+									<span class="label-text font-medium">Enable startup shares</span>
+								</label>
+							</div>
+							<div id="startup_share_fields" style={ view.GetStartupShareFieldsStyle() }>
+								<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+									<div class="form-control">
+										<label class="label"><span class="label-text font-medium">Shares Owned</span></label>
+										<input type="number" step="any" class="input input-bordered w-full" placeholder="1000" name="shares_owned" value={ view.GetStartupShareSharesOwned() }/>
+									</div>
+									<div class="form-control">
+										<label class="label"><span class="label-text font-medium">Total Shares</span></label>
+										<input type="number" step="any" class="input input-bordered w-full" placeholder="10000" name="total_shares" value={ view.GetStartupShareTotalShares() }/>
+									</div>
+									<div class="form-control">
+										<label class="label"><span class="label-text font-medium">Purchase Price per Share</span></label>
+										<input type="number" step="any" class="input input-bordered w-full" placeholder="0.10" name="purchase_price_per_share" value={ view.GetStartupSharePurchasePrice() }/>
+									</div>
+									<div class="form-control">
+										<label class="label"><span class="label-text font-medium">Tax Rate (%)</span></label>
+										<input type="number" step="any" class="input input-bordered w-full" placeholder="15" name="tax_rate" value={ view.GetStartupShareTaxRate() }/>
+									</div>
+									<div class="form-control">
+										<label class="label"><span class="label-text font-medium">Valuation Discount Factor (%)</span></label>
+										<input type="number" step="any" class="input input-bordered w-full" placeholder="50" name="valuation_discount_factor" value={ view.GetStartupShareDiscountFactor() }/>
+									</div>
+								</div>
+							</div>
+							<script>
+								function toggleStartupShareFields() {
+									const checkbox = document.getElementById("enable_startup_shares");
+									const fields = document.getElementById("startup_share_fields");
+									fields.style.display = checkbox.checked ? "block" : "none";
+								}
+							</script>
+						</div>
+					</div>
 				</div>
-				<!-- Options Box -->
-				for _, option := range view.Options {
-					<form id={ "delete-option-form-" + option.ID } action={ "/startup-share-options/" + option.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
-				}
-				<div class="flex-1">
-					<fieldset class="fieldset bg-base-200 border-base-300 rounded-box w-full border p-4">
-						<legend class="fieldset-legend">Options</legend>
-						<div class="space-y-3">
-							for _, option := range view.Options {
-								@StartupShareOptionForm(view.Account.ID, view.Accounts, option)
-							}
-							@StartupShareOptionForm(view.Account.ID, view.Accounts, StartupShareOption{})
+				@SaveButton(view.IsEdit())
+			</form>
+			if view.IsEdit() {
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+					<!-- Growth Models Card -->
+					for _, growthModel := range view.GrowthModels {
+						<form id={ "delete-form-" + growthModel.ID } action={ "/growth-models/" + growthModel.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+					}
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Growth Models</h3>
+							<div class="space-y-3">
+								for _, growthModel := range view.GrowthModels {
+									@GrowthModelForm(view.Account.ID, growthModel)
+								}
+								@GrowthModelForm(view.Account.ID, GrowthModel{})
+							</div>
 						</div>
-					</fieldset>
+					</div>
+					if view.StartupShareAccount != nil {
+						<!-- Investment Rounds Card -->
+						for _, round := range view.InvestmentRounds {
+							<form id={ "delete-round-form-" + round.ID } action={ "/investment-rounds/" + round.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+						}
+						<div class="card bg-base-100 shadow-sm border border-base-300">
+							<div class="card-body p-5">
+								<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Investment Rounds</h3>
+								<div class="space-y-3">
+									for _, round := range view.InvestmentRounds {
+										@InvestmentRoundForm(view.Account.ID, round)
+									}
+									@InvestmentRoundForm(view.Account.ID, InvestmentRound{})
+								</div>
+							</div>
+						</div>
+						<!-- Options Card -->
+						for _, option := range view.Options {
+							<form id={ "delete-option-form-" + option.ID } action={ "/startup-share-options/" + option.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+						}
+						<div class="card bg-base-100 shadow-sm border border-base-300">
+							<div class="card-body p-5">
+								<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Options</h3>
+								<div class="space-y-3">
+									for _, option := range view.Options {
+										@StartupShareOptionForm(view.Account.ID, view.Accounts, option)
+									}
+									@StartupShareOptionForm(view.Account.ID, view.Accounts, StartupShareOption{})
+								</div>
+							</div>
+						</div>
+					}
 				</div>
 			}
-		}
+		</div>
 	</div>
 }
 
@@ -342,7 +381,7 @@ templ AccountsStatCardRow(view *AccountsView) {
 }
 
 templ AccountTableRow(view *AccountsView, account *AccountDetailed) {
-	<tr class="hover:bg-base-50">
+	<tr class="hover:bg-base-200/50 transition-colors">
 		<td class="font-medium">{ account.Name }</td>
 		<td>
 			if account.TypeID != "" {
@@ -394,7 +433,7 @@ templ AccountTableRow(view *AccountsView, account *AccountDetailed) {
 			}
 		</td>
 		<td class="text-right">
-			<div class="flex items-center justify-end gap-2">
+			<div class="flex items-center justify-end gap-2 row-actions">
 				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/accounts/" + account.ID + "/edit" }>
 					@IconPencil("w-4 h-4")
 				</a>
@@ -440,7 +479,7 @@ templ AccountsContent(view *AccountsView) {
 					<div class="card-body">
 						<div class="overflow-x-auto">
 							<table class="table w-full">
-								<thead>
+								<thead class="bg-base-200/60">
 									<tr>
 										<th class="font-semibold sticky">Name</th>
 										<th class="font-semibold">Account Type</th>
