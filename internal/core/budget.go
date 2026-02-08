@@ -118,7 +118,7 @@ func computeBudgetView(ctx context.Context, db *sql.DB) (*BudgetView, error) {
 		group.Items = append(group.Items, BudgetItem{
 			Name:   acc.Name + " (interest)",
 			Amount: monthlyInterest,
-			Source:  "interest",
+			Source: "interest",
 		})
 		group.Total += monthlyInterest
 	}

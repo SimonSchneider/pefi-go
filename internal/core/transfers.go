@@ -543,8 +543,18 @@ func TransferChartData(db *sql.DB) http.Handler {
 		// Remove cycles by netting opposite transfers
 		chartLinks = SimplifyChartLinks(chartLinks)
 
+		finalChartData := make([]TransferChartData, 0, len(chartData))
+		for _, node := range chartData {
+			for _, edge := range chartLinks {
+				if edge.Source == node.Name || edge.Target == node.Name {
+					finalChartData = append(finalChartData, node)
+					break
+				}
+			}
+		}
+
 		data := TransferChartDataEnvelope{
-			Data:  chartData,
+			Data:  finalChartData,
 			Links: chartLinks,
 		}
 		if err := json.NewEncoder(w).Encode(data); err != nil {

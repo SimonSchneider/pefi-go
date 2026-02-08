@@ -4,7 +4,7 @@
 
 @plugin "./daisyui.js" {
     /*themes: emerald --default, dim --prefersdark, cupcake;*/
-    themes: emerald --default, cupcake;
+    themes: bumblebee --default, cupcake;
 }
 
 .menu li>*.menu-active,
