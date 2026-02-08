@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
 type Account struct {
@@ -216,18 +218,46 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 	for _, growthModel := range growthModels {
 		growthModelsMap[growthModel.AccountID] = growthModel
 	}
-	// Load startup share accounts for all accounts
+	// Load startup share accounts and compute their current balances
 	startupShareAccountsMap := make(map[string]pdb.StartupShareAccount)
+	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), 1)
 	for _, acc := range accs {
 		ssa, err := pdb.New(db).GetStartupShareAccount(ctx, acc.ID)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				return nil, fmt.Errorf("failed to get startup share account: %w", err)
 			}
-			// No startup share account for this account, skip
 			continue
 		}
 		startupShareAccountsMap[acc.ID] = ssa
+		// If there's no DB snapshot, compute balance from latest investment round
+		if _, hasSnapshot := snapshotsMap[acc.ID]; !hasSnapshot {
+			round, err := GetLatestInvestmentRound(ctx, db, acc.ID, today)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				return nil, fmt.Errorf("failed to get latest investment round for account %s: %w", acc.ID, err)
+			}
+			balance := CalculateStartupShareBalance(
+				ucfg,
+				uncertain.NewFixed(round.Valuation),
+				ssa.SharesOwned,
+				ssa.PurchasePricePerShare,
+				ssa.TaxRate,
+				ssa.TotalShares,
+				ssa.ValuationDiscountFactor,
+			)
+			encoded, err := balance.Encode()
+			if err != nil {
+				return nil, fmt.Errorf("encoding startup share balance: %w", err)
+			}
+			snapshotsMap[acc.ID] = pdb.AccountSnapshot{
+				AccountID: acc.ID,
+				Date:      int64(round.Date),
+				Balance:   encoded,
+			}
+		}
 	}
 	return accountsListFromDBDetailed(accs, snapshotsMap, growthModelsMap, startupShareAccountsMap), nil
 }
