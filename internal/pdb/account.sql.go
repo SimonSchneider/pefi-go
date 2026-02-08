@@ -10,21 +10,6 @@ import (
 	"strings"
 )
 
-const assignCategoryToTransferTemplate = `-- name: AssignCategoryToTransferTemplate :exec
-INSERT INTO transfer_template_category_assignment (transfer_template_id, category_id)
-VALUES (?, ?) ON CONFLICT DO NOTHING
-`
-
-type AssignCategoryToTransferTemplateParams struct {
-	TransferTemplateID string
-	CategoryID         string
-}
-
-func (q *Queries) AssignCategoryToTransferTemplate(ctx context.Context, arg AssignCategoryToTransferTemplateParams) error {
-	_, err := q.db.ExecContext(ctx, assignCategoryToTransferTemplate, arg.TransferTemplateID, arg.CategoryID)
-	return err
-}
-
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO account (
     id,
@@ -266,42 +251,6 @@ func (q *Queries) GetBudgetAccounts(ctx context.Context) ([]Account, error) {
 			&i.CashFlowDestinationID,
 			&i.TypeID,
 			&i.BudgetCategoryID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getCategoriesForTransferTemplate = `-- name: GetCategoriesForTransferTemplate :many
-SELECT c.id, c.name, c.color, c.created_at, c.updated_at
-FROM transfer_template_category c
-  INNER JOIN transfer_template_category_assignment a ON c.id = a.category_id
-WHERE a.transfer_template_id = ?
-`
-
-func (q *Queries) GetCategoriesForTransferTemplate(ctx context.Context, transferTemplateID string) ([]TransferTemplateCategory, error) {
-	rows, err := q.db.QueryContext(ctx, getCategoriesForTransferTemplate, transferTemplateID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TransferTemplateCategory
-	for rows.Next() {
-		var i TransferTemplateCategory
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Color,
-			&i.CreatedAt,
-			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1021,22 +970,6 @@ func (q *Queries) ListTransferTemplateCategories(ctx context.Context) ([]Transfe
 		return nil, err
 	}
 	return items, nil
-}
-
-const removeCategoryFromTransferTemplate = `-- name: RemoveCategoryFromTransferTemplate :exec
-DELETE FROM transfer_template_category_assignment
-WHERE transfer_template_id = ?
-  AND category_id = ?
-`
-
-type RemoveCategoryFromTransferTemplateParams struct {
-	TransferTemplateID string
-	CategoryID         string
-}
-
-func (q *Queries) RemoveCategoryFromTransferTemplate(ctx context.Context, arg RemoveCategoryFromTransferTemplateParams) error {
-	_, err := q.db.ExecContext(ctx, removeCategoryFromTransferTemplate, arg.TransferTemplateID, arg.CategoryID)
-	return err
 }
 
 const updateAccount = `-- name: UpdateAccount :one

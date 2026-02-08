@@ -141,59 +141,33 @@ templ TransferTemplateForm(view *TransferTemplateEditView) {
 						</div>
 					</div>
 				</div>
-				<!-- Categorization -->
-				<div class="card bg-base-100 shadow-sm border border-base-300">
-					<div class="card-body p-5">
-						<div class="flex justify-between items-center mb-3">
-							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Categories</h3>
-							<a href="/transfer-template-categories/new" class="link link-primary text-sm">+ Add new</a>
-						</div>
-						<div class="grid grid-cols-2 gap-2">
+			<!-- Budget Category -->
+			<div class="card bg-base-100 shadow-sm border border-base-300">
+				<div class="card-body p-5">
+					<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Budget Category</h3>
+					<div class="form-control">
+						<label class="label"><span class="label-text font-medium">Budget Category</span></label>
+						<select class="select select-bordered w-full" name="budget_category_id">
+							<option value="">None (not in budget)</option>
 							for _, cat := range view.Categories {
-								{{ isSelected := false }}
-								for _, assignedCat := range view.TransferTemplate.Categories {
-									if assignedCat.ID == cat.ID {
-										{{ isSelected = true }}
-										break
-									}
+								{{ budgetSelected := false }}
+								if view.TransferTemplate.BudgetCategoryID != nil && *view.TransferTemplate.BudgetCategoryID == cat.ID {
+									{{ budgetSelected = true }}
 								}
-								<label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-base-200 transition-colors">
-									<input
-										type="checkbox"
-										class="checkbox checkbox-sm"
-										name="category_ids"
-										value={ cat.ID }
-										if isSelected {
-											checked
-										}
-									/>
-									@CategoryBadge(cat)
-								</label>
+								<option
+									value={ cat.ID }
+									if budgetSelected {
+										selected
+									}
+								>{ cat.Name }</option>
 							}
-						</div>
-						<div class="form-control mt-4">
-							<label class="label"><span class="label-text font-medium">Budget Category</span></label>
-							<select class="select select-bordered w-full" name="budget_category_id">
-								<option value="">None (not in budget)</option>
-								for _, cat := range view.Categories {
-									{{ budgetSelected := false }}
-									if view.TransferTemplate.BudgetCategoryID != nil && *view.TransferTemplate.BudgetCategoryID == cat.ID {
-										{{ budgetSelected = true }}
-									}
-									<option
-										value={ cat.ID }
-										if budgetSelected {
-											selected
-										}
-									>{ cat.Name }</option>
-								}
-							</select>
-							<div class="text-sm text-base-content/60 mt-1">
-								Assign a budget category to include this template in the monthly budget summary
-							</div>
+						</select>
+						<div class="text-sm text-base-content/60 mt-1">
+							Assign a budget category to include this template in the monthly budget summary
 						</div>
 					</div>
 				</div>
+			</div>
 				<!-- Advanced — full width -->
 				<div class="card bg-base-100 shadow-sm border border-base-300 lg:col-span-2">
 					<div class="card-body p-5">
@@ -345,16 +319,6 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 				}
 			</div>
 		</td>
-		<!-- Categories -->
-		<td>
-			<div class="flex flex-wrap gap-1">
-				if len(t.Categories) > 0 {
-					for _, cat := range t.Categories {
-						@CategoryBadge(cat)
-					}
-				}
-			</div>
-		</td>
 		<!-- Budget -->
 		<td>
 			{{ budgetCat := view.GetBudgetCategory(t.BudgetCategoryID) }}
@@ -425,7 +389,6 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 										<th class="font-semibold">Name</th>
 										<th class="font-semibold">From → To</th>
 										<th class="font-semibold">Recurrence</th>
-										<th class="font-semibold">Categories</th>
 										<th class="font-semibold">Budget</th>
 										<th class="font-semibold text-right">Amount</th>
 										<th class="font-semibold text-right">Actions</th>
@@ -434,7 +397,7 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 								<tbody>
 									if len(view.TransferTemplates) == 0 {
 										<tr>
-											<td colspan="7" class="text-center py-8 text-base-content/70">
+											<td colspan="6" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No accounts yet</p>

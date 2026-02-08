@@ -226,18 +226,6 @@ RETURNING *;
 -- name: DeleteTransferTemplateCategory :exec
 DELETE FROM transfer_template_category
 WHERE id = ?;
--- name: GetCategoriesForTransferTemplate :many
-SELECT c.*
-FROM transfer_template_category c
-  INNER JOIN transfer_template_category_assignment a ON c.id = a.category_id
-WHERE a.transfer_template_id = ?;
--- name: AssignCategoryToTransferTemplate :exec
-INSERT INTO transfer_template_category_assignment (transfer_template_id, category_id)
-VALUES (?, ?) ON CONFLICT DO NOTHING;
--- name: RemoveCategoryFromTransferTemplate :exec
-DELETE FROM transfer_template_category_assignment
-WHERE transfer_template_id = ?
-  AND category_id = ?;
 -- name: GetChildTemplates :many
 SELECT *
 FROM transfer_template

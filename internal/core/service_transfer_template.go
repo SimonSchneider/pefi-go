@@ -34,7 +34,6 @@ type TransferTemplate struct {
 	BudgetCategoryID *string
 
 	// Populated fields (not stored directly)
-	Categories     []TransferTemplateCategory
 	ParentTemplate *TransferTemplate
 	ChildTemplates []TransferTemplate
 }
@@ -210,11 +209,6 @@ func ListTransferTemplatesWithChildren(ctx context.Context, db *sql.DB) ([]Trans
 	}
 	for i := range parsedTemplates {
 		template := &parsedTemplates[i]
-		// Populate categories
-		categories, err := GetCategoriesForTemplate(ctx, db, template.ID)
-		if err == nil {
-			template.Categories = categories
-		}
 		// Populate parent template
 		if template.ParentTemplateID != nil {
 			parentIndex, ok := byId[*template.ParentTemplateID]
@@ -241,11 +235,6 @@ func GetTransferTemplate(ctx context.Context, db *sql.DB, id string) (TransferTe
 	template, err := transferTemplateFromDB(t)
 	if err != nil {
 		return TransferTemplate{}, err
-	}
-	// Populate categories
-	categories, err := GetCategoriesForTemplate(ctx, db, template.ID)
-	if err == nil {
-		template.Categories = categories
 	}
 	// Populate parent template
 	if template.ParentTemplateID != nil {
