@@ -433,7 +433,7 @@ templ AccountTableRow(view *AccountsView, account *AccountDetailed) {
 			}
 		</td>
 		<td class="text-right">
-			<div class="flex items-center justify-end gap-2">
+			<div class="flex items-center justify-end gap-2 row-actions">
 				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/accounts/" + account.ID + "/edit" }>
 					@IconPencil("w-4 h-4")
 				</a>

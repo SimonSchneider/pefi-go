@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/SimonSchneider/goslu/date"
@@ -65,6 +66,10 @@ type TransferTemplateWithAmount struct {
 	Amount float64
 
 	SimDate date.Date
+}
+
+func (c *TransferTemplateWithAmount) HasDifferentAmount() bool {
+	return math.Abs(c.Amount-c.AmountFixed.Mean()) > 1
 }
 
 func (t *TransferTemplateWithAmount) ActiveState() string {

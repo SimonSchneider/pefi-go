@@ -352,8 +352,6 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 					for _, cat := range t.Categories {
 						@CategoryBadge(cat)
 					}
-				} else {
-					<span class="text-base-content/50 text-sm">-</span>
 				}
 			</div>
 		</td>
@@ -362,8 +360,6 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 			{{ budgetCat := view.GetBudgetCategory(t.BudgetCategoryID) }}
 			if budgetCat != nil {
 				@CategoryBadge(*budgetCat)
-			} else {
-				<span class="text-base-content/50 text-sm">-</span>
 			}
 		</td>
 		<!-- Amount (merged: estimated as primary, configured as secondary) -->
@@ -379,12 +375,14 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 				@BalanceBadge(t.Amount, false, class)
 				if t.AmountType == "percent" {
 					<span class="text-xs text-base-content/40">{ t.AmountPercent * 100 }%</span>
+				} else if t.HasDifferentAmount() {
+				    @BalanceBadge(t.AmountFixed.Mean(), false, "text-xs text-base-content/40")
 				}
 			</div>
 		</td>
 		<!-- Actions -->
 		<td class="text-right">
-			<div class="flex items-center justify-end gap-1">
+			<div class="flex items-center justify-end gap-1 row-actions">
 				<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
 					<button type="submit" class="btn btn-ghost btn-xs" title="Duplicate">
 						@IconCopy("w-4 h-4")

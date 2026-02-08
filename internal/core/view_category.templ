@@ -41,9 +41,11 @@ templ TransferTemplateCategoriesContent(view *TransferTemplateCategoriesView) {
 													@CategoryBadge(cat)
 												</td>
 												<td class="text-right">
-													<a href={ templ.SafeURL("/transfer-template-categories/" + cat.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
-														@IconPencil("w-4 h-4")
-													</a>
+													<div class="row-actions">
+														<a href={ templ.SafeURL("/transfer-template-categories/" + cat.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+															@IconPencil("w-4 h-4")
+														</a>
+													</div>
 												</td>
 											</tr>
 										}
