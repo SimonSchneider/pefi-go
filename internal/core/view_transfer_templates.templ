@@ -273,13 +273,14 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 			data-parent-id={ t.ParentTemplate.ID }
 		}
 	>
+		<!-- Name + Status dot + Date range -->
 		<td class="font-medium">
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col gap-0.5">
 				<div class="flex items-center gap-2">
 					if isParent {
-						<button 
-							type="button" 
-							class="collapse-toggle btn btn-ghost btn-xs p-0 min-h-0 h-4 w-4" 
+						<button
+							type="button"
+							class="collapse-toggle btn btn-ghost btn-xs p-0 min-h-0 h-4 w-4"
 							title="Toggle children"
 							onclick="window.toggleTemplateChildren(this)"
 						>
@@ -287,41 +288,64 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
 							</svg>
 						</button>
-						<span class="badge badge-primary badge-sm" onclick="window.toggleTemplateChildren(this)">Parent ({ len(t.ChildTemplates) })</span>
-					} else if isChild {
-						<span class="w-4"></span>
-						<span class="badge badge-outline badge-sm">Child</span>
+					} else {
+						<span class="w-4 shrink-0"></span>
+					}
+					switch t.ActiveState() {
+						case "Active":
+							<span class="inline-block w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
+						case "Inactive":
+							<span class="inline-block w-2 h-2 rounded-full bg-warning shrink-0" title="Inactive"></span>
+						case "Disabled":
+							<span class="inline-block w-2 h-2 rounded-full bg-error shrink-0" title="Disabled"></span>
 					}
 					<span>{ t.Name }</span>
 				</div>
+				if t.StartDate > 0 || t.EndDate != nil {
+					<div class="text-xs text-base-content/40 ml-6">
+						if t.StartDate > 0 {
+							{ t.StartDate.String() }
+						} else {
+							-
+						}
+						—
+						if t.EndDate != nil {
+							{ t.EndDate.String() }
+						} else {
+							-
+						}
+					</div>
+				}
 			</div>
 		</td>
-		<td>
-			<div class="flex flex-col gap-1">
-				{{ from := view.GetAccount(t.FromAccountID) }}
-				{{ to := view.GetAccount(t.ToAccountID) }}
-				if t.FromAccountID != "" {
-					<span>{ from.Name }</span>
-				} else {
-					<span class="text-green-700">external</span>
-				}
-				if t.ToAccountID != "" {
-					<span class="text-base-content/50">→ { to.Name }</span>
-				} else {
-					<span class="text-red-300">→ external</span>
-				}
-			</div>
+		<!-- From → To (compact single line) -->
+		<td class="text-sm whitespace-nowrap">
+			{{ from := view.GetAccount(t.FromAccountID) }}
+			{{ to := view.GetAccount(t.ToAccountID) }}
+			if t.FromAccountID != "" {
+				<span class="inline-block max-w-[12rem] truncate align-bottom" title={ from.Name }>{ from.Name }</span>
+			} else {
+				<span class="text-green-700">external</span>
+			}
+			<span class="text-base-content/40 mx-1">→</span>
+			if t.ToAccountID != "" {
+				<span class="inline-block max-w-[12rem] truncate align-bottom" title={ to.Name }>{ to.Name }</span>
+			} else {
+				<span class="text-red-400">external</span>
+			}
 		</td>
+		<!-- Recurrence -->
 		<td>
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col gap-0.5">
 				if t.Recurrence != "" {
 					<span>{ t.Recurrence }</span>
-					<span class="text-base-content/50">{ t.Priority }</span>
+					<span class="text-xs text-base-content/50">{ t.Priority }</span>
 				} else {
-					<span class="badge badge-secondary">one-time</span>
+					<span class="badge badge-secondary badge-sm">one-time</span>
 				}
 			</div>
 		</td>
+		<!-- Categories -->
 		<td>
 			<div class="flex flex-wrap gap-1">
 				if len(t.Categories) > 0 {
@@ -333,6 +357,7 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 				}
 			</div>
 		</td>
+		<!-- Budget -->
 		<td>
 			{{ budgetCat := view.GetBudgetCategory(t.BudgetCategoryID) }}
 			if budgetCat != nil {
@@ -341,8 +366,9 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 				<span class="text-base-content/50 text-sm">-</span>
 			}
 		</td>
+		<!-- Amount (merged: estimated as primary, configured as secondary) -->
 		<td class="text-right">
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col items-end gap-0.5">
 				{{ class := "" }}
 				if t.ToAccountID == "" {
 					{{ class = "text-red-600" }}
@@ -350,58 +376,21 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 				if t.FromAccountID == "" {
 					{{ class = "text-green-600" }}
 				}
-				if t.AmountType == "fixed" {
-					@BalanceBadge(t.AmountFixed.Mean(), false, class)
-				} else {
-					<span class={ class }>{ t.AmountPercent * 100 }%</span>
-				}
-			</div>
-		</td>
-		<td class="text-right">
-			<div class="flex flex-col gap-1">
-				if t.ToAccountID == "" {
-					{{ class = "text-red-600" }}
-				}
-				if t.FromAccountID == "" {
-					{{ class = "text-green-600" }}
-				}
 				@BalanceBadge(t.Amount, false, class)
-			</div>
-		</td>
-		<td class="text-right">
-			switch t.ActiveState() {
-				case "Active":
-					<span class="badge badge-primary">Enabled</span>
-				case "Inactive":
-					<span class="badge badge-secondary">{ t.ActiveState() }</span>
-				case "Disabled":
-					<span class="badge badge-error">{ t.ActiveState() }</span>
-			}
-		</td>
-		<td class="text-left">
-			<div class="flex flex-col gap-1">
-				if t.StartDate > 0 || t.EndDate != nil {
-					if t.StartDate > 0 {
-						<span>{ t.StartDate.String() }</span>
-					} else {
-						<span>-</span>
-					}
-				}
-				if t.EndDate != nil {
-					<span>{ t.EndDate.String() }</span>
-				} else if t.StartDate > 0 {
-					<span>-</span>
+				if t.AmountType == "percent" {
+					<span class="text-xs text-base-content/40">{ t.AmountPercent * 100 }%</span>
 				}
 			</div>
 		</td>
+		<!-- Actions -->
 		<td class="text-right">
-			<div class="flex items-center justify-end gap-2">
+			<div class="flex items-center justify-end gap-1">
 				<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
-					<button type="submit" class="btn btn-ghost btn-sm" title="Duplicate">
+					<button type="submit" class="btn btn-ghost btn-xs" title="Duplicate">
 						@IconCopy("w-4 h-4")
 					</button>
 				</form>
-				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
+				<a class="btn btn-ghost btn-xs display-none" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
 					@IconPencil("w-4 h-4")
 				</a>
 			</div>
@@ -428,30 +417,26 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 						<div class="overflow-x-auto">
 							<style>
 								tr[data-parent-id].hidden { display: none !important; }
-								tr[data-template-id].collapsed .collapse-toggle svg { transform: rotate(-90deg); }
+								tr[data-template-id].collapsed .collapse-toggle svg { transform: rotate(0deg); }
+								tr[data-template-id] .collapse-toggle svg { transform: rotate(90deg); }
 								tr[data-parent-id] { border-left: 2px solid hsl(var(--p)); }
 							</style>
-							<table class="table w-full">
+							<table class="table table-sm w-full">
 								<thead class="bg-base-200/60">
 									<tr>
-										<th class="font-semibold sticky">Name</th>
+										<th class="font-semibold">Name</th>
 										<th class="font-semibold">From → To</th>
 										<th class="font-semibold">Recurrence</th>
 										<th class="font-semibold">Categories</th>
 										<th class="font-semibold">Budget</th>
 										<th class="font-semibold text-right">Amount</th>
-										<th class="font-semibold text-right">Estimated Amount</th>
-										<th class="font-semibold text-right">Enabled</th>
-										<th class="font-semibold text-left">Date range</th>
-										// <th class="font-semibold">Cash Flow</th>
-										// <th class="font-semibold">Last Snapshot</th>
-										<th class="font-semibold text-right sticky">Actions</th>
+										<th class="font-semibold text-right">Actions</th>
 									</tr>
 								</thead>
 								<tbody>
 									if len(view.TransferTemplates) == 0 {
 										<tr>
-											<td colspan="9" class="text-center py-8 text-base-content/70">
+											<td colspan="7" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No accounts yet</p>
