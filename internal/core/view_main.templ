@@ -141,7 +141,23 @@ templ Header(title string, btns ...templ.Component) {
 templ Layout(page string, child templ.Component) {
 	<div class="drawer lg:drawer-open">
 		<input id="sidebar-drawer" type="checkbox" class="drawer-toggle"/>
-		<div class="drawer-content flex flex-col min-h-screen">
+		<script>
+			// Immediately set sidebar state before any rendering occurs.
+			// Also suppress transitions on initial load to prevent flash.
+			(function() {
+				var t = document.getElementById("sidebar-drawer");
+				if (t && window.innerWidth >= 1024) {
+					t.checked = localStorage.getItem("sidebar-expanded") !== "false";
+				}
+				document.documentElement.classList.add("no-transition");
+				requestAnimationFrame(function() {
+					requestAnimationFrame(function() {
+						document.documentElement.classList.remove("no-transition");
+					});
+				});
+			})();
+		</script>
+		<div class="drawer-content flex flex-col min-h-screen min-w-0 overflow-x-hidden">
 			@child
 		</div>
 		<div class="drawer-side is-drawer-close:overflow-visible z-40">

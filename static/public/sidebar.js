@@ -5,18 +5,24 @@
   var STORAGE_KEY = "sidebar-expanded";
   var LG = 1024;
 
-  // On desktop (lg+), restore saved preference
-  if (window.innerWidth >= LG) {
-    var saved = localStorage.getItem(STORAGE_KEY);
-    // Default to checked (expanded) if no preference saved
-    toggle.checked = saved !== "false";
-  }
-
   // Persist toggle state on change (only on desktop)
+  // and trigger resize so ECharts and other components recalculate
   toggle.addEventListener("change", function () {
     if (window.innerWidth >= LG) {
       localStorage.setItem(STORAGE_KEY, toggle.checked ? "true" : "false");
     }
+    // Wait for the CSS transition to finish (200ms), then fire resize
+    setTimeout(function () {
+      window.dispatchEvent(new Event("resize"));
+    }, 250);
+  });
+
+  // After page fully loads, fire resize to ensure ECharts recalculates
+  // with the correct sidebar width
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      window.dispatchEvent(new Event("resize"));
+    }, 50);
   });
 
   // On resize: restore desktop preference when crossing to lg+

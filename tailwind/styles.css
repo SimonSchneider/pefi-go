@@ -20,6 +20,13 @@
 tr .row-actions { opacity: 0; transition: opacity 0.15s; }
 tr:hover .row-actions { opacity: 1; }
 
+/* Suppress all transitions on initial page load */
+.no-transition *,
+.no-transition *::before,
+.no-transition *::after {
+    transition-duration: 0s !important;
+}
+
 /* === Collapsed sidebar (drawer unchecked on desktop) === */
 
 /* Menu items: square icon buttons, centered */

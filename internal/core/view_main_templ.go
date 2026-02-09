@@ -360,7 +360,7 @@ func Layout(page string, child templ.Component) templ.Component {
 			templ_7745c5c3_Var12 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"drawer lg:drawer-open\"><input id=\"sidebar-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col min-h-screen\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"drawer lg:drawer-open\"><input id=\"sidebar-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><script>\n\t\t\t// Immediately set sidebar state before any rendering occurs.\n\t\t\t// Also suppress transitions on initial load to prevent flash.\n\t\t\t(function() {\n\t\t\t\tvar t = document.getElementById(\"sidebar-drawer\");\n\t\t\t\tif (t && window.innerWidth >= 1024) {\n\t\t\t\t\tt.checked = localStorage.getItem(\"sidebar-expanded\") !== \"false\";\n\t\t\t\t}\n\t\t\t\tdocument.documentElement.classList.add(\"no-transition\");\n\t\t\t\trequestAnimationFrame(function() {\n\t\t\t\t\trequestAnimationFrame(function() {\n\t\t\t\t\t\tdocument.documentElement.classList.remove(\"no-transition\");\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t})();\n\t\t</script><div class=\"drawer-content flex flex-col min-h-screen min-w-0 overflow-x-hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
