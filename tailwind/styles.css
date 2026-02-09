@@ -19,3 +19,56 @@
 
 tr .row-actions { opacity: 0; transition: opacity 0.15s; }
 tr:hover .row-actions { opacity: 1; }
+
+/* === Collapsed sidebar (drawer unchecked on desktop) === */
+
+/* Menu items: square icon buttons, centered */
+.drawer:not(:has(.drawer-toggle:checked)) .drawer-side .menu li > a:not(.menu-title) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    padding-block: 0;
+    padding-inline: 0;
+    gap: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-inline: auto;
+    border-radius: var(--radius-field);
+}
+
+/* Remove group nested ul styling (left border, indentation) */
+.drawer:not(:has(.drawer-toggle:checked)) .drawer-side .menu ul {
+    padding-inline-start: 0;
+    margin-inline-start: 0;
+    gap: 0.125rem;
+}
+.drawer:not(:has(.drawer-toggle:checked)) .drawer-side .menu ul::before {
+    display: none;
+}
+
+/* Remove all padding from menu container itself */
+.drawer:not(:has(.drawer-toggle:checked)) .drawer-side .menu {
+    padding: 0;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+/* Center the header logo and reduce padding */
+.drawer:not(:has(.drawer-toggle:checked)) .drawer-side .sidebar-header {
+    display: flex;
+    justify-content: center;
+    padding: 0.75rem;
+}
+.drawer:not(:has(.drawer-toggle:checked)) .drawer-side .sidebar-header > .flex {
+    justify-content: center;
+    gap: 0;
+}
+
+/* Center footer content */
+.drawer:not(:has(.drawer-toggle:checked)) .drawer-side .sidebar-footer {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem;
+}
+
