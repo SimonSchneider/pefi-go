@@ -170,7 +170,7 @@ func NavGroup(name string, children ...templ.Component) templ.Component {
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<li><h2 class=\"menu-title is-drawer-close:hidden\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<li class=\"is-drawer-close:border-t is-drawer-close:border-base-300 is-drawer-close:pt-3 is-drawer-close:mt-3\"><h2 class=\"menu-title is-drawer-close:hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -222,7 +222,7 @@ func SidebarContent(page string) templ.Component {
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"flex flex-col min-h-full bg-base-200 is-drawer-close:w-[3.5rem] is-drawer-open:w-64 transition-all duration-200\"><!-- Header / Logo --><div class=\"sidebar-header border-b border-base-300 p-2 is-drawer-open:p-4\"><div class=\"flex items-center gap-3\"><div class=\"is-drawer-close:w-8 is-drawer-close:h-8 is-drawer-open:w-10 is-drawer-open:h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0\"><span class=\"text-primary-content font-bold is-drawer-close:text-base is-drawer-open:text-xl\">P</span></div><div class=\"is-drawer-close:hidden\"><h1 class=\"text-xl font-bold text-base-content\">Pefigo</h1><p class=\"text-sm text-base-content/70\">Financial Modeling</p></div></div></div><!-- Navigation --><nav class=\"flex-1 overflow-y-auto p-2 is-drawer-open:p-4\"><ul class=\"menu menu-md bg-base-200 rounded-box gap-4 is-drawer-close:gap-1 is-drawer-close:px-0\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<div class=\"flex flex-col min-h-full bg-base-200 is-drawer-close:w-[3.5rem] is-drawer-open:w-64 transition-all duration-200\"><!-- Header / Logo --><div class=\"sidebar-header border-b border-base-300 p-2 is-drawer-open:p-4\"><div class=\"flex items-center gap-3\"><div class=\"is-drawer-close:w-8 is-drawer-close:h-8 is-drawer-open:w-10 is-drawer-open:h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0\"><span class=\"text-primary-content font-bold is-drawer-close:text-base is-drawer-open:text-xl\">P</span></div><div class=\"is-drawer-close:hidden\"><h1 class=\"text-xl font-bold text-base-content\">Pefigo</h1><p class=\"text-sm text-base-content/70\">Financial Modeling</p></div></div></div><!-- Navigation --><nav class=\"flex-1 overflow-y-none p-2 is-drawer-open:p-4\"><ul class=\"menu menu-md bg-base-200 rounded-box gap-4 is-drawer-close:gap-1 is-drawer-close:px-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
