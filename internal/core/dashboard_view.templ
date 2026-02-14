@@ -78,10 +78,39 @@ templ DashboardMainContent(view *DashboardView) {
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
 						<h2 class="card-title">Account Balances</h2>
-						<div class="space-y-2">
-							for _, group := range view.AccountTypeGroups {
-								@DashboardAccountTypeCard(group)
-							}
+						<div class="overflow-x-auto">
+							<table class="table table-zebra w-full">
+								<thead>
+									<tr>
+										<th>Account Type</th>
+										<th class="text-right">Balance</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, group := range view.AccountTypeGroups {
+										<tr>
+											<td>
+												<div class="flex items-center gap-2">
+													<div class="w-3 h-3 rounded-full" style={ fmt.Sprintf("background-color: %s", group.AccountType.Color) }></div>
+													<span>{ group.AccountType.Name }</span>
+													<span class="text-sm text-base-content/60">
+														({ fmt.Sprintf("%d", len(group.Accounts)) })
+													</span>
+												</div>
+											</td>
+											<td class="text-right">
+												@BalanceBadge(group.TotalBalance, true, "")
+											</td>
+										</tr>
+									}
+									<tr class="font-bold border-t-2 border-base-300">
+										<td>Net Worth</td>
+										<td class="text-right">
+											@BalanceBadge(view.TotalBalance, true, "")
+										</td>
+									</tr>
+								</tbody>
+							</table>
 						</div>
 					</div>
 				</div>
@@ -92,43 +121,6 @@ templ DashboardMainContent(view *DashboardView) {
 			@DashboardChartsScript()
 		</div>
 	</main>
-}
-
-templ DashboardAccountTypeCard(group AccountTypeGroup) {
-	<div class="collapse collapse-arrow bg-base-200">
-		<input type="checkbox"/>
-		<div class="collapse-title font-medium">
-			<div class="flex justify-between items-center pr-4">
-				<div class="flex items-center gap-2">
-					<div class="w-3 h-3 rounded-full" style={ fmt.Sprintf("background-color: %s", group.AccountType.Color) }></div>
-					<span>{ group.AccountType.Name }</span>
-					<span class="text-sm text-base-content/60">
-						({ fmt.Sprintf("%d", len(group.Accounts)) })
-					</span>
-				</div>
-				@BalanceBadge(group.TotalBalance, true, "")
-			</div>
-		</div>
-		<div class="collapse-content">
-			<table class="table table-sm w-full">
-				<tbody>
-					for _, acc := range group.Accounts {
-						<tr>
-							<td>{ acc.Name }</td>
-							<td class="text-right">
-								if acc.LastSnapshot != nil {
-									<span class="text-xs text-base-content/50 mr-2">{ acc.LastSnapshot.Date.String() }</span>
-									@BalanceBadge(acc.LastSnapshot.Balance.Mean(), true, "")
-								} else {
-									<span class="text-base-content/40">—</span>
-								}
-							</td>
-						</tr>
-					}
-				</tbody>
-			</table>
-		</div>
-	</div>
 }
 
 templ DashboardChartsScript() {
