@@ -130,6 +130,11 @@ func computeBudgetView(ctx context.Context, db *sql.DB) (*BudgetView, error) {
 		categories = append(categories, *group)
 		grandTotal += group.Total
 	}
+	for i := range categories {
+		sort.Slice(categories[i].Items, func(a, b int) bool {
+			return categories[i].Items[a].Amount > categories[i].Items[b].Amount
+		})
+	}
 	sort.Slice(categories, func(i, j int) bool {
 		return categories[i].Total > categories[j].Total
 	})
