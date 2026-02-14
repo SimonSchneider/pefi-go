@@ -16,6 +16,13 @@ generate:
 	@./vendor-bin/tailwindcss -i tailwind/styles.css -o static/public/styles-tw.css --minify
 	@echo "Code generation complete."
 
+generate-watch:
+	@echo "Generating code (skipping templ, handled by watcher)..."
+	@go generate ./...
+	@go tool sqlc generate -f sqlc/sqlc.yml
+	@./vendor-bin/tailwindcss -i tailwind/styles.css -o static/public/styles-tw.css --minify
+	@echo "Code generation complete."
+
 run:
 	@echo "Running the application..."
 	@go run cmd/*.go -addr ":$(PORT)" -watch -dburl ":memory:"
