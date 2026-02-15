@@ -153,14 +153,41 @@ templ BudgetCategoryDetails(cat BudgetCategoryGroup) {
 templ BudgetChartScript() {
 	<script type="text/javascript">
 		(function() {
+			function formatThousands(val) {
+				var n = Math.round(val);
+				var neg = n < 0;
+				var s = Math.abs(n).toString();
+				var pre = s.length % 3 || 3;
+				var out = s.slice(0, pre);
+				for (var i = pre; i < s.length; i += 3) {
+					out += ',' + s.slice(i, i + 3);
+				}
+				return neg ? '-' + out : out;
+			}
 			var chartDom = document.getElementById('budget-pie-chart');
 			if (!chartDom) return;
 			var myChart = echarts.init(chartDom);
 			var data = JSON.parse(document.getElementById('budget-chart-data').textContent);
+			var itemsByName = {};
+			data.forEach(function(item) {
+				itemsByName[item.name] = item.items || [];
+			});
 			var option = {
 				tooltip: {
 					trigger: 'item',
-					formatter: '{b}: {c} ({d}%)'
+					borderColor: '#ccc',
+					extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
+					formatter: function(params) {
+						var items = itemsByName[params.name] || [];
+						var lines = items.map(function(item) {
+							return '<div style="display:flex;justify-content:space-between;gap:16px">' +
+								'<span>' + item.name + '</span>' +
+								'<span style="font-weight:500">' + formatThousands(item.value) + '</span></div>';
+						});
+						var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px">' +
+							'<span>Total</span><span style="font-weight:700">' + formatThousands(params.value) + '</span></div>';
+						return params.marker + ' ' + params.name + '<br/>' + lines.join('') + totalLine;
+					}
 				},
 				series: [{
 					name: 'Monthly Budget',
