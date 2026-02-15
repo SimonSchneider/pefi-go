@@ -43,7 +43,7 @@ templ DashboardMainContent(view *DashboardView) {
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
 						<h2 class="card-title">Account Balances</h2>
-						<div class="overflow-x-auto">
+						<div>
 							<table class="table table-zebra w-full">
 								<thead>
 									<tr>
@@ -53,7 +53,7 @@ templ DashboardMainContent(view *DashboardView) {
 								</thead>
 								<tbody>
 									for _, group := range view.AccountTypeGroups {
-										<tr>
+										<tr class="group relative">
 											<td>
 												<div class="flex items-center gap-2">
 													<div class="w-3 h-3 rounded-full" style={ fmt.Sprintf("background-color: %s", group.AccountType.Color) }></div>
@@ -62,6 +62,15 @@ templ DashboardMainContent(view *DashboardView) {
 														({ fmt.Sprintf("%d", len(group.Accounts)) })
 													</span>
 												</div>
+												@ItemsTooltip() {
+													for _, acc := range group.Accounts {
+														if acc.LastSnapshot != nil {
+															@ItemsTooltipRow(acc.Name, ui.FormatWithThousands(acc.LastSnapshot.Balance.Mean()))
+														} else {
+															@ItemsTooltipRow(acc.Name, "—")
+														}
+													}
+												}
 											</td>
 											<td class="text-right">
 												@BalanceBadge(group.TotalBalance, true, "")
@@ -80,6 +89,7 @@ templ DashboardMainContent(view *DashboardView) {
 					</div>
 				</div>
 			</div>
+			@ItemsTooltipScript()
 			<script src="/static/public/echarts.min.js"></script>
 			@templ.JSONScript("dashboard-budget-data", view.Budget.ChartData)
 			@templ.JSONScript("dashboard-accounts-data", view.AccountChartData)

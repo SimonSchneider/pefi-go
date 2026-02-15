@@ -51,6 +51,7 @@ templ BudgetContent(view *BudgetView) {
                     </div>
                 </div>
 			</div>
+			@ItemsTooltipScript()
 			<script src="/static/public/echarts.min.js"></script>
             <script src="/static/public/chart-transfers.js"></script>
 			@templ.JSONScript("budget-chart-data", view.ChartData)
@@ -60,7 +61,7 @@ templ BudgetContent(view *BudgetView) {
 }
 
 templ BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) {
-	<div class="overflow-x-auto">
+	<div>
 		<table class="table table-zebra w-full">
 			<thead>
 				<tr>
@@ -71,14 +72,22 @@ templ BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) 
 			</thead>
 			<tbody>
 				for _, cat := range categories {
-					<tr>
+					<tr class="group relative">
 						<td>
 							<div class="flex items-center gap-2">
 								if cat.Category.Color != nil {
 									<div class="w-3 h-3 rounded-full" style={ fmt.Sprintf("background-color: %s", *cat.Category.Color) }></div>
 								}
 								<span>{ cat.Category.Name }</span>
+								<span class="text-sm text-base-content/60">
+									({ fmt.Sprintf("%d", len(cat.Items)) })
+								</span>
 							</div>
+							@ItemsTooltip() {
+								for _, item := range cat.Items {
+									@ItemsTooltipRow(item.Name, ui.FormatWithThousands(item.Amount))
+								}
+							}
 						</td>
 						<td class="text-right font-mono">{ ui.FormatWithThousands(cat.Total) }</td>
 						<td class="text-right">
