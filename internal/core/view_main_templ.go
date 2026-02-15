@@ -233,7 +233,7 @@ func SidebarContent(page string) templ.Component {
 		templ_7745c5c3_Err = NavGroup("Accounts",
 			NavItem("/accounts", IconCashBanknote("w-5 h-5"), "Accounts", page),
 			NavItem("/account-types", IconTag("w-5 h-5"), "Account Types", page),
-			NavItem("/snapshots-table", IconTable("w-5 h-5"), "Snapshots Table", page),
+			NavItem("/snapshots-table", IconTable("w-5 h-5"), "Balances", page),
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -242,15 +242,15 @@ func SidebarContent(page string) templ.Component {
 			NavItem("/transfer-templates", IconTransfer("w-5 h-5"), "Transfer Templates", page),
 			NavItem("/transfer-template-categories", IconTag("w-5 h-5"), "Categories", page),
 			NavItem("/budget", IconCashBanknote("w-5 h-5"), "Budget", page),
-			NavItem("/transfers", IconTransfer("w-5 h-5"), "Transfers", page),
-			NavItem("/transfers/chart", IconChartSankey("w-5 h-5"), "Transfers Chart", page),
+			NavItem("/transfers", IconTransfer("w-5 h-5"), "Transfer Calculator", page),
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavGroup("Charts",
+		templ_7745c5c3_Err = NavGroup("Forecasting",
+			NavItem("/transfers/chart", IconChartSankey("w-5 h-5"), "Cashflows", page),
 			NavItem("/special-dates", IconCalendar("w-5 h-5"), "Special Dates", page),
-			NavItem("/chart", IconTrendingUp("w-5 h-5"), "Chart", page),
+			NavItem("/chart", IconTrendingUp("w-5 h-5"), "Forecast", page),
 		).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
