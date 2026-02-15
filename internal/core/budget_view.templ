@@ -21,42 +21,7 @@ templ BudgetContent(view *BudgetView) {
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
 						<h2 class="card-title">Category Breakdown</h2>
-						<div class="overflow-x-auto">
-							<table class="table table-zebra w-full">
-								<thead>
-									<tr>
-										<th>Category</th>
-										<th class="text-right">Monthly Amount</th>
-										<th class="text-right">%</th>
-									</tr>
-								</thead>
-								<tbody>
-									for _, cat := range view.Categories {
-										<tr>
-											<td>
-												<div class="flex items-center gap-2">
-													if cat.Category.Color != nil {
-														<div class="w-3 h-3 rounded-full" style={ fmt.Sprintf("background-color: %s", *cat.Category.Color) }></div>
-													}
-													<span>{ cat.Category.Name }</span>
-												</div>
-											</td>
-											<td class="text-right font-mono">{ ui.FormatWithThousands(cat.Total) }</td>
-											<td class="text-right">
-												if view.GrandTotal > 0 {
-													{ fmt.Sprintf("%.1f%%", (cat.Total / view.GrandTotal) * 100) }
-												}
-											</td>
-										</tr>
-									}
-									<tr class="font-bold border-t-2 border-base-300">
-										<td>Total</td>
-										<td class="text-right font-mono">{ ui.FormatWithThousands(view.GrandTotal) }</td>
-										<td class="text-right">100%</td>
-									</tr>
-								</tbody>
-							</table>
-						</div>
+						@BudgetCategoryTable(view.Categories, view.GrandTotal)
 					</div>
 				</div>
 				<div class="card bg-base-100 shadow-sm border border-base-300">
@@ -92,6 +57,45 @@ templ BudgetContent(view *BudgetView) {
 			@BudgetChartScript()
 		</div>
 	</main>
+}
+
+templ BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) {
+	<div class="overflow-x-auto">
+		<table class="table table-zebra w-full">
+			<thead>
+				<tr>
+					<th>Category</th>
+					<th class="text-right">Monthly</th>
+					<th class="text-right">%</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, cat := range categories {
+					<tr>
+						<td>
+							<div class="flex items-center gap-2">
+								if cat.Category.Color != nil {
+									<div class="w-3 h-3 rounded-full" style={ fmt.Sprintf("background-color: %s", *cat.Category.Color) }></div>
+								}
+								<span>{ cat.Category.Name }</span>
+							</div>
+						</td>
+						<td class="text-right font-mono">{ ui.FormatWithThousands(cat.Total) }</td>
+						<td class="text-right">
+							if grandTotal > 0 {
+								{ fmt.Sprintf("%.1f%%", (cat.Total / grandTotal) * 100) }
+							}
+						</td>
+					</tr>
+				}
+				<tr class="font-bold border-t-2 border-base-300">
+					<td>Total</td>
+					<td class="text-right font-mono">{ ui.FormatWithThousands(grandTotal) }</td>
+					<td class="text-right">100%</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 }
 
 templ BudgetCategoryDetails(cat BudgetCategoryGroup) {

@@ -91,138 +91,59 @@ func DashboardMainContent(view *DashboardView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div><div class=\"grid grid-cols-1 lg:grid-cols-2 gap-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Budget by Category</h2><div class=\"overflow-x-auto\"><table class=\"table table-zebra w-full\"><thead><tr><th>Category</th><th class=\"text-right\">Monthly</th><th class=\"text-right\">%</th></tr></thead> <tbody>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div><div class=\"grid grid-cols-1 lg:grid-cols-2 gap-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Budget by Category</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, cat := range view.Budget.Categories {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<tr><td><div class=\"flex items-center gap-2\">")
+		templ_7745c5c3_Err = BudgetCategoryTable(view.Budget.Categories, view.Budget.GrandTotal).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div></div><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Budget Breakdown</h2><div id=\"dashboard-budget-chart\" style=\"width: 100%; height: 400px;\"></div></div></div></div><div class=\"grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Accounts by Type</h2><div id=\"dashboard-accounts-chart\" style=\"width: 100%; height: 400px;\"></div></div></div><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Account Balances</h2><div class=\"overflow-x-auto\"><table class=\"table table-zebra w-full\"><thead><tr><th>Account Type</th><th class=\"text-right\">Balance</th></tr></thead> <tbody>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		for _, group := range view.AccountTypeGroups {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<tr><td><div class=\"flex items-center gap-2\"><div class=\"w-3 h-3 rounded-full\" style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if cat.Category.Color != nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"w-3 h-3 rounded-full\" style=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var3 string
-				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("background-color: %s", *cat.Category.Color))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 41, Col: 112}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("background-color: %s", group.AccountType.Color))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 59, Col: 115}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<span>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"></div><span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(cat.Category.Name)
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(group.AccountType.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 43, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 60, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</span></div></td><td class=\"text-right font-mono\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</span> <span class=\"text-sm text-base-content/60\">(")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(ui.FormatWithThousands(cat.Total))
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(group.Accounts)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 46, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 62, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</td><td class=\"text-right\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if view.Budget.GrandTotal > 0 {
-				var templ_7745c5c3_Var6 string
-				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f%%", (cat.Total/view.Budget.GrandTotal)*100))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 49, Col: 80}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</td></tr>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<tr class=\"font-bold border-t-2 border-base-300\"><td>Total</td><td class=\"text-right font-mono\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(ui.FormatWithThousands(view.Budget.GrandTotal))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 56, Col: 91}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</td><td class=\"text-right\">100%</td></tr></tbody></table></div></div></div><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Budget Breakdown</h2><div id=\"dashboard-budget-chart\" style=\"width: 100%; height: 400px;\"></div></div></div></div><div class=\"grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Accounts by Type</h2><div id=\"dashboard-accounts-chart\" style=\"width: 100%; height: 400px;\"></div></div></div><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Account Balances</h2><div class=\"overflow-x-auto\"><table class=\"table table-zebra w-full\"><thead><tr><th>Account Type</th><th class=\"text-right\">Balance</th></tr></thead> <tbody>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, group := range view.AccountTypeGroups {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<tr><td><div class=\"flex items-center gap-2\"><div class=\"w-3 h-3 rounded-full\" style=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("background-color: %s", group.AccountType.Color))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 94, Col: 115}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"></div><span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(group.AccountType.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 95, Col: 43}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</span> <span class=\"text-sm text-base-content/60\">(")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(group.Accounts)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/dashboard_view.templ`, Line: 97, Col: 55}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, ")</span></div></td><td class=\"text-right\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, ")</span></div></td><td class=\"text-right\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -230,12 +151,12 @@ func DashboardMainContent(view *DashboardView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<tr class=\"font-bold border-t-2 border-base-300\"><td>Net Worth</td><td class=\"text-right\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<tr class=\"font-bold border-t-2 border-base-300\"><td>Net Worth</td><td class=\"text-right\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -243,7 +164,7 @@ func DashboardMainContent(view *DashboardView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</td></tr></tbody></table></div></div></div></div><script src=\"/static/public/echarts.min.js\"></script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td></tr></tbody></table></div></div></div></div><script src=\"/static/public/echarts.min.js\"></script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -259,7 +180,7 @@ func DashboardMainContent(view *DashboardView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div></main>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div></main>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -283,12 +204,12 @@ func DashboardChartsScript() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var11 == nil {
-			templ_7745c5c3_Var11 = templ.NopComponent
+		templ_7745c5c3_Var6 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var6 == nil {
+			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<script type=\"text/javascript\">\n\t\t(function() {\n\t\t\tfunction formatThousands(val) {\n\t\t\t\tvar n = Math.round(val);\n\t\t\t\tvar neg = n < 0;\n\t\t\t\tvar s = Math.abs(n).toString();\n\t\t\t\tvar pre = s.length % 3 || 3;\n\t\t\t\tvar out = s.slice(0, pre);\n\t\t\t\tfor (var i = pre; i < s.length; i += 3) {\n\t\t\t\t\tout += ',' + s.slice(i, i + 3);\n\t\t\t\t}\n\t\t\t\treturn neg ? '-' + out : out;\n\t\t\t}\n\n\t\t\t// Budget donut chart\n\t\t\tvar budgetDom = document.getElementById('dashboard-budget-chart');\n\t\t\tif (budgetDom) {\n\t\t\t\tvar budgetChart = echarts.init(budgetDom);\n\t\t\t\tvar budgetData = JSON.parse(document.getElementById('dashboard-budget-data').textContent);\n\t\t\t\tbudgetChart.setOption({\n\t\t\t\t\ttooltip: {\n\t\t\t\t\t\ttrigger: 'item',\n\t\t\t\t\t\tformatter: '{b}: {c} ({d}%)'\n\t\t\t\t\t},\n\t\t\t\t\tseries: [{\n\t\t\t\t\t\tname: 'Monthly Budget',\n\t\t\t\t\t\ttype: 'pie',\n\t\t\t\t\t\tradius: ['40%', '70%'],\n\t\t\t\t\t\tavoidLabelOverlap: true,\n\t\t\t\t\t\titemStyle: {\n\t\t\t\t\t\t\tborderRadius: 6,\n\t\t\t\t\t\t\tborderColor: '#fff',\n\t\t\t\t\t\t\tborderWidth: 2\n\t\t\t\t\t\t},\n\t\t\t\t\t\tlabel: {\n\t\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\t\tformatter: '{b}\\n{d}%'\n\t\t\t\t\t\t},\n\t\t\t\t\t\tdata: budgetData.map(function(item) {\n\t\t\t\t\t\t\treturn {\n\t\t\t\t\t\t\t\tname: item.name,\n\t\t\t\t\t\t\t\tvalue: item.value,\n\t\t\t\t\t\t\t\titemStyle: { color: item.color }\n\t\t\t\t\t\t\t};\n\t\t\t\t\t\t})\n\t\t\t\t\t}]\n\t\t\t\t});\n\t\t\t\twindow.addEventListener('resize', function() { budgetChart.resize(); });\n\t\t\t}\n\n\t\t\t// Accounts stacked bar chart\n\t\t\tvar accountsDom = document.getElementById('dashboard-accounts-chart');\n\t\t\tif (accountsDom) {\n\t\t\t\tvar accountsChart = echarts.init(accountsDom);\n\t\t\t\tvar accountsData = JSON.parse(document.getElementById('dashboard-accounts-data').textContent);\n\n\t\t\t\tfunction hexToHSL(hex) {\n\t\t\t\t\tvar r = parseInt(hex.slice(1, 3), 16) / 255;\n\t\t\t\t\tvar g = parseInt(hex.slice(3, 5), 16) / 255;\n\t\t\t\t\tvar b = parseInt(hex.slice(5, 7), 16) / 255;\n\t\t\t\t\tvar max = Math.max(r, g, b), min = Math.min(r, g, b);\n\t\t\t\t\tvar h, s, l = (max + min) / 2;\n\t\t\t\t\tif (max === min) { h = s = 0; }\n\t\t\t\t\telse {\n\t\t\t\t\t\tvar d = max - min;\n\t\t\t\t\t\ts = l > 0.5 ? d / (2 - max - min) : d / (max + min);\n\t\t\t\t\t\tif (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;\n\t\t\t\t\t\telse if (max === g) h = ((b - r) / d + 2) / 6;\n\t\t\t\t\t\telse h = ((r - g) / d + 4) / 6;\n\t\t\t\t\t}\n\t\t\t\t\treturn [h * 360, s * 100, l * 100];\n\t\t\t\t}\n\n\t\t\t\tfunction hslToHex(h, s, l) {\n\t\t\t\t\ts /= 100; l /= 100;\n\t\t\t\t\tvar c = (1 - Math.abs(2 * l - 1)) * s;\n\t\t\t\t\tvar x = c * (1 - Math.abs((h / 60) % 2 - 1));\n\t\t\t\t\tvar m = l - c / 2;\n\t\t\t\t\tvar r, g, b;\n\t\t\t\t\tif (h < 60) { r = c; g = x; b = 0; }\n\t\t\t\t\telse if (h < 120) { r = x; g = c; b = 0; }\n\t\t\t\t\telse if (h < 180) { r = 0; g = c; b = x; }\n\t\t\t\t\telse if (h < 240) { r = 0; g = x; b = c; }\n\t\t\t\t\telse if (h < 300) { r = x; g = 0; b = c; }\n\t\t\t\t\telse { r = c; g = 0; b = x; }\n\t\t\t\t\treturn '#' + [r + m, g + m, b + m].map(function(v) {\n\t\t\t\t\t\treturn Math.round(v * 255).toString(16).padStart(2, '0');\n\t\t\t\t\t}).join('');\n\t\t\t\t}\n\n\t\t\t\tfunction shadeColor(hex, index, total) {\n\t\t\t\t\tvar hsl = hexToHSL(hex);\n\t\t\t\t\tif (total <= 1) return hex;\n\t\t\t\t\tvar range = 30;\n\t\t\t\t\tvar offset = -range / 2 + (range / (total - 1)) * index;\n\t\t\t\t\tvar newL = Math.max(15, Math.min(85, hsl[2] + offset));\n\t\t\t\t\treturn hslToHex(hsl[0], hsl[1], newL);\n\t\t\t\t}\n\n\t\t\t\tvar typeNames = accountsData.map(function(t) { return t.name; });\n\n\t\t\t\tvar series = [];\n\t\t\t\taccountsData.forEach(function(typeEntry) {\n\t\t\t\t\tvar n = typeEntry.accounts.length;\n\t\t\t\t\ttypeEntry.accounts.forEach(function(acc, i) {\n\t\t\t\t\t\tvar data = typeNames.map(function(tn) {\n\t\t\t\t\t\t\treturn tn === typeEntry.name ? acc.balance : 0;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tseries.push({\n\t\t\t\t\t\t\tname: acc.name,\n\t\t\t\t\t\t\ttype: 'bar',\n\t\t\t\t\t\t\tstack: 'total',\n\t\t\t\t\t\t\temphasis: { focus: 'series' },\n\t\t\t\t\t\t\titemStyle: { color: shadeColor(typeEntry.color, i, n) },\n\t\t\t\t\t\t\tdata: data\n\t\t\t\t\t\t});\n\t\t\t\t\t});\n\t\t\t\t});\n\n\t\t\t\taccountsChart.setOption({\n\t\t\t\t\ttooltip: {\n\t\t\t\t\t\ttrigger: 'axis',\n\t\t\t\t\t\taxisPointer: { type: 'shadow' },\n\t\t\t\t\t\tformatter: function(params) {\n\t\t\t\t\t\t\tvar items = params.filter(function(p) { return p.value !== 0; });\n\t\t\t\t\t\t\tif (items.length === 0) return '';\n\t\t\t\t\t\t\tvar header = items[0].axisValue;\n\t\t\t\t\t\t\tvar total = items.reduce(function(sum, p) { return sum + p.value; }, 0);\n\t\t\t\t\t\t\tvar lines = items.map(function(p) {\n\t\t\t\t\t\t\t\treturn '<div style=\"display:flex;justify-content:space-between;gap:16px\">' +\n\t\t\t\t\t\t\t\t\t'<span>' + p.marker + ' ' + p.seriesName + '</span>' +\n\t\t\t\t\t\t\t\t\t'<span style=\"font-weight:500\">' + formatThousands(p.value) + '</span></div>';\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\tvar totalLine = '<div style=\"display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px\">' +\n\t\t\t\t\t\t\t\t'<span>Total</span><span style=\"font-weight:700\">' + formatThousands(total) + '</span></div>';\n\t\t\t\t\t\t\treturn header + '<br/>' + lines.join('') + totalLine;\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\tgrid: {\n\t\t\t\t\t\tleft: '3%',\n\t\t\t\t\t\tright: '4%',\n\t\t\t\t\t\tbottom: '3%',\n\t\t\t\t\t\tcontainLabel: true\n\t\t\t\t\t},\n\t\t\t\t\txAxis: {\n\t\t\t\t\t\ttype: 'category',\n\t\t\t\t\t\tdata: typeNames,\n\t\t\t\t\t\taxisLabel: {\n\t\t\t\t\t\t\trotate: 30,\n\t\t\t\t\t\t\toverflow: 'truncate'\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\tyAxis: {\n\t\t\t\t\t\ttype: 'value'\n\t\t\t\t\t},\n\t\t\t\t\tseries: series\n\t\t\t\t});\n\t\t\t\twindow.addEventListener('resize', function() { accountsChart.resize(); });\n\t\t\t}\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<script type=\"text/javascript\">\n\t\t(function() {\n\t\t\tfunction formatThousands(val) {\n\t\t\t\tvar n = Math.round(val);\n\t\t\t\tvar neg = n < 0;\n\t\t\t\tvar s = Math.abs(n).toString();\n\t\t\t\tvar pre = s.length % 3 || 3;\n\t\t\t\tvar out = s.slice(0, pre);\n\t\t\t\tfor (var i = pre; i < s.length; i += 3) {\n\t\t\t\t\tout += ',' + s.slice(i, i + 3);\n\t\t\t\t}\n\t\t\t\treturn neg ? '-' + out : out;\n\t\t\t}\n\n\t\t\t// Budget donut chart\n\t\t\tvar budgetDom = document.getElementById('dashboard-budget-chart');\n\t\t\tif (budgetDom) {\n\t\t\t\tvar budgetChart = echarts.init(budgetDom);\n\t\t\t\tvar budgetData = JSON.parse(document.getElementById('dashboard-budget-data').textContent);\n\t\t\t\tbudgetChart.setOption({\n\t\t\t\t\ttooltip: {\n\t\t\t\t\t\ttrigger: 'item',\n\t\t\t\t\t\tformatter: '{b}: {c} ({d}%)'\n\t\t\t\t\t},\n\t\t\t\t\tseries: [{\n\t\t\t\t\t\tname: 'Monthly Budget',\n\t\t\t\t\t\ttype: 'pie',\n\t\t\t\t\t\tradius: ['40%', '70%'],\n\t\t\t\t\t\tavoidLabelOverlap: true,\n\t\t\t\t\t\titemStyle: {\n\t\t\t\t\t\t\tborderRadius: 6,\n\t\t\t\t\t\t\tborderColor: '#fff',\n\t\t\t\t\t\t\tborderWidth: 2\n\t\t\t\t\t\t},\n\t\t\t\t\t\tlabel: {\n\t\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\t\tformatter: '{b}\\n{d}%'\n\t\t\t\t\t\t},\n\t\t\t\t\t\tdata: budgetData.map(function(item) {\n\t\t\t\t\t\t\treturn {\n\t\t\t\t\t\t\t\tname: item.name,\n\t\t\t\t\t\t\t\tvalue: item.value,\n\t\t\t\t\t\t\t\titemStyle: { color: item.color }\n\t\t\t\t\t\t\t};\n\t\t\t\t\t\t})\n\t\t\t\t\t}]\n\t\t\t\t});\n\t\t\t\twindow.addEventListener('resize', function() { budgetChart.resize(); });\n\t\t\t}\n\n\t\t\t// Accounts stacked bar chart\n\t\t\tvar accountsDom = document.getElementById('dashboard-accounts-chart');\n\t\t\tif (accountsDom) {\n\t\t\t\tvar accountsChart = echarts.init(accountsDom);\n\t\t\t\tvar accountsData = JSON.parse(document.getElementById('dashboard-accounts-data').textContent);\n\n\t\t\t\tfunction hexToHSL(hex) {\n\t\t\t\t\tvar r = parseInt(hex.slice(1, 3), 16) / 255;\n\t\t\t\t\tvar g = parseInt(hex.slice(3, 5), 16) / 255;\n\t\t\t\t\tvar b = parseInt(hex.slice(5, 7), 16) / 255;\n\t\t\t\t\tvar max = Math.max(r, g, b), min = Math.min(r, g, b);\n\t\t\t\t\tvar h, s, l = (max + min) / 2;\n\t\t\t\t\tif (max === min) { h = s = 0; }\n\t\t\t\t\telse {\n\t\t\t\t\t\tvar d = max - min;\n\t\t\t\t\t\ts = l > 0.5 ? d / (2 - max - min) : d / (max + min);\n\t\t\t\t\t\tif (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;\n\t\t\t\t\t\telse if (max === g) h = ((b - r) / d + 2) / 6;\n\t\t\t\t\t\telse h = ((r - g) / d + 4) / 6;\n\t\t\t\t\t}\n\t\t\t\t\treturn [h * 360, s * 100, l * 100];\n\t\t\t\t}\n\n\t\t\t\tfunction hslToHex(h, s, l) {\n\t\t\t\t\ts /= 100; l /= 100;\n\t\t\t\t\tvar c = (1 - Math.abs(2 * l - 1)) * s;\n\t\t\t\t\tvar x = c * (1 - Math.abs((h / 60) % 2 - 1));\n\t\t\t\t\tvar m = l - c / 2;\n\t\t\t\t\tvar r, g, b;\n\t\t\t\t\tif (h < 60) { r = c; g = x; b = 0; }\n\t\t\t\t\telse if (h < 120) { r = x; g = c; b = 0; }\n\t\t\t\t\telse if (h < 180) { r = 0; g = c; b = x; }\n\t\t\t\t\telse if (h < 240) { r = 0; g = x; b = c; }\n\t\t\t\t\telse if (h < 300) { r = x; g = 0; b = c; }\n\t\t\t\t\telse { r = c; g = 0; b = x; }\n\t\t\t\t\treturn '#' + [r + m, g + m, b + m].map(function(v) {\n\t\t\t\t\t\treturn Math.round(v * 255).toString(16).padStart(2, '0');\n\t\t\t\t\t}).join('');\n\t\t\t\t}\n\n\t\t\t\tfunction shadeColor(hex, index, total) {\n\t\t\t\t\tvar hsl = hexToHSL(hex);\n\t\t\t\t\tif (total <= 1) return hex;\n\t\t\t\t\tvar range = 30;\n\t\t\t\t\tvar offset = -range / 2 + (range / (total - 1)) * index;\n\t\t\t\t\tvar newL = Math.max(15, Math.min(85, hsl[2] + offset));\n\t\t\t\t\treturn hslToHex(hsl[0], hsl[1], newL);\n\t\t\t\t}\n\n\t\t\t\tvar typeNames = accountsData.map(function(t) { return t.name; });\n\n\t\t\t\tvar series = [];\n\t\t\t\taccountsData.forEach(function(typeEntry) {\n\t\t\t\t\tvar n = typeEntry.accounts.length;\n\t\t\t\t\ttypeEntry.accounts.forEach(function(acc, i) {\n\t\t\t\t\t\tvar data = typeNames.map(function(tn) {\n\t\t\t\t\t\t\treturn tn === typeEntry.name ? acc.balance : 0;\n\t\t\t\t\t\t});\n\t\t\t\t\t\tseries.push({\n\t\t\t\t\t\t\tname: acc.name,\n\t\t\t\t\t\t\ttype: 'bar',\n\t\t\t\t\t\t\tstack: 'total',\n\t\t\t\t\t\t\temphasis: { focus: 'series' },\n\t\t\t\t\t\t\titemStyle: { color: shadeColor(typeEntry.color, i, n) },\n\t\t\t\t\t\t\tdata: data\n\t\t\t\t\t\t});\n\t\t\t\t\t});\n\t\t\t\t});\n\n\t\t\t\taccountsChart.setOption({\n\t\t\t\t\ttooltip: {\n\t\t\t\t\t\ttrigger: 'axis',\n\t\t\t\t\t\taxisPointer: { type: 'shadow' },\n\t\t\t\t\t\tformatter: function(params) {\n\t\t\t\t\t\t\tvar items = params.filter(function(p) { return p.value !== 0; });\n\t\t\t\t\t\t\tif (items.length === 0) return '';\n\t\t\t\t\t\t\tvar header = items[0].axisValue;\n\t\t\t\t\t\t\tvar total = items.reduce(function(sum, p) { return sum + p.value; }, 0);\n\t\t\t\t\t\t\tvar lines = items.map(function(p) {\n\t\t\t\t\t\t\t\treturn '<div style=\"display:flex;justify-content:space-between;gap:16px\">' +\n\t\t\t\t\t\t\t\t\t'<span>' + p.marker + ' ' + p.seriesName + '</span>' +\n\t\t\t\t\t\t\t\t\t'<span style=\"font-weight:500\">' + formatThousands(p.value) + '</span></div>';\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\tvar totalLine = '<div style=\"display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px\">' +\n\t\t\t\t\t\t\t\t'<span>Total</span><span style=\"font-weight:700\">' + formatThousands(total) + '</span></div>';\n\t\t\t\t\t\t\treturn header + '<br/>' + lines.join('') + totalLine;\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\tgrid: {\n\t\t\t\t\t\tleft: '3%',\n\t\t\t\t\t\tright: '4%',\n\t\t\t\t\t\tbottom: '3%',\n\t\t\t\t\t\tcontainLabel: true\n\t\t\t\t\t},\n\t\t\t\t\txAxis: {\n\t\t\t\t\t\ttype: 'category',\n\t\t\t\t\t\tdata: typeNames,\n\t\t\t\t\t\taxisLabel: {\n\t\t\t\t\t\t\trotate: 30,\n\t\t\t\t\t\t\toverflow: 'truncate'\n\t\t\t\t\t\t}\n\t\t\t\t\t},\n\t\t\t\t\tyAxis: {\n\t\t\t\t\t\ttype: 'value'\n\t\t\t\t\t},\n\t\t\t\t\tseries: series\n\t\t\t\t});\n\t\t\t\twindow.addEventListener('resize', function() { accountsChart.resize(); });\n\t\t\t}\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
