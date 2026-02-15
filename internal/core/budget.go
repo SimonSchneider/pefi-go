@@ -25,10 +25,16 @@ type BudgetCategoryGroup struct {
 	Total    float64
 }
 
-type BudgetChartEntry struct {
+type BudgetChartItem struct {
 	Name  string  `json:"name"`
 	Value float64 `json:"value"`
-	Color string  `json:"color"`
+}
+
+type BudgetChartEntry struct {
+	Name  string            `json:"name"`
+	Value float64           `json:"value"`
+	Color string            `json:"color"`
+	Items []BudgetChartItem `json:"items"`
 }
 
 type BudgetView struct {
@@ -146,10 +152,18 @@ func computeBudgetView(ctx context.Context, db *sql.DB) (*BudgetView, error) {
 		if cat.Category.Color != nil {
 			color = *cat.Category.Color
 		}
+		items := make([]BudgetChartItem, 0, len(cat.Items))
+		for _, item := range cat.Items {
+			items = append(items, BudgetChartItem{
+				Name:  item.Name,
+				Value: math.Round(item.Amount*100) / 100,
+			})
+		}
 		chartEntries = append(chartEntries, BudgetChartEntry{
 			Name:  cat.Category.Name,
 			Value: math.Round(cat.Total*100) / 100,
 			Color: color,
+			Items: items,
 		})
 	}
 	return &BudgetView{

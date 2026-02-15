@@ -118,10 +118,26 @@ templ DashboardChartsScript() {
 			if (budgetDom) {
 				var budgetChart = echarts.init(budgetDom);
 				var budgetData = JSON.parse(document.getElementById('dashboard-budget-data').textContent);
+				var budgetItemsByName = {};
+				budgetData.forEach(function(item) {
+					budgetItemsByName[item.name] = item.items || [];
+				});
 				budgetChart.setOption({
 					tooltip: {
 						trigger: 'item',
-						formatter: '{b}: {c} ({d}%)'
+						borderColor: '#ccc',
+						extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
+						formatter: function(params) {
+							var items = budgetItemsByName[params.name] || [];
+							var lines = items.map(function(item) {
+								return '<div style="display:flex;justify-content:space-between;gap:16px">' +
+									'<span>' + item.name + '</span>' +
+									'<span style="font-weight:500">' + formatThousands(item.value) + '</span></div>';
+							});
+							var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px">' +
+								'<span>Total</span><span style="font-weight:700">' + formatThousands(params.value) + '</span></div>';
+							return params.marker + ' ' + params.name + '<br/>' + lines.join('') + totalLine;
+						}
 					},
 					series: [{
 						name: 'Monthly Budget',
@@ -222,6 +238,7 @@ templ DashboardChartsScript() {
 					tooltip: {
 						trigger: 'axis',
 						axisPointer: { type: 'shadow' },
+						extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
 						formatter: function(params) {
 							var items = params.filter(function(p) { return p.value !== 0; });
 							if (items.length === 0) return '';
