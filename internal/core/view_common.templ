@@ -43,6 +43,42 @@ templ BalanceBadge(val float64, coloring bool, class string) {
 	>{ ui.FormatWithThousands(val) }</span>
 }
 
+templ ItemsTooltip() {
+	<div class="hidden group-hover:block fixed z-50 bg-base-100 border border-base-300 rounded-lg shadow-lg p-3 min-w-[250px]" data-tooltip>
+		{ children... }
+	</div>
+}
+
+templ ItemsTooltipScript() {
+	<script type="text/javascript">
+		(function() {
+			document.addEventListener('mouseover', function(e) {
+				var row = e.target.closest('.group');
+				if (!row) return;
+				var tip = row.querySelector('[data-tooltip]');
+				if (!tip) return;
+				var rect = row.getBoundingClientRect();
+				var spaceBelow = window.innerHeight - rect.bottom;
+				tip.style.left = rect.left + 'px';
+				if (spaceBelow < tip.scrollHeight + 8) {
+					tip.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+					tip.style.top = 'auto';
+				} else {
+					tip.style.top = (rect.bottom + 4) + 'px';
+					tip.style.bottom = 'auto';
+				}
+			});
+		})();
+	</script>
+}
+
+templ ItemsTooltipRow(name string, value string) {
+	<div class="flex justify-between gap-4 py-0.5">
+		<span class="text-sm">{ name }</span>
+		<span class="text-sm font-mono font-medium">{ value }</span>
+	</div>
+}
+
 templ NoDataImg() {
 	<img src="/static/public/empty.png" class="w-12 h-12 text-base-content/30" />
 }
