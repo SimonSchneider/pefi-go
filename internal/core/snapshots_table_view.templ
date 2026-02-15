@@ -15,7 +15,7 @@ templ SnapshotsTableNewRowButton() {
 
 templ SnapshotsTableContent(view *SnapshotsTableView) {
 	<main class="flex-1 flex flex-col overflow-hidden">
-		@Header("Snapshots Table", AccountsFilter(view.AccountTypes), SnapshotsTableNewRowButton())
+		@Header("Balances", AccountsFilter(view.AccountTypes), SnapshotsTableNewRowButton())
 		<div class="flex-1 p-6 bg-base-100 overflow-hidden">
 			<div class="bg-base-100 rounded-lg shadow-sm border border-base-200 h-full flex flex-col overflow-hidden max-w-full">
 				<div class="flex-1 overflow-auto border border-base-300 rounded-lg">
