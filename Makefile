@@ -8,6 +8,12 @@ watch-tw:
 watch-templ:
 	@go tool templ generate --watch --proxy="http://localhost:$(PORT)" --cmd="go run cmd/main.go -addr :$(PORT) -watch -dburl tmp.db.sqlite"
 
+watch-all:
+	@echo "Watching Templ and Tailwind (Ctrl+C to stop both)..."
+	@trap 'kill 0' EXIT; \
+	./vendor-bin/tailwindcss -i tailwind/styles.css -o static/public/styles-tw.css --watch & \
+	go tool templ generate --watch --proxy="http://localhost:$(PORT)" --cmd="go run cmd/main.go -addr :$(PORT) -watch -dburl tmp.db.sqlite"
+
 generate:
 	@echo "Generating code..."
 	@go generate ./...
