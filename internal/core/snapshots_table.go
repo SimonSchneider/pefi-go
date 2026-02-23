@@ -164,15 +164,17 @@ func SnapshotsTableEmptyRow(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing accounts: %w", err)
 		}
+		today := date.Today()
 		row := SnapshotsRow{
-			Date:      date.Date(0),
-			Snapshots: make([]AccountSnapshotCell, len(accounts)),
+			Date:               today,
+			Snapshots:          make([]AccountSnapshotCell, len(accounts)),
+			UnsavedSuggestions: true,
 		}
 		for i, acc := range accounts {
 			row.Snapshots[i] = AccountSnapshotCell{
 				AccountSnapshot: AccountSnapshot{
 					AccountID: acc.ID,
-					Date:      date.Date(0),
+					Date:      today,
 				},
 			}
 		}
@@ -226,6 +228,7 @@ type SnapshotsTableView struct {
 }
 
 type SnapshotsRow struct {
-	Date      date.Date
-	Snapshots []AccountSnapshotCell
+	Date               date.Date
+	Snapshots          []AccountSnapshotCell
+	UnsavedSuggestions bool
 }
