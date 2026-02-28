@@ -35,7 +35,9 @@ go build ./...        # Verify compilation
 - **Developing features** — get visual feedback by screenshotting pages or flows
 - **Verifying UI** — confirm layouts and behavior after changes
 
-Ensure the app is running (e.g. `make run` on :3002) before using Rodney to drive the browser.
+## Development Documentation (Showboat)
+
+**Showboat** is used for development documentation. When the user requests documentation of the development setup, workflow, or similar, use or reference Showboat (e.g. run `showboat --help` to see options) to generate or provide that documentation.
 
 ## Project Structure
 
