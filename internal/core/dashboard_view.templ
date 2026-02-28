@@ -29,10 +29,20 @@ templ DashboardMainContent(view *DashboardView) {
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
 						<h2 class="card-title">Budget Breakdown</h2>
-						<div id="dashboard-budget-chart" style="width: 100%; height: 400px;"></div>
+						<div id="dashboard-budget-chart" style="width: 100%; height: 280px;"></div>
 					</div>
 				</div>
 			</div>
+			if len(view.SnapshotHistoryChart.Dates) > 0 {
+				<div class="mt-6">
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body">
+							<h2 class="card-title">Balance history</h2>
+							<div id="dashboard-snapshot-history-chart" style="width: 100%; height: 320px;"></div>
+						</div>
+					</div>
+				</div>
+			}
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
@@ -93,6 +103,7 @@ templ DashboardMainContent(view *DashboardView) {
 			<script src="/static/public/echarts.min.js"></script>
 			@templ.JSONScript("dashboard-budget-data", view.Budget.ChartData)
 			@templ.JSONScript("dashboard-accounts-data", view.AccountChartData)
+			@templ.JSONScript("dashboard-snapshot-history-data", view.SnapshotHistoryChart)
 			@DashboardChartsScript()
 		</div>
 	</main>
@@ -274,6 +285,83 @@ templ DashboardChartsScript() {
 					series: series
 				});
 				window.addEventListener('resize', function() { accountsChart.resize(); });
+			}
+
+			// Snapshot history stacked bar chart (assets stack above 0, liabilities below)
+			var historyDom = document.getElementById('dashboard-snapshot-history-chart');
+			var historyDataEl = document.getElementById('dashboard-snapshot-history-data');
+			if (historyDom && historyDataEl) {
+				var historyData = JSON.parse(historyDataEl.textContent);
+				if (historyData.dates && historyData.dates.length > 0) {
+					var historyChart = echarts.init(historyDom);
+					var rawSeries = (historyData.series || []).map(function(s) {
+						var data = (s.data || []).map(function(v) { return Number(v); });
+						var hasPositive = data.some(function(v) { return v > 0; });
+						return {
+							name: s.name,
+							type: 'bar',
+							stack: 'total',
+							_isPositive: hasPositive,
+							emphasis: { focus: 'series' },
+							itemStyle: { color: s.color },
+							data: data
+						};
+					});
+					// Single bar per month: positive segments first (stack up), then negative (stack down)
+					var historySeries = rawSeries.sort(function(a, b) {
+						return (a._isPositive && !b._isPositive) ? -1 : (!a._isPositive && b._isPositive) ? 1 : 0;
+					}).map(function(s) {
+						var o = { name: s.name, type: 'bar', stack: 'total', emphasis: s.emphasis, itemStyle: s.itemStyle, data: s.data };
+						return o;
+					});
+					historyChart.setOption({
+						tooltip: {
+							trigger: 'axis',
+							axisPointer: { type: 'shadow' },
+							extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
+							formatter: function(params) {
+								var items = params.filter(function(p) { return p.value !== 0 && p.value !== null; });
+								if (items.length === 0) return params[0] ? params[0].axisValue : '';
+								items.sort(function(a, b) { return b.value - a.value; });
+								var header = params[0].axisValue;
+								var total = items.reduce(function(sum, p) { return sum + p.value; }, 0);
+								var lines = items.map(function(p) {
+									return '<div style="display:flex;justify-content:space-between;gap:16px">' +
+										'<span>' + p.marker + ' ' + p.seriesName + '</span>' +
+										'<span style="font-weight:500">' + formatThousands(p.value) + '</span></div>';
+								});
+								var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px">' +
+									'<span>Total</span><span style="font-weight:700">' + formatThousands(total) + '</span></div>';
+								return header + '<br/>' + lines.join('') + totalLine;
+							}
+						},
+						legend: {
+							type: 'scroll',
+							bottom: 0
+						},
+						grid: {
+							left: '3%',
+							right: '4%',
+							bottom: '15%',
+							containLabel: true
+						},
+						xAxis: {
+							type: 'category',
+							data: historyData.dates,
+							axisLabel: {
+								interval: 0,
+								rotate: 45,
+								overflow: 'truncate'
+							}
+						},
+						yAxis: {
+							type: 'value'
+						},
+						series: historySeries,
+						barCategoryGap: '60%'
+					});
+					window.addEventListener('resize', function() { historyChart.resize(); });
+				}
 			}
 		})();
 	</script>
