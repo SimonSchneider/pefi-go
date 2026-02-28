@@ -17,11 +17,11 @@ type UncertainValue struct {
 }
 
 func ParseUncertainValue(val string) (uncertain.Value, error) {
-	if unicode.IsDigit(rune(val[0])) || (len(val) > 1 && val[0] == '-' && unicode.IsDigit(rune(val[1]))) {
-		// If the value is a simple float, return a fixed uncertain value
-		f, err := shttp.ParseFloat(val)
+	if len(val) > 0 && (unicode.IsDigit(rune(val[0])) || (len(val) > 1 && val[0] == '-' && unicode.IsDigit(rune(val[1]))) || val[0] == '(') {
+		// Simple float or expression (e.g. 500+23+43-294*1.23 or (100+50)*1.23); parse and return fixed.
+		f, err := ParseAmount(val)
 		if err != nil {
-			return uncertain.Value{}, fmt.Errorf("parsing float: %w", err)
+			return uncertain.Value{}, fmt.Errorf("parsing amount: %w", err)
 		}
 		return uncertain.NewFixed(f), nil
 	}

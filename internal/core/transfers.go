@@ -14,6 +14,7 @@ import (
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/finance"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
@@ -67,7 +68,7 @@ func TransfersPage(db *sql.DB) http.Handler {
 			if t.EndDate == nil || t.EndDate.After(inp.day) {
 				if t.StartDate.Before(inp.day) && t.Recurrence.Matches(inp.day) {
 					if t.AmountType == "fixed" && t.AmountFixed.Distribution != uncertain.DistFixed {
-						amount, err := shttp.ParseFloat(r.FormValue("amount_" + t.ID))
+						amount, err := ui.ParseAmount(r.FormValue("amount_" + t.ID))
 						if err == nil {
 							view.transfersReady = true
 						}
