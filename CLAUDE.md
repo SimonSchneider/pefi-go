@@ -27,6 +27,16 @@ go build ./...        # Verify compilation
 
 **IMPORTANT:** The user runs `make watch-templ` during development. Never run `make generate` as it will crash the templ watcher. Use `make generate-watch` instead, which skips templ generation (the watcher handles it automatically).
 
+## Browser Testing with Rodney
+
+**Rodney** lets AI agents interact with the browser for testing. Run `rodney --help` to see usage and available commands (e.g. taking screenshots, navigating, clicking). Use it when:
+
+- **Generating PRs** — capture screenshots of new or changed features for the PR description
+- **Developing features** — get visual feedback by screenshotting pages or flows
+- **Verifying UI** — confirm layouts and behavior after changes
+
+Ensure the app is running (e.g. `make run` on :3002) before using Rodney to drive the browser.
+
 ## Project Structure
 
 ```
