@@ -88,4 +88,3 @@ func DeleteCategory(ctx context.Context, db *sql.DB, id string) error {
 	}
 	return nil
 }
-

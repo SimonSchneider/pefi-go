@@ -895,6 +895,54 @@ func (q *Queries) ListLatestSnapshotPerAccount(ctx context.Context) ([]AccountSn
 	return items, nil
 }
 
+const listSnapshotHistoryWithType = `-- name: ListSnapshotHistoryWithType :many
+SELECT s.account_id,
+  s.date,
+  s.balance,
+  COALESCE(a.type_id, '') AS type_id
+FROM account_snapshot s
+  JOIN account a ON a.id = s.account_id
+ORDER BY s.date,
+  a.type_id,
+  s.account_id
+`
+
+type ListSnapshotHistoryWithTypeRow struct {
+	AccountID string
+	Date      int64
+	Balance   string
+	TypeID    string
+}
+
+// Returns all snapshots with account type_id for grouping (full history).
+func (q *Queries) ListSnapshotHistoryWithType(ctx context.Context) ([]ListSnapshotHistoryWithTypeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSnapshotHistoryWithType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSnapshotHistoryWithTypeRow
+	for rows.Next() {
+		var i ListSnapshotHistoryWithTypeRow
+		if err := rows.Scan(
+			&i.AccountID,
+			&i.Date,
+			&i.Balance,
+			&i.TypeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStartupShareOptions = `-- name: ListStartupShareOptions :many
 SELECT id, account_id, source_account_id, shares, strike_price_per_share, grant_date, end_date, created_at, updated_at
 FROM startup_share_option

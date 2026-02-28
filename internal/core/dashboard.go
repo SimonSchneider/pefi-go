@@ -10,6 +10,8 @@ import (
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
+	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
 
 type AccountTypeGroup struct {
@@ -29,13 +31,27 @@ type AccountChartEntry struct {
 	Balance float64 `json:"balance"`
 }
 
+// SnapshotHistorySeries is one series (account type) for the snapshot history grouped bar chart.
+type SnapshotHistorySeries struct {
+	Name  string    `json:"name"`
+	Color string    `json:"color"`
+	Data  []float64 `json:"data"`
+}
+
+// SnapshotHistoryChartData is the data for the dashboard snapshot history grouped bar chart.
+type SnapshotHistoryChartData struct {
+	Dates  []string                `json:"dates"`
+	Series []SnapshotHistorySeries `json:"series"`
+}
+
 type DashboardView struct {
-	TotalBalance      float64
-	TotalAssets       float64
-	TotalLiabilities  float64
-	Budget            *BudgetView
-	AccountTypeGroups []AccountTypeGroup
-	AccountChartData  []AccountTypeChartEntry
+	TotalBalance         float64
+	TotalAssets          float64
+	TotalLiabilities     float64
+	Budget               *BudgetView
+	AccountTypeGroups    []AccountTypeGroup
+	AccountChartData     []AccountTypeChartEntry
+	SnapshotHistoryChart SnapshotHistoryChartData
 }
 
 func DashboardPage(db *sql.DB) http.Handler {
@@ -82,14 +98,120 @@ func computeDashboardView(ctx context.Context, db *sql.DB) (*DashboardView, erro
 	groups := groupAccountsByType(accounts, accountTypes)
 	chartData := buildAccountChartData(groups)
 
+	snapshotHistory, err := buildSnapshotHistoryChart(ctx, db, accountTypes)
+	if err != nil {
+		return nil, fmt.Errorf("building snapshot history chart: %w", err)
+	}
+
 	return &DashboardView{
-		TotalBalance:      totalBalance,
-		TotalAssets:       totalAssets,
-		TotalLiabilities:  totalLiabilities,
-		Budget:            budget,
-		AccountTypeGroups: groups,
-		AccountChartData:  chartData,
+		TotalBalance:         totalBalance,
+		TotalAssets:          totalAssets,
+		TotalLiabilities:     totalLiabilities,
+		Budget:               budget,
+		AccountTypeGroups:    groups,
+		AccountChartData:     chartData,
+		SnapshotHistoryChart: snapshotHistory,
 	}, nil
+}
+
+func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []AccountType) (SnapshotHistoryChartData, error) {
+	rows, err := pdb.New(db).ListSnapshotHistoryWithType(ctx)
+	if err != nil {
+		return SnapshotHistoryChartData{}, err
+	}
+	type TypeKey struct {
+		Date   int64
+		TypeID string
+	}
+	typeKey := func(date int64, typeID string) TypeKey { return TypeKey{date, typeID} }
+	sumByDateAndType := make(map[TypeKey]float64)
+	dateSet := make(map[int64]struct{})
+	for _, r := range rows {
+		var v uncertain.Value
+		if err := v.Decode(r.Balance); err != nil {
+			return SnapshotHistoryChartData{}, fmt.Errorf("decoding balance: %w", err)
+		}
+		key := typeKey(r.Date, r.TypeID)
+		sumByDateAndType[key] += v.Mean()
+		dateSet[r.Date] = struct{}{}
+	}
+	dates := make([]int64, 0, len(dateSet))
+	for d := range dateSet {
+		dates = append(dates, d)
+	}
+	sort.Slice(dates, func(i, j int) bool { return dates[i] < dates[j] })
+
+	// Limit to at most snapshotHistoryMaxBars, evenly spaced with latest always last
+	const snapshotHistoryMaxBars = 24
+	dates = downsampleDates(dates, snapshotHistoryMaxBars)
+
+	typeByName := make(map[string]AccountType)
+	for _, at := range accountTypes {
+		typeByName[at.ID] = at
+	}
+	// Include untyped accounts (type_id "") in the chart if they have any balance
+	for _, d := range dates {
+		if sumByDateAndType[typeKey(d, "")] != 0 {
+			if _, ok := typeByName[""]; !ok {
+				typeByName[""] = AccountType{ID: "", Name: "Uncategorized", Color: "#999999"}
+			}
+			break
+		}
+	}
+	typeIDsOrdered := make([]string, 0, len(accountTypes)+1)
+	for _, at := range accountTypes {
+		typeIDsOrdered = append(typeIDsOrdered, at.ID)
+	}
+	if _, ok := typeByName[""]; ok {
+		typeIDsOrdered = append(typeIDsOrdered, "")
+	}
+	dateLabels := make([]string, len(dates))
+	for i, d := range dates {
+		dateLabels[i] = date.Date(d).String()
+	}
+	series := make([]SnapshotHistorySeries, 0)
+	for _, typeID := range typeIDsOrdered {
+		at := typeByName[typeID]
+		color := at.Color
+		if color == "" {
+			color = "#999999"
+		}
+		data := make([]float64, len(dates))
+		hasAny := false
+		for i, d := range dates {
+			v := sumByDateAndType[typeKey(d, typeID)]
+			data[i] = math.Round(v*100) / 100
+			if v != 0 {
+				hasAny = true
+			}
+		}
+		if hasAny {
+			series = append(series, SnapshotHistorySeries{
+				Name:  at.Name,
+				Color: color,
+				Data:  data,
+			})
+		}
+	}
+	return SnapshotHistoryChartData{
+		Dates:  dateLabels,
+		Series: series,
+	}, nil
+}
+
+// downsampleDates returns at most maxBars dates from dates, evenly spaced,
+// with the first being the oldest and the last being the latest (most recent).
+func downsampleDates(dates []int64, maxBars int) []int64 {
+	if len(dates) <= maxBars || maxBars <= 1 {
+		return dates
+	}
+	out := make([]int64, 0, maxBars)
+	n := len(dates)
+	for i := 0; i < maxBars; i++ {
+		idx := (n - 1) * i / (maxBars - 1)
+		out = append(out, dates[idx])
+	}
+	return out
 }
 
 func groupAccountsByType(accounts []AccountDetailed, accountTypes []AccountType) []AccountTypeGroup {

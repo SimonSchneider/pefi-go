@@ -157,8 +157,8 @@ func (l *lexer) next() (token, error) {
 }
 
 type parser struct {
-	lex   *lexer
-	tok   token
+	lex    *lexer
+	tok    token
 	tokErr error
 }
 

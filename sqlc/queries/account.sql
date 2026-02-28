@@ -155,6 +155,18 @@ FROM account_snapshot s
     GROUP BY account_id
   ) latest ON s.account_id = latest.account_id
   AND s.date = latest.max_date;
+
+-- name: ListSnapshotHistoryWithType :many
+-- Returns all snapshots with account type_id for grouping (full history).
+SELECT s.account_id,
+  s.date,
+  s.balance,
+  COALESCE(a.type_id, '') AS type_id
+FROM account_snapshot s
+  JOIN account a ON a.id = s.account_id
+ORDER BY s.date,
+  a.type_id,
+  s.account_id;
 -- name: ListActiveGrowthModels :many
 SELECT *
 FROM growth_model
