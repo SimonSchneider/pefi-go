@@ -262,7 +262,6 @@ func TransferTemplateCategoryEditPage(db *sql.DB) http.Handler {
 	})
 }
 
-
 type AccountTypesWithFilter []AccountTypeWithFilter
 
 func (a AccountTypesWithFilter) GetAccountType(typeID string) AccountTypeWithFilter {
