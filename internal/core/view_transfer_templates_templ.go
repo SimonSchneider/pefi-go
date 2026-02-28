@@ -109,7 +109,7 @@ func EditTransferTemplateContent(view *TransferTemplateEditView) templ.Component
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -638,7 +638,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 		isParent := len(t.ChildTemplates) > 0
 		isChild := t.ParentTemplate != nil
 		var templ_7745c5c3_Var26 = []any{"hover:bg-base-200/50 transition-colors",
-			templ.KV("bg-base-50/50", isChild),
+			templ.KV("bg-base-100/50", isChild),
 		}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var26...)
 		if templ_7745c5c3_Err != nil {
@@ -1112,7 +1112,7 @@ func TransferTemplatesContent(view *TransferTemplatesView2) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\"><div class=\"flex flex-col gap-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\"><div class=\"flex flex-col gap-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

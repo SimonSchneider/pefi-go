@@ -11,7 +11,8 @@ templ PageDashboard(view *DashboardView) {
 templ DashboardMainContent(view *DashboardView) {
 	<main class="flex-1 flex flex-col">
 		@Header("Dashboard")
-		<div class="flex-1 p-6 overflow-auto bg-base-50">
+		<div class="flex-1 p-6 overflow-auto bg-base-100">
+			<script src="/static/public/echarts.min.js"></script>
 			<div class="flex flex-row flex-wrap gap-4 mb-6">
 				@StatCard("Net Worth", ui.FormatWithThousands(view.TotalBalance), "Current net worth", IconTrendingUp("w-10 h-10"))
 				@StatCard("Total Assets", ui.FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10 text-success"))
@@ -28,7 +29,7 @@ templ DashboardMainContent(view *DashboardView) {
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
 						<h2 class="card-title">Budget Breakdown</h2>
-						<div id="dashboard-budget-chart" style="width: 100%; height: 340px;"></div>
+						@BudgetPieChart("dashboard-budget-chart", view.Budget.ChartData, "340px")
 					</div>
 				</div>
 			</div>
@@ -58,8 +59,6 @@ templ DashboardMainContent(view *DashboardView) {
 				</div>
 			}
 			@ItemsTooltipScript()
-			<script src="/static/public/echarts.min.js"></script>
-			@templ.JSONScript("dashboard-budget-data", view.Budget.ChartData)
 			@templ.JSONScript("dashboard-accounts-data", view.AccountChartData)
 			@templ.JSONScript("dashboard-snapshot-history-data", view.SnapshotHistoryChart)
 			@DashboardChartsScript()
@@ -70,6 +69,27 @@ templ DashboardMainContent(view *DashboardView) {
 templ DashboardChartsScript() {
 	<script type="text/javascript">
 		(function() {
+			function themeColor(cssVar, fallback) {
+				try {
+					var v = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+					return v || fallback;
+				} catch (e) {
+					return fallback;
+				}
+			}
+			function getDashboardThemeOpts() {
+				var baseContent = themeColor('--color-base-content', '#333');
+				var baseBg = themeColor('--color-base-100', '#fff');
+				var tooltipBorder = themeColor('--color-base-300', '#ccc');
+				var textStyle = { color: baseContent, textBorderWidth: 0 };
+				return {
+					tooltipBorder: tooltipBorder,
+					baseBg: baseBg,
+					baseContent: baseContent,
+					textStyle: textStyle,
+					axisLabel: { color: baseContent, textBorderWidth: 0 }
+				};
+			}
 			function formatThousands(val) {
 				var n = Math.round(val);
 				var neg = n < 0;
@@ -80,58 +100,6 @@ templ DashboardChartsScript() {
 					out += ',' + s.slice(i, i + 3);
 				}
 				return neg ? '-' + out : out;
-			}
-
-			// Budget donut chart
-			var budgetDom = document.getElementById('dashboard-budget-chart');
-			if (budgetDom) {
-				var budgetChart = echarts.init(budgetDom);
-				var budgetData = JSON.parse(document.getElementById('dashboard-budget-data').textContent);
-				var budgetItemsByName = {};
-				budgetData.forEach(function(item) {
-					budgetItemsByName[item.name] = item.items || [];
-				});
-				budgetChart.setOption({
-					tooltip: {
-						trigger: 'item',
-						borderColor: '#ccc',
-						extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
-						formatter: function(params) {
-							var items = budgetItemsByName[params.name] || [];
-							var lines = items.map(function(item) {
-								return '<div style="display:flex;justify-content:space-between;gap:16px">' +
-									'<span>' + item.name + '</span>' +
-									'<span style="font-weight:500">' + formatThousands(item.value) + '</span></div>';
-							});
-							var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px">' +
-								'<span>Total</span><span style="font-weight:700">' + formatThousands(params.value) + '</span></div>';
-							return params.marker + ' ' + params.name + '<br/>' + lines.join('') + totalLine;
-						}
-					},
-					series: [{
-						name: 'Monthly Budget',
-						type: 'pie',
-						radius: ['45%', '78%'],
-						avoidLabelOverlap: true,
-						itemStyle: {
-							borderRadius: 6,
-							borderColor: '#fff',
-							borderWidth: 2
-						},
-						label: {
-							show: true,
-							formatter: '{b}\n{d}%'
-						},
-						data: budgetData.map(function(item) {
-							return {
-								name: item.name,
-								value: item.value,
-								itemStyle: { color: item.color }
-							};
-						})
-					}]
-				});
-				window.addEventListener('resize', function() { budgetChart.resize(); });
 			}
 
 			// Accounts stacked bar chart
@@ -203,10 +171,14 @@ templ DashboardChartsScript() {
 					});
 				});
 
+				var accountsTheme = getDashboardThemeOpts();
 				accountsChart.setOption({
+					backgroundColor: accountsTheme.baseBg,
 					tooltip: {
 						trigger: 'axis',
 						axisPointer: { type: 'shadow' },
+						backgroundColor: accountsTheme.baseBg,
+						borderColor: accountsTheme.tooltipBorder,
 						extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
 						formatter: function(params) {
 							var items = params.filter(function(p) { return p.value !== 0; });
@@ -218,7 +190,7 @@ templ DashboardChartsScript() {
 									'<span>' + p.marker + ' ' + p.seriesName + '</span>' +
 									'<span style="font-weight:500">' + formatThousands(p.value) + '</span></div>';
 							});
-							var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px">' +
+							var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid ' + accountsTheme.tooltipBorder + ';margin-top:4px;padding-top:4px">' +
 								'<span>Total</span><span style="font-weight:700">' + formatThousands(total) + '</span></div>';
 							return header + '<br/>' + lines.join('') + totalLine;
 						}
@@ -234,15 +206,28 @@ templ DashboardChartsScript() {
 						data: typeNames,
 						axisLabel: {
 							rotate: 30,
-							overflow: 'truncate'
+							overflow: 'truncate',
+							color: accountsTheme.baseContent,
+							textBorderWidth: 0
 						}
 					},
 					yAxis: {
-						type: 'value'
+						type: 'value',
+						axisLabel: accountsTheme.axisLabel
 					},
 					series: series
 				});
 				window.addEventListener('resize', function() { accountsChart.resize(); });
+				window.addEventListener('themechange', function() {
+					var o = getDashboardThemeOpts();
+					accountsChart.setOption({
+						backgroundColor: o.baseBg,
+						tooltip: { backgroundColor: o.baseBg, borderColor: o.tooltipBorder },
+						xAxis: { axisLabel: { rotate: 30, overflow: 'truncate', color: o.baseContent, textBorderWidth: 0 } },
+						yAxis: { axisLabel: o.axisLabel },
+					});
+					accountsChart.resize();
+				});
 			}
 
 			// Snapshot history stacked bar chart (assets stack above 0, liabilities below)
@@ -272,10 +257,14 @@ templ DashboardChartsScript() {
 						var o = { name: s.name, type: 'bar', stack: 'total', emphasis: s.emphasis, itemStyle: s.itemStyle, data: s.data };
 						return o;
 					});
+					var historyTheme = getDashboardThemeOpts();
 					historyChart.setOption({
+						backgroundColor: historyTheme.baseBg,
 						tooltip: {
 							trigger: 'axis',
 							axisPointer: { type: 'shadow' },
+							backgroundColor: historyTheme.baseBg,
+							borderColor: historyTheme.tooltipBorder,
 							extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
 							formatter: function(params) {
 								var items = params.filter(function(p) { return p.value !== 0 && p.value !== null; });
@@ -288,14 +277,15 @@ templ DashboardChartsScript() {
 										'<span>' + p.marker + ' ' + p.seriesName + '</span>' +
 										'<span style="font-weight:500">' + formatThousands(p.value) + '</span></div>';
 								});
-								var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px">' +
+								var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid ' + historyTheme.tooltipBorder + ';margin-top:4px;padding-top:4px">' +
 									'<span>Total</span><span style="font-weight:700">' + formatThousands(total) + '</span></div>';
 								return header + '<br/>' + lines.join('') + totalLine;
 							}
 						},
 						legend: {
 							type: 'scroll',
-							bottom: 0
+							bottom: 0,
+							textStyle: historyTheme.textStyle
 						},
 						grid: {
 							left: '3%',
@@ -309,16 +299,30 @@ templ DashboardChartsScript() {
 							axisLabel: {
 								interval: 1,
 								rotate: 45,
-								overflow: 'truncate'
+								overflow: 'truncate',
+								color: historyTheme.baseContent,
+								textBorderWidth: 0
 							}
 						},
 						yAxis: {
-							type: 'value'
+							type: 'value',
+							axisLabel: historyTheme.axisLabel
 						},
 						series: historySeries,
 						barCategoryGap: '40%'
 					});
 					window.addEventListener('resize', function() { historyChart.resize(); });
+					window.addEventListener('themechange', function() {
+						var o = getDashboardThemeOpts();
+						historyChart.setOption({
+							backgroundColor: o.baseBg,
+							tooltip: { backgroundColor: o.baseBg, borderColor: o.tooltipBorder },
+							xAxis: { axisLabel: { interval: 1, rotate: 45, overflow: 'truncate', color: o.baseContent, textBorderWidth: 0 } },
+							yAxis: { axisLabel: o.axisLabel },
+							legend: { textStyle: o.textStyle }
+						});
+						historyChart.resize();
+					});
 				}
 			}
 		})();

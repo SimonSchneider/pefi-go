@@ -187,7 +187,7 @@ func AccountForm(view *AccountEditView2) templ.Component {
 		if view.Account.BalanceUpperLimit != nil {
 			balanceUpperLimit = strconv.FormatFloat(*view.Account.BalanceUpperLimit, 'f', -1, 64)
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\"><div class=\"max-w-5xl mx-auto\"><form action=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\"><div class=\"max-w-5xl mx-auto\"><form action=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1646,7 +1646,7 @@ func AccountsContent(view *AccountsView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\"><div class=\"flex flex-col gap-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\"><div class=\"flex flex-col gap-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

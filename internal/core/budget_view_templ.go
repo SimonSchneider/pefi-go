@@ -71,7 +71,7 @@ func BudgetContent(view *BudgetView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\"><div class=\"flex flex-row flex-wrap gap-4 mb-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\"><script src=\"/static/public/echarts.min.js\"></script><div class=\"flex flex-row flex-wrap gap-4 mb-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -91,12 +91,20 @@ func BudgetContent(view *BudgetView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div></div><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Visual Breakdown</h2><div id=\"budget-pie-chart\" style=\"width: 100%; height: 400px;\"></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div></div><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Visual Breakdown</h2>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = BudgetPieChart("budget-pie-chart", view.ChartData, "400px").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(view.Categories) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"mt-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Details</h2>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"mt-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Details</h2>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -106,28 +114,16 @@ func BudgetContent(view *BudgetView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"mt-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Transfers</h2><div id=\"transfer-chart\" x-filter=\"?group_by=account_type\" style=\"width: 100%; height: 30vh\"></div></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"mt-6\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><h2 class=\"card-title\">Transfers</h2><div id=\"transfer-chart\" x-filter=\"?group_by=account_type\" style=\"width: 100%; height: 30vh\"></div></div></div></div><script src=\"/static/public/chart-transfers.js\"></script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = ItemsTooltipScript().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<script src=\"/static/public/echarts.min.js\"></script><script src=\"/static/public/chart-transfers.js\"></script>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templ.JSONScript("budget-chart-data", view.ChartData).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = BudgetChartScript().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -177,7 +173,7 @@ func BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) t
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("background-color: %s", *cat.Category.Color))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 79, Col: 107}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 77, Col: 107}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -195,7 +191,7 @@ func BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) t
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(cat.Category.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 81, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 79, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -208,7 +204,7 @@ func BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) t
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", len(cat.Items)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 83, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 81, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -249,7 +245,7 @@ func BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) t
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(ui.FormatWithThousands(cat.Total))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 92, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 90, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -263,7 +259,7 @@ func BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) t
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f%%", (cat.Total/grandTotal)*100))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 95, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 93, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -282,7 +278,7 @@ func BudgetCategoryTable(categories []BudgetCategoryGroup, grandTotal float64) t
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(ui.FormatWithThousands(grandTotal))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 102, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 100, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -329,7 +325,7 @@ func BudgetCategoryDetails(cat BudgetCategoryGroup) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("background-color: %s", *cat.Category.Color))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 117, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 115, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -347,7 +343,7 @@ func BudgetCategoryDetails(cat BudgetCategoryGroup) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(cat.Category.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 119, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 117, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -360,7 +356,7 @@ func BudgetCategoryDetails(cat BudgetCategoryGroup) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(ui.FormatWithThousands(cat.Total))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 121, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 119, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -378,7 +374,7 @@ func BudgetCategoryDetails(cat BudgetCategoryGroup) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(item.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 136, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 134, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -391,7 +387,7 @@ func BudgetCategoryDetails(cat BudgetCategoryGroup) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(ui.FormatWithThousands(item.Amount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 137, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 135, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -425,7 +421,7 @@ func BudgetCategoryDetails(cat BudgetCategoryGroup) templ.Component {
 	})
 }
 
-func BudgetChartScript() templ.Component {
+func BudgetPieChart(id string, chartData []BudgetChartEntry, height string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -446,7 +442,87 @@ func BudgetChartScript() templ.Component {
 			templ_7745c5c3_Var17 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<script type=\"text/javascript\">\n\t\t(function() {\n\t\t\tfunction formatThousands(val) {\n\t\t\t\tvar n = Math.round(val);\n\t\t\t\tvar neg = n < 0;\n\t\t\t\tvar s = Math.abs(n).toString();\n\t\t\t\tvar pre = s.length % 3 || 3;\n\t\t\t\tvar out = s.slice(0, pre);\n\t\t\t\tfor (var i = pre; i < s.length; i += 3) {\n\t\t\t\t\tout += ',' + s.slice(i, i + 3);\n\t\t\t\t}\n\t\t\t\treturn neg ? '-' + out : out;\n\t\t\t}\n\t\t\tvar chartDom = document.getElementById('budget-pie-chart');\n\t\t\tif (!chartDom) return;\n\t\t\tvar myChart = echarts.init(chartDom);\n\t\t\tvar data = JSON.parse(document.getElementById('budget-chart-data').textContent);\n\t\t\tvar itemsByName = {};\n\t\t\tdata.forEach(function(item) {\n\t\t\t\titemsByName[item.name] = item.items || [];\n\t\t\t});\n\t\t\tvar option = {\n\t\t\t\ttooltip: {\n\t\t\t\t\ttrigger: 'item',\n\t\t\t\t\tborderColor: '#ccc',\n\t\t\t\t\textraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',\n\t\t\t\t\tformatter: function(params) {\n\t\t\t\t\t\tvar items = itemsByName[params.name] || [];\n\t\t\t\t\t\tvar lines = items.map(function(item) {\n\t\t\t\t\t\t\treturn '<div style=\"display:flex;justify-content:space-between;gap:16px\">' +\n\t\t\t\t\t\t\t\t'<span>' + item.name + '</span>' +\n\t\t\t\t\t\t\t\t'<span style=\"font-weight:500\">' + formatThousands(item.value) + '</span></div>';\n\t\t\t\t\t\t});\n\t\t\t\t\t\tvar totalLine = '<div style=\"display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px\">' +\n\t\t\t\t\t\t\t'<span>Total</span><span style=\"font-weight:700\">' + formatThousands(params.value) + '</span></div>';\n\t\t\t\t\t\treturn params.marker + ' ' + params.name + '<br/>' + lines.join('') + totalLine;\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tseries: [{\n\t\t\t\t\tname: 'Monthly Budget',\n\t\t\t\t\ttype: 'pie',\n\t\t\t\t\tradius: ['40%', '70%'],\n\t\t\t\t\tavoidLabelOverlap: true,\n\t\t\t\t\titemStyle: {\n\t\t\t\t\t\tborderRadius: 6,\n\t\t\t\t\t\tborderColor: '#fff',\n\t\t\t\t\t\tborderWidth: 2\n\t\t\t\t\t},\n\t\t\t\t\tlabel: {\n\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\tformatter: '{b}\\n{d}%'\n\t\t\t\t\t},\n\t\t\t\t\tdata: data.map(function(item) {\n\t\t\t\t\t\treturn {\n\t\t\t\t\t\t\tname: item.name,\n\t\t\t\t\t\t\tvalue: item.value,\n\t\t\t\t\t\t\titemStyle: { color: item.color }\n\t\t\t\t\t\t};\n\t\t\t\t\t})\n\t\t\t\t}]\n\t\t\t};\n\t\t\tmyChart.setOption(option);\n\t\t\twindow.addEventListener('resize', function() {\n\t\t\t\tmyChart.resize();\n\t\t\t});\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"budget-pie-chart-wrapper\" data-chart-id=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(id)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 152, Col: 57}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"><div id=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(id)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 153, Col: 14}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" style=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var20 string
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("width: 100%; height: " + height)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/budget_view.templ`, Line: 153, Col: 57}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.JSONScript(id+"-data", chartData).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = budgetPieChartScript().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func budgetPieChartScript() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var21 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var21 == nil {
+			templ_7745c5c3_Var21 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<script type=\"text/javascript\">\n\t\t(function() {\n\t\t\tvar wrapper = document.currentScript.closest('.budget-pie-chart-wrapper');\n\t\t\tvar chartId = wrapper.getAttribute('data-chart-id');\n\t\t\tfunction themeColor(cssVar, fallback) {\n\t\t\t\ttry {\n\t\t\t\t\tvar v = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();\n\t\t\t\t\treturn v || fallback;\n\t\t\t\t} catch (e) {\n\t\t\t\t\treturn fallback;\n\t\t\t\t}\n\t\t\t}\n\t\t\tfunction getThemeOpts() {\n\t\t\t\tvar baseContent = themeColor('--color-base-content', '#333');\n\t\t\t\tvar baseBg = themeColor('--color-base-100', '#fff');\n\t\t\t\tvar tooltipBorder = themeColor('--color-base-300', '#ccc');\n\t\t\t\treturn { baseContent: baseContent, baseBg: baseBg, tooltipBorder: tooltipBorder };\n\t\t\t}\n\t\t\tfunction formatThousands(val) {\n\t\t\t\tvar n = Math.round(val);\n\t\t\t\tvar neg = n < 0;\n\t\t\t\tvar s = Math.abs(n).toString();\n\t\t\t\tvar pre = s.length % 3 || 3;\n\t\t\t\tvar out = s.slice(0, pre);\n\t\t\t\tfor (var i = pre; i < s.length; i += 3) {\n\t\t\t\t\tout += ',' + s.slice(i, i + 3);\n\t\t\t\t}\n\t\t\t\treturn neg ? '-' + out : out;\n\t\t\t}\n\t\t\tvar chartDom = document.getElementById(chartId);\n\t\t\tif (!chartDom) return;\n\t\t\tvar myChart = echarts.init(chartDom);\n\t\t\tvar data = JSON.parse(document.getElementById(chartId + '-data').textContent);\n\t\t\tvar itemsByName = {};\n\t\t\tdata.forEach(function(item) {\n\t\t\t\titemsByName[item.name] = item.items || [];\n\t\t\t});\n\t\t\tvar t = getThemeOpts();\n\t\t\tmyChart.setOption({\n\t\t\t\tbackgroundColor: t.baseBg,\n\t\t\t\ttooltip: {\n\t\t\t\t\ttrigger: 'item',\n\t\t\t\t\tborderColor: t.tooltipBorder,\n\t\t\t\t\tbackgroundColor: t.baseBg,\n\t\t\t\t\textraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',\n\t\t\t\t\tformatter: function(params) {\n\t\t\t\t\t\tvar items = itemsByName[params.name] || [];\n\t\t\t\t\t\tvar lines = items.map(function(item) {\n\t\t\t\t\t\t\treturn '<div style=\"display:flex;justify-content:space-between;gap:16px\">' +\n\t\t\t\t\t\t\t\t'<span>' + item.name + '</span>' +\n\t\t\t\t\t\t\t\t'<span style=\"font-weight:500\">' + formatThousands(item.value) + '</span></div>';\n\t\t\t\t\t\t});\n\t\t\t\t\t\tvar totalLine = '<div style=\"display:flex;justify-content:space-between;gap:16px;border-top:1px solid ' + t.tooltipBorder + ';margin-top:4px;padding-top:4px\">' +\n\t\t\t\t\t\t\t'<span>Total</span><span style=\"font-weight:700\">' + formatThousands(params.value) + '</span></div>';\n\t\t\t\t\t\treturn params.marker + ' ' + params.name + '<br/>' + lines.join('') + totalLine;\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tseries: [{\n\t\t\t\t\tname: 'Monthly Budget',\n\t\t\t\t\ttype: 'pie',\n\t\t\t\t\tradius: ['45%', '78%'],\n\t\t\t\t\tavoidLabelOverlap: true,\n\t\t\t\t\titemStyle: {\n\t\t\t\t\t\tborderRadius: 6,\n\t\t\t\t\t\tborderColor: t.baseBg,\n\t\t\t\t\t\tborderWidth: 2\n\t\t\t\t\t},\n\t\t\t\t\tlabel: {\n\t\t\t\t\t\tshow: true,\n\t\t\t\t\t\tformatter: '{b}\\n{d}%',\n\t\t\t\t\t\tcolor: t.baseContent,\n\t\t\t\t\t\ttextBorderWidth: 0\n\t\t\t\t\t},\n\t\t\t\t\tdata: data.map(function(item) {\n\t\t\t\t\t\treturn {\n\t\t\t\t\t\t\tname: item.name,\n\t\t\t\t\t\t\tvalue: item.value,\n\t\t\t\t\t\t\titemStyle: { color: item.color }\n\t\t\t\t\t\t};\n\t\t\t\t\t})\n\t\t\t\t}]\n\t\t\t});\n\t\t\twindow.addEventListener('resize', function() { myChart.resize(); });\n\t\t\twindow.addEventListener('themechange', function() {\n\t\t\t\tvar o = getThemeOpts();\n\t\t\t\tmyChart.setOption({\n\t\t\t\t\tbackgroundColor: o.baseBg,\n\t\t\t\t\ttooltip: { borderColor: o.tooltipBorder, backgroundColor: o.baseBg },\n\t\t\t\t\tseries: [{ label: { color: o.baseContent, textBorderWidth: 0 }, itemStyle: { borderColor: o.baseBg } }]\n\t\t\t\t});\n\t\t\t\tmyChart.resize();\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

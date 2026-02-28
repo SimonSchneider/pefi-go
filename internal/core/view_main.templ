@@ -2,13 +2,21 @@ package core
 
 templ Page(name string, child templ.Component) {
 	<!DOCTYPE html>
-	<html lang="en" data-theme="light">
+	<html lang="en" data-theme="bumblebee">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light dark"/>
 			<link rel="icon" href="/static/public/favicon.png"/>
 			<link rel="stylesheet" href="/static/public/styles-tw.css"/>
+			<script>
+				(function() {
+					var t = localStorage.getItem("theme");
+					if (t === "bumblebee" || t === "bumblebee-dark") {
+						document.documentElement.setAttribute("data-theme", t);
+					}
+				})();
+			</script>
 			<script src="/static/public/htmx.min.js"></script>
 			<script src="/static/public/transfer-templates-collapse.js"></script>
 			<title>{ name }</title>
@@ -88,7 +96,7 @@ templ SidebarContent(page string) {
 		<div class="sidebar-footer border-t border-base-300 p-2 is-drawer-open:p-4">
 			<div class="flex is-drawer-open:flex-row is-drawer-close:flex-col items-center is-drawer-open:justify-between gap-2">
 				<label class="swap swap-rotate btn btn-ghost btn-circle">
-					<input type="checkbox" class="theme-controller" value="autumn"/>
+					<input type="checkbox" class="theme-controller" value="bumblebee-dark"/>
 					<svg
 						class="swap-off h-5 w-5 fill-current"
 						xmlns="http://www.w3.org/2000/svg"
