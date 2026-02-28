@@ -1,3 +1,12 @@
+function getThemeColor(cssVar, fallback) {
+    try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+        return v || fallback;
+    } catch (_) {
+        return fallback;
+    }
+}
+
 const colors = [
     `#D32F2F`,
     `#F57C00`,
@@ -33,6 +42,71 @@ function lightenColor(color) {
     return `rgba(${r}, ${g}, ${b}, 0.2)`;
 }
 
+function getChartThemeOpts() {
+    const textColor = getThemeColor('--color-base-content', '#333333');
+    const bgColor = getThemeColor('--color-base-100', 'transparent');
+    const borderColor = getThemeColor('--color-base-300', '#ccc');
+    const axisLineColor = getThemeColor('--color-base-300', '#eee');
+    const textStyle = {
+        color: textColor,
+        textBorderWidth: 0,
+        textBorderColor: 'transparent',
+    };
+    return {
+        backgroundColor: bgColor,
+        textColor: textColor,
+        textStyle: textStyle,
+        tooltip: {
+            backgroundColor: bgColor,
+            borderColor: borderColor,
+            textStyle: { color: textColor, textBorderWidth: 0 },
+        },
+        legend: { textStyle: textStyle },
+        xAxis: {
+            axisLine: { lineStyle: { color: axisLineColor } },
+            axisLabel: { color: textColor, textBorderWidth: 0 },
+            nameTextStyle: textStyle,
+            splitLine: { lineStyle: { color: axisLineColor } },
+        },
+        yAxis: {
+            axisLine: { lineStyle: { color: axisLineColor } },
+            axisLabel: { color: textColor, textBorderWidth: 0 },
+            nameTextStyle: textStyle,
+            splitLine: { lineStyle: { color: axisLineColor } },
+        },
+    };
+}
+
+function applyChartTheme() {
+    var t = getChartThemeOpts();
+    myChart.setOption({
+        backgroundColor: t.backgroundColor,
+        textStyle: t.textStyle,
+        tooltip: t.tooltip,
+        legend: { textStyle: t.legend.textStyle },
+        xAxis: {
+            axisLine: t.xAxis.axisLine,
+            axisLabel: t.xAxis.axisLabel,
+            nameTextStyle: t.xAxis.nameTextStyle,
+            splitLine: t.xAxis.splitLine,
+        },
+        yAxis: {
+            axisLine: t.yAxis.axisLine,
+            axisLabel: { formatter: '{value} kr', color: t.yAxis.axisLabel.color, textBorderWidth: 0 },
+            nameTextStyle: t.yAxis.nameTextStyle,
+            splitLine: t.yAxis.splitLine,
+        },
+        dataZoom: [{
+            type: 'inside',
+            xAxisIndex: 0
+        }],
+    });
+    myChart.resize();
+}
+
+window.addEventListener('themechange', applyChartTheme);
+
+var themeOpts = getChartThemeOpts();
 myChart.setOption({
     legend: {
         data: [],
@@ -41,6 +115,7 @@ myChart.setOption({
         orient: 'vertical',
         bottom: '80px',
         right: 10,
+        textStyle: themeOpts.legend.textStyle,
     },
     grid: {
         containLabel: true,
@@ -50,35 +125,38 @@ myChart.setOption({
         top: '40px',
     },
     animationDurationUpdate: batchInterval,
-    tooltip: {
+    tooltip: Object.assign({
         order: 'valueDesc',
         trigger: 'axis',
         valueFormatter: (value) => `${value.toLocaleString('en-us', { maximumFractionDigits: 0 })} kr`,
-    },
+    }, themeOpts.tooltip),
     xAxis: {
         type: 'time',
         name: 'Date',
         nameLocation: 'middle',
         nameGap: 30,
+        axisLine: themeOpts.xAxis.axisLine,
+        axisLabel: themeOpts.xAxis.axisLabel,
+        nameTextStyle: themeOpts.xAxis.nameTextStyle,
+        splitLine: themeOpts.xAxis.splitLine,
     },
     yAxis: {
         type: 'value',
         name: 'Balance',
         nameLocation: 'middle',
         nameGap: 100,
-        axisLabel: { formatter: '{value} kr' },
+        axisLabel: { formatter: '{value} kr', color: themeOpts.yAxis.axisLabel.color, textBorderWidth: 0 },
+        axisLine: themeOpts.yAxis.axisLine,
+        nameTextStyle: themeOpts.yAxis.nameTextStyle,
+        splitLine: themeOpts.yAxis.splitLine,
     },
-    dataZoom: [
-        {
-            type: 'inside',   // Enables zooming with mouse wheel and drag
-            xAxisIndex: 0     // Applies to first xAxis
-        },
-        {
-            type: 'slider',   // Optional: visible slider below the chart
-            xAxisIndex: 0
-        }
-    ],
-    series: []
+    dataZoom: [{
+        type: 'inside',
+        xAxisIndex: 0
+    }],
+    series: [],
+    backgroundColor: themeOpts.backgroundColor,
+    textStyle: themeOpts.textStyle,
 });
 
 const addPointToSeries = (seriesName, day, balance) => (series[seriesName].data || []).push([day, balance]);
@@ -169,6 +247,7 @@ evtSource.addEventListener('setup', (event) => {
     const today = new Date();
     const today2 = new Date();
     today2.setDate(today2.getUTCDate() + 1000);
+    const themeText = getThemeColor('--color-base-content', '#333333');
     myChart.setOption({
         legend: {
             data: data.entities.map(e => ({ name: e.name })),
@@ -184,13 +263,14 @@ evtSource.addEventListener('setup', (event) => {
                     {
                         xAxis: new Date(m.date),
                         lineStyle: {
-                            color: m.color || '#000000',
+                            color: m.color || themeText,
                             type: 'dashed',
                         },
                         label: {
                             offset: [0, idx % 2 !== 0 ? 0 : -15],
                             formatter: m.name,
-                            color: m.color || '#000000',
+                            color: m.color || themeText,
+                            textBorderWidth: 0,
                         }
                     }
                 ]

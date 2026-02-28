@@ -68,7 +68,7 @@ func TransferTemplateCategoriesContent(view *TransferTemplateCategoriesView) tem
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\"><div class=\"flex flex-col gap-4\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><div class=\"overflow-x-auto\"><table class=\"table w-full\"><thead class=\"bg-base-200/60\"><tr><th class=\"font-semibold\">Name</th><th class=\"font-semibold\">Color</th><th class=\"font-semibold text-right sticky\">Actions</th></tr></thead> <tbody>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\"><div class=\"flex flex-col gap-4\"><div class=\"card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body\"><div class=\"overflow-x-auto\"><table class=\"table w-full\"><thead class=\"bg-base-200/60\"><tr><th class=\"font-semibold\">Name</th><th class=\"font-semibold\">Color</th><th class=\"font-semibold text-right sticky\">Actions</th></tr></thead> <tbody>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -358,7 +358,7 @@ func CategoryForm(view *TransferTemplateCategoryEditView) templ.Component {
 			templ_7745c5c3_Var13 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\"><div class=\"max-w-lg mx-auto\"><form action=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\"><div class=\"max-w-lg mx-auto\"><form action=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

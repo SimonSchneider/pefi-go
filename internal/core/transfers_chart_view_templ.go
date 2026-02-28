@@ -66,7 +66,7 @@ func TransfersChartContent(groupBy TransferChartGroupBy) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-50\"><div id=\"transfer-chart\" style=\"width: 100%; height: 100%;\"></div><script src=\"/static/public/echarts.min.js\"></script><script src=\"/static/public/chart-transfers.js\"></script></div></main>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"flex-1 p-6 overflow-auto bg-base-100\"><div id=\"transfer-chart\" style=\"width: 100%; height: 100%;\"></div><script src=\"/static/public/echarts.min.js\"></script><script src=\"/static/public/chart-transfers.js\"></script></div></main>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

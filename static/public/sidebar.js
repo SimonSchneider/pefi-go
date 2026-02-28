@@ -3,7 +3,25 @@
   if (!toggle) return;
 
   var STORAGE_KEY = "sidebar-expanded";
+  var THEME_KEY = "theme";
   var LG = 1024;
+
+  // Theme persistence: sync theme-controller checkbox and data-theme with localStorage
+  var themeController = document.querySelector('input.theme-controller[value="bumblebee-dark"]');
+  if (themeController) {
+    var savedTheme = localStorage.getItem(THEME_KEY) || "bumblebee";
+    themeController.checked = savedTheme === "bumblebee-dark";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    themeController.addEventListener("change", function () {
+      var theme = themeController.checked ? "bumblebee-dark" : "bumblebee";
+      localStorage.setItem(THEME_KEY, theme);
+      document.documentElement.setAttribute("data-theme", theme);
+      window.dispatchEvent(new CustomEvent("themechange", { detail: { theme: theme } }));
+      setTimeout(function () {
+        window.dispatchEvent(new Event("resize"));
+      }, 50);
+    });
+  }
 
   // Persist toggle state on change (only on desktop)
   // and trigger resize so ECharts and other components recalculate

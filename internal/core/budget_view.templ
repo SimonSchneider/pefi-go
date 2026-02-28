@@ -12,7 +12,8 @@ templ PageBudget(view *BudgetView) {
 templ BudgetContent(view *BudgetView) {
 	<main class="flex-1 flex flex-col">
 		@Header("Monthly Budget")
-		<div class="flex-1 p-6 overflow-auto bg-base-50">
+		<div class="flex-1 p-6 overflow-auto bg-base-100">
+			<script src="/static/public/echarts.min.js"></script>
 			<div class="flex flex-row flex-wrap gap-4 mb-6">
 				@StatCard("Monthly Total", ui.FormatWithThousands(view.GrandTotal), "Total budgeted expenses", IconCashBanknote("w-10 h-10"))
 				@StatCard("Categories", fmt.Sprintf("%d", len(view.Categories)), "Budget categories", IconTag("w-10 h-10"))
@@ -27,7 +28,7 @@ templ BudgetContent(view *BudgetView) {
 				<div class="card bg-base-100 shadow-sm border border-base-300">
 					<div class="card-body">
 						<h2 class="card-title">Visual Breakdown</h2>
-						<div id="budget-pie-chart" style="width: 100%; height: 400px;"></div>
+						@BudgetPieChart("budget-pie-chart", view.ChartData, "400px")
 					</div>
 				</div>
 			</div>
@@ -51,11 +52,8 @@ templ BudgetContent(view *BudgetView) {
                     </div>
                 </div>
 			</div>
+			<script src="/static/public/chart-transfers.js"></script>
 			@ItemsTooltipScript()
-			<script src="/static/public/echarts.min.js"></script>
-            <script src="/static/public/chart-transfers.js"></script>
-			@templ.JSONScript("budget-chart-data", view.ChartData)
-			@BudgetChartScript()
 		</div>
 	</main>
 }
@@ -150,9 +148,33 @@ templ BudgetCategoryDetails(cat BudgetCategoryGroup) {
 	</div>
 }
 
-templ BudgetChartScript() {
+templ BudgetPieChart(id string, chartData []BudgetChartEntry, height string) {
+	<div class="budget-pie-chart-wrapper" data-chart-id={ id }>
+		<div id={ id } style={ "width: 100%; height: " + height }></div>
+		@templ.JSONScript(id+"-data", chartData)
+		@budgetPieChartScript()
+	</div>
+}
+
+templ budgetPieChartScript() {
 	<script type="text/javascript">
 		(function() {
+			var wrapper = document.currentScript.closest('.budget-pie-chart-wrapper');
+			var chartId = wrapper.getAttribute('data-chart-id');
+			function themeColor(cssVar, fallback) {
+				try {
+					var v = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+					return v || fallback;
+				} catch (e) {
+					return fallback;
+				}
+			}
+			function getThemeOpts() {
+				var baseContent = themeColor('--color-base-content', '#333');
+				var baseBg = themeColor('--color-base-100', '#fff');
+				var tooltipBorder = themeColor('--color-base-300', '#ccc');
+				return { baseContent: baseContent, baseBg: baseBg, tooltipBorder: tooltipBorder };
+			}
 			function formatThousands(val) {
 				var n = Math.round(val);
 				var neg = n < 0;
@@ -164,18 +186,21 @@ templ BudgetChartScript() {
 				}
 				return neg ? '-' + out : out;
 			}
-			var chartDom = document.getElementById('budget-pie-chart');
+			var chartDom = document.getElementById(chartId);
 			if (!chartDom) return;
 			var myChart = echarts.init(chartDom);
-			var data = JSON.parse(document.getElementById('budget-chart-data').textContent);
+			var data = JSON.parse(document.getElementById(chartId + '-data').textContent);
 			var itemsByName = {};
 			data.forEach(function(item) {
 				itemsByName[item.name] = item.items || [];
 			});
-			var option = {
+			var t = getThemeOpts();
+			myChart.setOption({
+				backgroundColor: t.baseBg,
 				tooltip: {
 					trigger: 'item',
-					borderColor: '#ccc',
+					borderColor: t.tooltipBorder,
+					backgroundColor: t.baseBg,
 					extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
 					formatter: function(params) {
 						var items = itemsByName[params.name] || [];
@@ -184,7 +209,7 @@ templ BudgetChartScript() {
 								'<span>' + item.name + '</span>' +
 								'<span style="font-weight:500">' + formatThousands(item.value) + '</span></div>';
 						});
-						var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid #ccc;margin-top:4px;padding-top:4px">' +
+						var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid ' + t.tooltipBorder + ';margin-top:4px;padding-top:4px">' +
 							'<span>Total</span><span style="font-weight:700">' + formatThousands(params.value) + '</span></div>';
 						return params.marker + ' ' + params.name + '<br/>' + lines.join('') + totalLine;
 					}
@@ -192,16 +217,18 @@ templ BudgetChartScript() {
 				series: [{
 					name: 'Monthly Budget',
 					type: 'pie',
-					radius: ['40%', '70%'],
+					radius: ['45%', '78%'],
 					avoidLabelOverlap: true,
 					itemStyle: {
 						borderRadius: 6,
-						borderColor: '#fff',
+						borderColor: t.baseBg,
 						borderWidth: 2
 					},
 					label: {
 						show: true,
-						formatter: '{b}\n{d}%'
+						formatter: '{b}\n{d}%',
+						color: t.baseContent,
+						textBorderWidth: 0
 					},
 					data: data.map(function(item) {
 						return {
@@ -211,9 +238,15 @@ templ BudgetChartScript() {
 						};
 					})
 				}]
-			};
-			myChart.setOption(option);
-			window.addEventListener('resize', function() {
+			});
+			window.addEventListener('resize', function() { myChart.resize(); });
+			window.addEventListener('themechange', function() {
+				var o = getThemeOpts();
+				myChart.setOption({
+					backgroundColor: o.baseBg,
+					tooltip: { borderColor: o.tooltipBorder, backgroundColor: o.baseBg },
+					series: [{ label: { color: o.baseContent, textBorderWidth: 0 }, itemStyle: { borderColor: o.baseBg } }]
+				});
 				myChart.resize();
 			});
 		})();
