@@ -129,7 +129,7 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 	for _, r := range rows {
 		var v uncertain.Value
 		if err := v.Decode(r.Balance); err != nil {
-			continue
+			return SnapshotHistoryChartData{}, fmt.Errorf("decoding balance: %w", err)
 		}
 		key := typeKey(r.Date, r.TypeID)
 		sumByDateAndType[key] += v.Mean()
