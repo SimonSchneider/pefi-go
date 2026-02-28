@@ -37,7 +37,7 @@ go build ./...        # Verify compilation
 
 ## Development Documentation (Showboat)
 
-**Showboat** is used for development documentation. When the user requests documentation of the development setup, workflow, or similar, use or reference Showboat (e.g. run `showboat --help` to see options) to generate or provide that documentation.
+**Showboat** is used for development documentation. When the user requests you to document your development.
 
 ## Project Structure
 
