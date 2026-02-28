@@ -984,6 +984,70 @@ func (q *Queries) ListStartupShareOptions(ctx context.Context, accountID string)
 	return items, nil
 }
 
+const listStartupShareSnapshotHistory = `-- name: ListStartupShareSnapshotHistory :many
+SELECT ir.account_id,
+  ir.date,
+  ir.valuation,
+  ssa.shares_owned,
+  ssa.total_shares,
+  ssa.purchase_price_per_share,
+  ssa.tax_rate,
+  ssa.valuation_discount_factor,
+  COALESCE(a.type_id, '') AS type_id
+FROM investment_round ir
+  JOIN startup_share_account ssa ON ssa.account_id = ir.account_id
+  JOIN account a ON a.id = ir.account_id
+ORDER BY ir.date,
+  a.type_id,
+  ir.account_id
+`
+
+type ListStartupShareSnapshotHistoryRow struct {
+	AccountID               string
+	Date                    int64
+	Valuation               float64
+	SharesOwned             float64
+	TotalShares             float64
+	PurchasePricePerShare   float64
+	TaxRate                 float64
+	ValuationDiscountFactor float64
+	TypeID                  string
+}
+
+// Returns investment rounds joined with startup share config and account type for balance history.
+func (q *Queries) ListStartupShareSnapshotHistory(ctx context.Context) ([]ListStartupShareSnapshotHistoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listStartupShareSnapshotHistory)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStartupShareSnapshotHistoryRow
+	for rows.Next() {
+		var i ListStartupShareSnapshotHistoryRow
+		if err := rows.Scan(
+			&i.AccountID,
+			&i.Date,
+			&i.Valuation,
+			&i.SharesOwned,
+			&i.TotalShares,
+			&i.PurchasePricePerShare,
+			&i.TaxRate,
+			&i.ValuationDiscountFactor,
+			&i.TypeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransferTemplateCategories = `-- name: ListTransferTemplateCategories :many
 SELECT id, name, color, created_at, updated_at
 FROM transfer_template_category

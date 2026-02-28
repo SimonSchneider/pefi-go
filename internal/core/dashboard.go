@@ -115,7 +115,8 @@ func computeDashboardView(ctx context.Context, db *sql.DB) (*DashboardView, erro
 }
 
 func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []AccountType) (SnapshotHistoryChartData, error) {
-	rows, err := pdb.New(db).ListSnapshotHistoryWithType(ctx)
+	q := pdb.New(db)
+	rows, err := q.ListSnapshotHistoryWithType(ctx)
 	if err != nil {
 		return SnapshotHistoryChartData{}, err
 	}
@@ -126,6 +127,7 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 	typeKey := func(date int64, typeID string) TypeKey { return TypeKey{date, typeID} }
 	sumByDateAndType := make(map[TypeKey]float64)
 	dateSet := make(map[int64]struct{})
+	accountsWithSnapshots := make(map[string]struct{})
 	for _, r := range rows {
 		var v uncertain.Value
 		if err := v.Decode(r.Balance); err != nil {
@@ -134,6 +136,7 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 		key := typeKey(r.Date, r.TypeID)
 		sumByDateAndType[key] += v.Mean()
 		dateSet[r.Date] = struct{}{}
+		accountsWithSnapshots[r.AccountID] = struct{}{}
 	}
 	dates := make([]int64, 0, len(dateSet))
 	for d := range dateSet {
@@ -141,9 +144,59 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 	}
 	sort.Slice(dates, func(i, j int) bool { return dates[i] < dates[j] })
 
-	// Limit to at most snapshotHistoryMaxBars, evenly spaced with latest always last
 	const snapshotHistoryMaxBars = 24
 	dates = downsampleDates(dates, snapshotHistoryMaxBars)
+
+	// For each chart date, compute startup share balances from the latest
+	// investment round on or before that date (skip accounts with DB snapshots).
+	startupRows, err := q.ListStartupShareSnapshotHistory(ctx)
+	if err != nil {
+		return SnapshotHistoryChartData{}, fmt.Errorf("listing startup share snapshot history: %w", err)
+	}
+	if len(startupRows) > 0 {
+		// Group investment rounds by account, sorted by date ascending (query order).
+		type startupAccount struct {
+			TypeID string
+			Rounds []pdb.ListStartupShareSnapshotHistoryRow
+		}
+		startupAccounts := make(map[string]*startupAccount)
+		for _, r := range startupRows {
+			if _, has := accountsWithSnapshots[r.AccountID]; has {
+				continue
+			}
+			sa, ok := startupAccounts[r.AccountID]
+			if !ok {
+				sa = &startupAccount{TypeID: r.TypeID}
+				startupAccounts[r.AccountID] = sa
+			}
+			sa.Rounds = append(sa.Rounds, r)
+		}
+		ucfg := uncertain.NewConfig(0, 1)
+		for _, sa := range startupAccounts {
+			for _, chartDate := range dates {
+				// Find latest round on or before this chart date.
+				var best *pdb.ListStartupShareSnapshotHistoryRow
+				for i := range sa.Rounds {
+					if sa.Rounds[i].Date <= chartDate {
+						best = &sa.Rounds[i]
+					}
+				}
+				if best == nil {
+					continue
+				}
+				balance := CalculateStartupShareBalance(
+					ucfg,
+					uncertain.NewFixed(best.Valuation),
+					best.SharesOwned,
+					best.PurchasePricePerShare,
+					best.TaxRate,
+					best.TotalShares,
+					best.ValuationDiscountFactor,
+				)
+				sumByDateAndType[typeKey(chartDate, sa.TypeID)] += balance.Mean()
+			}
+		}
+	}
 
 	typeByName := make(map[string]AccountType)
 	for _, at := range accountTypes {

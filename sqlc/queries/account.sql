@@ -167,6 +167,23 @@ FROM account_snapshot s
 ORDER BY s.date,
   a.type_id,
   s.account_id;
+-- name: ListStartupShareSnapshotHistory :many
+-- Returns investment rounds joined with startup share config and account type for balance history.
+SELECT ir.account_id,
+  ir.date,
+  ir.valuation,
+  ssa.shares_owned,
+  ssa.total_shares,
+  ssa.purchase_price_per_share,
+  ssa.tax_rate,
+  ssa.valuation_discount_factor,
+  COALESCE(a.type_id, '') AS type_id
+FROM investment_round ir
+  JOIN startup_share_account ssa ON ssa.account_id = ir.account_id
+  JOIN account a ON a.id = ir.account_id
+ORDER BY ir.date,
+  a.type_id,
+  ir.account_id;
 -- name: ListActiveGrowthModels :many
 SELECT *
 FROM growth_model
