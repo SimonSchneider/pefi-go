@@ -35,6 +35,8 @@ go build ./...        # Verify compilation
 - **Developing features** — get visual feedback by screenshotting pages or flows
 - **Verifying UI** — confirm layouts and behavior after changes
 
+Assume that the development server is running on port 3002 by the user in dev mode.
+
 ## Development Documentation (Showboat)
 
 **Showboat** is used for development documentation. When the user requests you to document your development.

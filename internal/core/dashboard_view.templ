@@ -257,6 +257,20 @@ templ DashboardChartsScript() {
 						var o = { name: s.name, type: 'bar', stack: 'total', emphasis: s.emphasis, itemStyle: s.itemStyle, data: s.data };
 						return o;
 					});
+					var totalData = historyData.dates.map(function(_, i) {
+						return rawSeries.reduce(function(sum, s) { return sum + (s.data[i] || 0); }, 0);
+					});
+					historySeries.push({
+						name: 'Net Worth',
+						type: 'line',
+						showSymbol: false,
+						symbol: 'none',
+						lineStyle: { width: 2 },
+						itemStyle: { color: themeColor('--color-base-content', '#333') },
+						emphasis: { disabled: true },
+						data: totalData,
+						z: 10
+					});
 					var historyTheme = getDashboardThemeOpts();
 					historyChart.setOption({
 						backgroundColor: historyTheme.baseBg,
@@ -267,18 +281,21 @@ templ DashboardChartsScript() {
 							borderColor: historyTheme.tooltipBorder,
 							extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
 							formatter: function(params) {
-								var items = params.filter(function(p) { return p.value !== 0 && p.value !== null; });
-								if (items.length === 0) return params[0] ? params[0].axisValue : '';
-								items.sort(function(a, b) { return b.value - a.value; });
+								var barItems = params.filter(function(p) { return p.seriesName !== 'Net Worth' && p.value !== 0 && p.value !== null; });
+								var netWorth = params.filter(function(p) { return p.seriesName === 'Net Worth'; })[0];
+								if (barItems.length === 0 && !netWorth) return params[0] ? params[0].axisValue : '';
+								barItems.sort(function(a, b) { return b.value - a.value; });
 								var header = params[0].axisValue;
-								var total = items.reduce(function(sum, p) { return sum + p.value; }, 0);
-								var lines = items.map(function(p) {
+								var lines = barItems.map(function(p) {
 									return '<div style="display:flex;justify-content:space-between;gap:16px">' +
 										'<span>' + p.marker + ' ' + p.seriesName + '</span>' +
 										'<span style="font-weight:500">' + formatThousands(p.value) + '</span></div>';
 								});
-								var totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid ' + historyTheme.tooltipBorder + ';margin-top:4px;padding-top:4px">' +
-									'<span>Total</span><span style="font-weight:700">' + formatThousands(total) + '</span></div>';
+								var totalLine = '';
+								if (netWorth) {
+									totalLine = '<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid ' + historyTheme.tooltipBorder + ';margin-top:4px;padding-top:4px">' +
+										'<span>' + netWorth.marker + ' Net Worth</span><span style="font-weight:700">' + formatThousands(netWorth.value) + '</span></div>';
+								}
 								return header + '<br/>' + lines.join('') + totalLine;
 							}
 						},
@@ -314,12 +331,21 @@ templ DashboardChartsScript() {
 					window.addEventListener('resize', function() { historyChart.resize(); });
 					window.addEventListener('themechange', function() {
 						var o = getDashboardThemeOpts();
+						var netWorthIdx = -1;
+						for (var i = 0; i < historySeries.length; i++) {
+							if (historySeries[i].name === 'Net Worth') { netWorthIdx = i; break; }
+						}
+						var seriesUpdate = [];
+						if (netWorthIdx >= 0) {
+							seriesUpdate[netWorthIdx] = { itemStyle: { color: o.baseContent } };
+						}
 						historyChart.setOption({
 							backgroundColor: o.baseBg,
 							tooltip: { backgroundColor: o.baseBg, borderColor: o.tooltipBorder },
 							xAxis: { axisLabel: { interval: 1, rotate: 45, overflow: 'truncate', color: o.baseContent, textBorderWidth: 0 } },
 							yAxis: { axisLabel: o.axisLabel },
-							legend: { textStyle: o.textStyle }
+							legend: { textStyle: o.textStyle },
+							series: seriesUpdate
 						});
 						historyChart.resize();
 					});
