@@ -1,5 +1,5 @@
 PORT := 3002
-IMAGE ?= ghcr.io/simonschneider/pefigo:main
+IMAGE ?= ghcr.io/simonschneider/pefi-go:main
 
 watch-tw:
 	@echo "Watching for changes..."
