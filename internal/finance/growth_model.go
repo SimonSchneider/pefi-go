@@ -126,7 +126,13 @@ func (i *LogNormalGrowth) Apply(ucfg *uncertain.Config, day date.Date, entities 
 
 type StartupGrowthInvestmentRound struct {
 	PreMoneyValuation uncertain.Value
+	PreMoneyShares    uncertain.Value
 	Investment        uncertain.Value
+}
+
+type StartupGrowthShareChange struct {
+	DeltaShares uncertain.Value
+	TotalPrice  uncertain.Value
 }
 
 type StartupGrowthOption struct {
@@ -146,16 +152,27 @@ type StartupGrowth struct {
 	PurchasePricePerShare uncertain.Value
 
 	InvestmentRounds map[date.Date]StartupGrowthInvestmentRound
+	ShareChanges     map[date.Date]StartupGrowthShareChange
 	Options          map[date.Date]StartupGrowthOption
 }
 
 func (s *StartupGrowth) Apply(ucfg *uncertain.Config, day date.Date, entities map[string]*ModeledEntity, totalBalance uncertain.Value) uncertain.Value {
 	var changed bool
 	if round, ok := s.InvestmentRounds[day]; ok {
-		pricePerShare := round.PreMoneyValuation.Div(ucfg, s.TotalShares)
+		pricePerShare := round.PreMoneyValuation.Div(ucfg, round.PreMoneyShares)
 		issuedShares := round.Investment.Div(ucfg, pricePerShare)
-		s.TotalShares = s.TotalShares.Add(ucfg, issuedShares)
+		s.TotalShares = round.PreMoneyShares.Add(ucfg, issuedShares)
 		s.Valuation = round.PreMoneyValuation.Add(ucfg, round.Investment)
+		changed = true
+	}
+	if sc, ok := s.ShareChanges[day]; ok {
+		prevOwned := s.OwnedShares
+		s.OwnedShares = s.OwnedShares.Add(ucfg, sc.DeltaShares)
+		if sc.DeltaShares.Mean() > 0 {
+			currentCostBasis := s.PurchasePricePerShare.Mul(ucfg, prevOwned)
+			newCostBasis := currentCostBasis.Add(ucfg, sc.TotalPrice)
+			s.PurchasePricePerShare = newCostBasis.Div(ucfg, s.OwnedShares)
+		}
 		changed = true
 	}
 	if opt, ok := s.Options[day]; ok {

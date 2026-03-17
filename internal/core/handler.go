@@ -138,6 +138,36 @@ func HandlerInvestmentRoundDelete(db *sql.DB) http.Handler {
 	})
 }
 
+func HandlerShareChangeUpsert(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp ShareChangeInput
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := UpsertShareChange(ctx, db, inp)
+		if err != nil {
+			return fmt.Errorf("upserting share change: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", inp.AccountID))
+		return nil
+	})
+}
+
+func HandlerShareChangeDelete(db *sql.DB) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		changeID := r.PathValue("id")
+		sc, err := GetShareChange(ctx, db, changeID)
+		if err != nil {
+			return fmt.Errorf("getting share change: %w", err)
+		}
+		if err := DeleteShareChange(ctx, db, changeID); err != nil {
+			return fmt.Errorf("deleting share change: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", sc.AccountID))
+		return nil
+	})
+}
+
 func HandlerStartupShareOptionUpsert(db *sql.DB) http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		var inp StartupShareOptionInput
@@ -337,7 +367,7 @@ func AccountNewPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing categories: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter, categories, nil, nil, nil))))
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter, categories, nil, nil, nil, nil, nil))))
 	})
 }
 
@@ -364,7 +394,9 @@ func AccountEditPage(db *sql.DB) http.Handler {
 		// Load startup share data if account has startup share configuration
 		var startupShareAccount *StartupShareAccount
 		var investmentRounds []InvestmentRound
+		var shareChanges []ShareChange
 		var options []StartupShareOption
+		var derivedSummary *DerivedStartupShareSummary
 		ssa, err := GetStartupShareAccount(ctx, db, acc.ID)
 		if err == nil {
 			startupShareAccount = &ssa
@@ -372,9 +404,22 @@ func AccountEditPage(db *sql.DB) http.Handler {
 			if err != nil {
 				return fmt.Errorf("listing investment rounds: %w", err)
 			}
+			shareChanges, err = ListShareChanges(ctx, db, acc.ID)
+			if err != nil {
+				return fmt.Errorf("listing share changes: %w", err)
+			}
 			options, err = ListStartupShareOptions(ctx, db, acc.ID)
 			if err != nil {
 				return fmt.Errorf("listing startup share options: %w", err)
+			}
+			today := date.Today()
+			round, _ := GetLatestInvestmentRound(ctx, db, acc.ID, today)
+			_, postShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
+			sharesOwned, avgPrice := DeriveShareState(shareChanges, today)
+			derivedSummary = &DerivedStartupShareSummary{
+				SharesOwned:              sharesOwned,
+				TotalShares:              postShares,
+				AvgPurchasePricePerShare: avgPrice,
 			}
 		} else if errors.Is(err, sql.ErrNoRows) {
 			// Account doesn't have startup share configuration, which is fine
@@ -387,7 +432,7 @@ func AccountEditPage(db *sql.DB) http.Handler {
 		if err != nil {
 			return fmt.Errorf("listing categories: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter, categories, startupShareAccount, investmentRounds, options))))
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter, categories, startupShareAccount, investmentRounds, shareChanges, options, derivedSummary))))
 	})
 }
 
@@ -495,6 +540,8 @@ func NewHandler(db *sql.DB, public fs.FS) http.Handler {
 	mux.Handle("POST /startup-share-accounts/", HandlerStartupShareAccountUpsert(db))
 	mux.Handle("POST /investment-rounds/", HandlerInvestmentRoundUpsert(db))
 	mux.Handle("POST /investment-rounds/{id}/delete", HandlerInvestmentRoundDelete(db))
+	mux.Handle("POST /share-changes/", HandlerShareChangeUpsert(db))
+	mux.Handle("POST /share-changes/{id}/delete", HandlerShareChangeDelete(db))
 	mux.Handle("POST /startup-share-options/", HandlerStartupShareOptionUpsert(db))
 	mux.Handle("POST /startup-share-options/{id}/delete", HandlerStartupShareOptionDelete(db))
 

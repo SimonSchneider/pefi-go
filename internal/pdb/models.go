@@ -42,12 +42,24 @@ type GrowthModel struct {
 }
 
 type InvestmentRound struct {
-	ID        string
-	AccountID string
-	Date      int64
-	Valuation float64
-	CreatedAt int64
-	UpdatedAt int64
+	ID             string
+	AccountID      string
+	Date           int64
+	Valuation      float64
+	CreatedAt      int64
+	UpdatedAt      int64
+	PreMoneyShares float64
+	Investment     float64
+}
+
+type ShareChange struct {
+	ID          string
+	AccountID   string
+	Date        int64
+	DeltaShares float64
+	TotalPrice  float64
+	CreatedAt   int64
+	UpdatedAt   int64
 }
 
 type SpecialDate struct {
@@ -59,9 +71,6 @@ type SpecialDate struct {
 
 type StartupShareAccount struct {
 	AccountID               string
-	SharesOwned             float64
-	TotalShares             float64
-	PurchasePricePerShare   float64
 	TaxRate                 float64
 	ValuationDiscountFactor float64
 }

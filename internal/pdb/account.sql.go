@@ -120,6 +120,16 @@ func (q *Queries) DeleteInvestmentRound(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteShareChange = `-- name: DeleteShareChange :exec
+DELETE FROM share_change
+WHERE id = ?
+`
+
+func (q *Queries) DeleteShareChange(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteShareChange, id)
+	return err
+}
+
 const deleteSnapshot = `-- name: DeleteSnapshot :exec
 DELETE FROM account_snapshot
 WHERE account_id = ?
@@ -377,7 +387,7 @@ func (q *Queries) GetGrowthModelsByAccount(ctx context.Context, accountID string
 }
 
 const getInvestmentRound = `-- name: GetInvestmentRound :one
-SELECT id, account_id, date, valuation, created_at, updated_at
+SELECT id, account_id, date, valuation, created_at, updated_at, pre_money_shares, investment
 FROM investment_round
 WHERE id = ?
 `
@@ -392,12 +402,14 @@ func (q *Queries) GetInvestmentRound(ctx context.Context, id string) (Investment
 		&i.Valuation,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PreMoneyShares,
+		&i.Investment,
 	)
 	return i, err
 }
 
 const getLatestInvestmentRound = `-- name: GetLatestInvestmentRound :one
-SELECT id, account_id, date, valuation, created_at, updated_at
+SELECT id, account_id, date, valuation, created_at, updated_at, pre_money_shares, investment
 FROM investment_round
 WHERE account_id = ?
   AND date <= ?
@@ -418,6 +430,29 @@ func (q *Queries) GetLatestInvestmentRound(ctx context.Context, arg GetLatestInv
 		&i.AccountID,
 		&i.Date,
 		&i.Valuation,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PreMoneyShares,
+		&i.Investment,
+	)
+	return i, err
+}
+
+const getShareChange = `-- name: GetShareChange :one
+SELECT id, account_id, date, delta_shares, total_price, created_at, updated_at
+FROM share_change
+WHERE id = ?
+`
+
+func (q *Queries) GetShareChange(ctx context.Context, id string) (ShareChange, error) {
+	row := q.db.QueryRowContext(ctx, getShareChange, id)
+	var i ShareChange
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Date,
+		&i.DeltaShares,
+		&i.TotalPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -568,7 +603,7 @@ func (q *Queries) GetSpecialDates(ctx context.Context) ([]SpecialDate, error) {
 }
 
 const getStartupShareAccount = `-- name: GetStartupShareAccount :one
-SELECT account_id, shares_owned, total_shares, purchase_price_per_share, tax_rate, valuation_discount_factor
+SELECT account_id, tax_rate, valuation_discount_factor
 FROM startup_share_account
 WHERE account_id = ?
 `
@@ -576,14 +611,7 @@ WHERE account_id = ?
 func (q *Queries) GetStartupShareAccount(ctx context.Context, accountID string) (StartupShareAccount, error) {
 	row := q.db.QueryRowContext(ctx, getStartupShareAccount, accountID)
 	var i StartupShareAccount
-	err := row.Scan(
-		&i.AccountID,
-		&i.SharesOwned,
-		&i.TotalShares,
-		&i.PurchasePricePerShare,
-		&i.TaxRate,
-		&i.ValuationDiscountFactor,
-	)
+	err := row.Scan(&i.AccountID, &i.TaxRate, &i.ValuationDiscountFactor)
 	return i, err
 }
 
@@ -823,7 +851,7 @@ func (q *Queries) ListActiveGrowthModels(ctx context.Context, param1 *int64) ([]
 }
 
 const listInvestmentRounds = `-- name: ListInvestmentRounds :many
-SELECT id, account_id, date, valuation, created_at, updated_at
+SELECT id, account_id, date, valuation, created_at, updated_at, pre_money_shares, investment
 FROM investment_round
 WHERE account_id = ?
 ORDER BY date DESC,
@@ -846,6 +874,8 @@ func (q *Queries) ListInvestmentRounds(ctx context.Context, accountID string) ([
 			&i.Valuation,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PreMoneyShares,
+			&i.Investment,
 		); err != nil {
 			return nil, err
 		}
@@ -882,6 +912,45 @@ func (q *Queries) ListLatestSnapshotPerAccount(ctx context.Context) ([]AccountSn
 	for rows.Next() {
 		var i AccountSnapshot
 		if err := rows.Scan(&i.AccountID, &i.Date, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShareChanges = `-- name: ListShareChanges :many
+SELECT id, account_id, date, delta_shares, total_price, created_at, updated_at
+FROM share_change
+WHERE account_id = ?
+ORDER BY date ASC,
+  id
+`
+
+func (q *Queries) ListShareChanges(ctx context.Context, accountID string) ([]ShareChange, error) {
+	rows, err := q.db.QueryContext(ctx, listShareChanges, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ShareChange
+	for rows.Next() {
+		var i ShareChange
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Date,
+			&i.DeltaShares,
+			&i.TotalPrice,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -988,9 +1057,8 @@ const listStartupShareSnapshotHistory = `-- name: ListStartupShareSnapshotHistor
 SELECT ir.account_id,
   ir.date,
   ir.valuation,
-  ssa.shares_owned,
-  ssa.total_shares,
-  ssa.purchase_price_per_share,
+  ir.pre_money_shares,
+  ir.investment,
   ssa.tax_rate,
   ssa.valuation_discount_factor,
   COALESCE(a.type_id, '') AS type_id
@@ -1006,15 +1074,15 @@ type ListStartupShareSnapshotHistoryRow struct {
 	AccountID               string
 	Date                    int64
 	Valuation               float64
-	SharesOwned             float64
-	TotalShares             float64
-	PurchasePricePerShare   float64
+	PreMoneyShares          float64
+	Investment              float64
 	TaxRate                 float64
 	ValuationDiscountFactor float64
 	TypeID                  string
 }
 
 // Returns investment rounds joined with startup share config and account type for balance history.
+// valuation = pre_money_valuation; post_money = valuation + investment; post_money_shares derived in app.
 func (q *Queries) ListStartupShareSnapshotHistory(ctx context.Context) ([]ListStartupShareSnapshotHistoryRow, error) {
 	rows, err := q.db.QueryContext(ctx, listStartupShareSnapshotHistory)
 	if err != nil {
@@ -1028,9 +1096,8 @@ func (q *Queries) ListStartupShareSnapshotHistory(ctx context.Context) ([]ListSt
 			&i.AccountID,
 			&i.Date,
 			&i.Valuation,
-			&i.SharesOwned,
-			&i.TotalShares,
-			&i.PurchasePricePerShare,
+			&i.PreMoneyShares,
+			&i.Investment,
 			&i.TaxRate,
 			&i.ValuationDiscountFactor,
 			&i.TypeID,
@@ -1260,23 +1327,29 @@ INSERT INTO investment_round (
     account_id,
     date,
     valuation,
+    pre_money_shares,
+    investment,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (account_id, date) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (account_id, date) DO
 UPDATE
 SET valuation = EXCLUDED.valuation,
+  pre_money_shares = EXCLUDED.pre_money_shares,
+  investment = EXCLUDED.investment,
   updated_at = EXCLUDED.updated_at
-RETURNING id, account_id, date, valuation, created_at, updated_at
+RETURNING id, account_id, date, valuation, created_at, updated_at, pre_money_shares, investment
 `
 
 type UpsertInvestmentRoundParams struct {
-	ID        string
-	AccountID string
-	Date      int64
-	Valuation float64
-	CreatedAt int64
-	UpdatedAt int64
+	ID             string
+	AccountID      string
+	Date           int64
+	Valuation      float64
+	PreMoneyShares float64
+	Investment     float64
+	CreatedAt      int64
+	UpdatedAt      int64
 }
 
 func (q *Queries) UpsertInvestmentRound(ctx context.Context, arg UpsertInvestmentRoundParams) (InvestmentRound, error) {
@@ -1285,6 +1358,8 @@ func (q *Queries) UpsertInvestmentRound(ctx context.Context, arg UpsertInvestmen
 		arg.AccountID,
 		arg.Date,
 		arg.Valuation,
+		arg.PreMoneyShares,
+		arg.Investment,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -1294,6 +1369,61 @@ func (q *Queries) UpsertInvestmentRound(ctx context.Context, arg UpsertInvestmen
 		&i.AccountID,
 		&i.Date,
 		&i.Valuation,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PreMoneyShares,
+		&i.Investment,
+	)
+	return i, err
+}
+
+const upsertShareChange = `-- name: UpsertShareChange :one
+INSERT INTO share_change (
+    id,
+    account_id,
+    date,
+    delta_shares,
+    total_price,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET account_id = EXCLUDED.account_id,
+  date = EXCLUDED.date,
+  delta_shares = EXCLUDED.delta_shares,
+  total_price = EXCLUDED.total_price,
+  updated_at = EXCLUDED.updated_at
+RETURNING id, account_id, date, delta_shares, total_price, created_at, updated_at
+`
+
+type UpsertShareChangeParams struct {
+	ID          string
+	AccountID   string
+	Date        int64
+	DeltaShares float64
+	TotalPrice  float64
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+func (q *Queries) UpsertShareChange(ctx context.Context, arg UpsertShareChangeParams) (ShareChange, error) {
+	row := q.db.QueryRowContext(ctx, upsertShareChange,
+		arg.ID,
+		arg.AccountID,
+		arg.Date,
+		arg.DeltaShares,
+		arg.TotalPrice,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i ShareChange
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Date,
+		&i.DeltaShares,
+		&i.TotalPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -1356,51 +1486,24 @@ func (q *Queries) UpsertSpecialDate(ctx context.Context, arg UpsertSpecialDatePa
 }
 
 const upsertStartupShareAccount = `-- name: UpsertStartupShareAccount :one
-INSERT INTO startup_share_account (
-    account_id,
-    shares_owned,
-    total_shares,
-    purchase_price_per_share,
-    tax_rate,
-    valuation_discount_factor
-  )
-VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (account_id) DO
+INSERT INTO startup_share_account (account_id, tax_rate, valuation_discount_factor)
+VALUES (?, ?, ?) ON CONFLICT (account_id) DO
 UPDATE
-SET shares_owned = EXCLUDED.shares_owned,
-  total_shares = EXCLUDED.total_shares,
-  purchase_price_per_share = EXCLUDED.purchase_price_per_share,
-  tax_rate = EXCLUDED.tax_rate,
+SET tax_rate = EXCLUDED.tax_rate,
   valuation_discount_factor = EXCLUDED.valuation_discount_factor
-RETURNING account_id, shares_owned, total_shares, purchase_price_per_share, tax_rate, valuation_discount_factor
+RETURNING account_id, tax_rate, valuation_discount_factor
 `
 
 type UpsertStartupShareAccountParams struct {
 	AccountID               string
-	SharesOwned             float64
-	TotalShares             float64
-	PurchasePricePerShare   float64
 	TaxRate                 float64
 	ValuationDiscountFactor float64
 }
 
 func (q *Queries) UpsertStartupShareAccount(ctx context.Context, arg UpsertStartupShareAccountParams) (StartupShareAccount, error) {
-	row := q.db.QueryRowContext(ctx, upsertStartupShareAccount,
-		arg.AccountID,
-		arg.SharesOwned,
-		arg.TotalShares,
-		arg.PurchasePricePerShare,
-		arg.TaxRate,
-		arg.ValuationDiscountFactor,
-	)
+	row := q.db.QueryRowContext(ctx, upsertStartupShareAccount, arg.AccountID, arg.TaxRate, arg.ValuationDiscountFactor)
 	var i StartupShareAccount
-	err := row.Scan(
-		&i.AccountID,
-		&i.SharesOwned,
-		&i.TotalShares,
-		&i.PurchasePricePerShare,
-		&i.TaxRate,
-		&i.ValuationDiscountFactor,
-	)
+	err := row.Scan(&i.AccountID, &i.TaxRate, &i.ValuationDiscountFactor)
 	return i, err
 }
 

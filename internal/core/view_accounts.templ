@@ -143,18 +143,6 @@ templ AccountForm(view *AccountEditView2) {
 							<div id="startup_share_fields" style={ view.GetStartupShareFieldsStyle() }>
 								<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
 									<div class="form-control">
-										<label class="label"><span class="label-text font-medium">Shares Owned</span></label>
-										<input type="number" step="any" class="input input-bordered w-full" placeholder="1000" name="shares_owned" value={ view.GetStartupShareSharesOwned() }/>
-									</div>
-									<div class="form-control">
-										<label class="label"><span class="label-text font-medium">Total Shares</span></label>
-										<input type="number" step="any" class="input input-bordered w-full" placeholder="10000" name="total_shares" value={ view.GetStartupShareTotalShares() }/>
-									</div>
-									<div class="form-control">
-										<label class="label"><span class="label-text font-medium">Purchase Price per Share</span></label>
-										<input type="number" step="any" class="input input-bordered w-full" placeholder="0.10" name="purchase_price_per_share" value={ view.GetStartupSharePurchasePrice() }/>
-									</div>
-									<div class="form-control">
 										<label class="label"><span class="label-text font-medium">Tax Rate (%)</span></label>
 										<input type="number" step="any" class="input input-bordered w-full" placeholder="15" name="tax_rate" value={ view.GetStartupShareTaxRate() }/>
 									</div>
@@ -163,6 +151,14 @@ templ AccountForm(view *AccountEditView2) {
 										<input type="number" step="any" class="input input-bordered w-full" placeholder="50" name="valuation_discount_factor" value={ view.GetStartupShareDiscountFactor() }/>
 									</div>
 								</div>
+								if view.DerivedStartupShareSummary != nil {
+									<div class="mt-3 p-3 rounded-lg bg-base-200/50 text-sm">
+										<span class="font-medium text-base-content/70">Derived (read-only):</span>
+										<span> Shares owned: { view.GetStartupShareSharesOwned() }</span>
+										<span> · Total shares: { view.GetStartupShareTotalShares() }</span>
+										<span> · Avg purchase price/share: { view.GetStartupSharePurchasePrice() }</span>
+									</div>
+								}
 							</div>
 							<script>
 								function toggleStartupShareFields() {
@@ -209,6 +205,21 @@ templ AccountForm(view *AccountEditView2) {
 								</div>
 							</div>
 						</div>
+						<!-- Share Changes Card -->
+						for _, sc := range view.ShareChanges {
+							<form id={ "delete-share-change-form-" + sc.ID } action={ "/share-changes/" + sc.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+						}
+						<div class="card bg-base-100 shadow-sm border border-base-300">
+							<div class="card-body p-5">
+								<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Share Changes (purchases / sales)</h3>
+								<div class="space-y-3">
+									for _, sc := range view.ShareChanges {
+										@ShareChangeForm(view.Account.ID, sc)
+									}
+									@ShareChangeForm(view.Account.ID, ShareChange{})
+								</div>
+							</div>
+						</div>
 						<!-- Options Card -->
 						for _, option := range view.Options {
 							<form id={ "delete-option-form-" + option.ID } action={ "/startup-share-options/" + option.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
@@ -248,11 +259,52 @@ templ InvestmentRoundForm(accountID string, round InvestmentRound) {
 						<input type="text" class="input input-sm w-full" placeholder="Date" name="date" value={ round.GetDateString() }/>
 					</div>
 					<div class="form-control flex-1">
-						<label class="label label-text text-xs pb-1">Valuation</label>
+						<label class="label label-text text-xs pb-1">Pre-Money Valuation</label>
 						<input type="number" step="any" class="input input-sm w-full" placeholder="Valuation" name="valuation" value={ round.GetValuationString() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Pre-Money Shares</label>
+						<input type="number" step="any" class="input input-sm w-full" placeholder="Shares" name="pre_money_shares" value={ round.GetPreMoneySharesString() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Investment</label>
+						<input type="number" step="any" class="input input-sm w-full" placeholder="0" name="investment" value={ round.GetInvestmentString() }/>
 					</div>
 					<div class="flex items-end">
 						@SaveButton(round.ID != "")
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
+templ ShareChangeForm(accountID string, sc ShareChange) {
+	<form method="post" action={ "/share-changes/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") }>
+		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
+			if sc.ID != "" {
+				<button type="submit" form={ "delete-share-change-form-" + sc.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+					@IconX("w-3 h-3")
+				</button>
+			}
+			<input type="hidden" name="id" value={ sc.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
+			<div class="flex flex-col gap-2">
+				<div class="flex flex-row gap-2">
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Date</label>
+						<input type="text" class="input input-sm w-full" placeholder="Date" name="date" value={ sc.GetDateString() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Shares (+/-)</label>
+						<input type="number" step="any" class="input input-sm w-full" placeholder="e.g. 100 or -50" name="delta_shares" value={ sc.GetDeltaSharesString() }/>
+					</div>
+					<div class="form-control flex-1">
+						<label class="label label-text text-xs pb-1">Total Price</label>
+						<input type="number" step="any" class="input input-sm w-full" placeholder="Total paid or received" name="total_price" value={ sc.GetTotalPriceString() }/>
+					</div>
+					<div class="flex items-end">
+						@SaveButton(sc.ID != "")
 					</div>
 				</div>
 			</div>

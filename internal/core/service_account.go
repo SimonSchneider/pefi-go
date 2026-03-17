@@ -230,7 +230,7 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 			continue
 		}
 		startupShareAccountsMap[acc.ID] = ssa
-		// If there's no DB snapshot, compute balance from latest investment round
+		// If there's no DB snapshot, compute balance from latest investment round and share changes
 		if _, hasSnapshot := snapshotsMap[acc.ID]; !hasSnapshot {
 			round, err := GetLatestInvestmentRound(ctx, db, acc.ID, today)
 			if err != nil {
@@ -239,13 +239,19 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 				}
 				return nil, fmt.Errorf("failed to get latest investment round for account %s: %w", acc.ID, err)
 			}
+			postMoneyValuation, postMoneyShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
+			changes, err := ListShareChanges(ctx, db, acc.ID)
+			if err != nil {
+				return nil, fmt.Errorf("listing share changes for account %s: %w", acc.ID, err)
+			}
+			sharesOwned, avgPurchasePrice := DeriveShareState(changes, today)
 			balance := CalculateStartupShareBalance(
 				ucfg,
-				uncertain.NewFixed(round.Valuation),
-				ssa.SharesOwned,
-				ssa.PurchasePricePerShare,
+				uncertain.NewFixed(postMoneyValuation),
+				sharesOwned,
+				avgPurchasePrice,
 				ssa.TaxRate,
-				ssa.TotalShares,
+				postMoneyShares,
 				ssa.ValuationDiscountFactor,
 			)
 			encoded, err := balance.Encode()
