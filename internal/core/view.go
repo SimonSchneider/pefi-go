@@ -230,49 +230,60 @@ func KeyBy[T any](items []T, key func(T) string) map[string]T {
 	return m
 }
 
-type AccountEditView2 struct {
-	Account             Account
-	Accounts            []Account
-	GrowthModels        []GrowthModel
-	AccountTypes        AccountTypesWithFilter
-	Categories          []TransferTemplateCategory
-	StartupShareAccount *StartupShareAccount
-	InvestmentRounds    []InvestmentRound
-	Options             []StartupShareOption
+// DerivedStartupShareSummary is read-only summary derived from share changes and latest round.
+type DerivedStartupShareSummary struct {
+	SharesOwned           float64
+	TotalShares           float64
+	AvgPurchasePricePerShare float64
 }
 
-func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter, categories []TransferTemplateCategory, startupShareAccount *StartupShareAccount, investmentRounds []InvestmentRound, options []StartupShareOption) *AccountEditView2 {
+type AccountEditView2 struct {
+	Account                   Account
+	Accounts                  []Account
+	GrowthModels              []GrowthModel
+	AccountTypes              AccountTypesWithFilter
+	Categories                []TransferTemplateCategory
+	StartupShareAccount       *StartupShareAccount
+	InvestmentRounds          []InvestmentRound
+	ShareChanges              []ShareChange
+	Options                   []StartupShareOption
+	DerivedStartupShareSummary *DerivedStartupShareSummary
+}
+
+func NewAccountEditView2(account Account, accounts []Account, growthModels []GrowthModel, accountTypes []AccountTypeWithFilter, categories []TransferTemplateCategory, startupShareAccount *StartupShareAccount, investmentRounds []InvestmentRound, shareChanges []ShareChange, options []StartupShareOption, derivedSummary *DerivedStartupShareSummary) *AccountEditView2 {
 	return &AccountEditView2{
-		Account:             account,
-		Accounts:            accounts,
-		GrowthModels:        growthModels,
-		AccountTypes:        accountTypes,
-		Categories:          categories,
-		StartupShareAccount: startupShareAccount,
-		InvestmentRounds:    investmentRounds,
-		Options:             options,
+		Account:                   account,
+		Accounts:                  accounts,
+		GrowthModels:              growthModels,
+		AccountTypes:              accountTypes,
+		Categories:                categories,
+		StartupShareAccount:       startupShareAccount,
+		InvestmentRounds:          investmentRounds,
+		ShareChanges:              shareChanges,
+		Options:                   options,
+		DerivedStartupShareSummary: derivedSummary,
 	}
 }
 
 func (v *AccountEditView2) GetStartupShareSharesOwned() string {
-	if v.StartupShareAccount == nil {
+	if v.DerivedStartupShareSummary == nil {
 		return "0"
 	}
-	return fmt.Sprintf("%.2f", v.StartupShareAccount.SharesOwned)
+	return fmt.Sprintf("%.2f", v.DerivedStartupShareSummary.SharesOwned)
 }
 
 func (v *AccountEditView2) GetStartupShareTotalShares() string {
-	if v.StartupShareAccount == nil {
+	if v.DerivedStartupShareSummary == nil {
 		return "0"
 	}
-	return fmt.Sprintf("%.2f", v.StartupShareAccount.TotalShares)
+	return fmt.Sprintf("%.2f", v.DerivedStartupShareSummary.TotalShares)
 }
 
 func (v *AccountEditView2) GetStartupSharePurchasePrice() string {
-	if v.StartupShareAccount == nil {
+	if v.DerivedStartupShareSummary == nil {
 		return "0"
 	}
-	return fmt.Sprintf("%.10f", v.StartupShareAccount.PurchasePricePerShare)
+	return fmt.Sprintf("%.10f", v.DerivedStartupShareSummary.AvgPurchasePricePerShare)
 }
 
 func (v *AccountEditView2) GetStartupShareTaxRate() string {
@@ -312,6 +323,41 @@ func (ir InvestmentRound) GetValuationString() string {
 		return ""
 	}
 	return fmt.Sprintf("%.2f", ir.Valuation)
+}
+
+func (ir InvestmentRound) GetPreMoneySharesString() string {
+	if ir.ID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", ir.PreMoneyShares)
+}
+
+func (ir InvestmentRound) GetInvestmentString() string {
+	if ir.ID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", ir.Investment)
+}
+
+func (sc ShareChange) GetDateString() string {
+	if sc.ID == "" {
+		return ""
+	}
+	return sc.Date.String()
+}
+
+func (sc ShareChange) GetDeltaSharesString() string {
+	if sc.ID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", sc.DeltaShares)
+}
+
+func (sc ShareChange) GetTotalPriceString() string {
+	if sc.ID == "" {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", sc.TotalPrice)
 }
 
 func (opt StartupShareOption) GetSharesString() string {

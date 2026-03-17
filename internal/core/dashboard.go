@@ -154,10 +154,11 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 		return SnapshotHistoryChartData{}, fmt.Errorf("listing startup share snapshot history: %w", err)
 	}
 	if len(startupRows) > 0 {
-		// Group investment rounds by account, sorted by date ascending (query order).
+		// Group investment rounds by account and load share changes per account.
 		type startupAccount struct {
-			TypeID string
-			Rounds []pdb.ListStartupShareSnapshotHistoryRow
+			TypeID      string
+			Rounds      []pdb.ListStartupShareSnapshotHistoryRow
+			ShareChanges []ShareChange
 		}
 		startupAccounts := make(map[string]*startupAccount)
 		for _, r := range startupRows {
@@ -171,10 +172,16 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 			}
 			sa.Rounds = append(sa.Rounds, r)
 		}
+		for accountID, sa := range startupAccounts {
+			changes, err := ListShareChanges(ctx, db, accountID)
+			if err != nil {
+				return SnapshotHistoryChartData{}, fmt.Errorf("listing share changes for %s: %w", accountID, err)
+			}
+			sa.ShareChanges = changes
+		}
 		ucfg := uncertain.NewConfig(0, 1)
 		for _, sa := range startupAccounts {
 			for _, chartDate := range dates {
-				// Find latest round on or before this chart date.
 				var best *pdb.ListStartupShareSnapshotHistoryRow
 				for i := range sa.Rounds {
 					if sa.Rounds[i].Date <= chartDate {
@@ -184,13 +191,15 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 				if best == nil {
 					continue
 				}
+				postMoneyValuation, postMoneyShares := PostMoneyValuationAndShares(best.Valuation, best.PreMoneyShares, best.Investment)
+				sharesOwned, avgPurchasePrice := DeriveShareState(sa.ShareChanges, date.Date(chartDate))
 				balance := CalculateStartupShareBalance(
 					ucfg,
-					uncertain.NewFixed(best.Valuation),
-					best.SharesOwned,
-					best.PurchasePricePerShare,
+					uncertain.NewFixed(postMoneyValuation),
+					sharesOwned,
+					avgPurchasePrice,
 					best.TaxRate,
-					best.TotalShares,
+					postMoneyShares,
 					best.ValuationDiscountFactor,
 				)
 				sumByDateAndType[typeKey(chartDate, sa.TypeID)] += balance.Mean()

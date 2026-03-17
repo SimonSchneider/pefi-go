@@ -169,12 +169,12 @@ ORDER BY s.date,
   s.account_id;
 -- name: ListStartupShareSnapshotHistory :many
 -- Returns investment rounds joined with startup share config and account type for balance history.
+-- valuation = pre_money_valuation; post_money = valuation + investment; post_money_shares derived in app.
 SELECT ir.account_id,
   ir.date,
   ir.valuation,
-  ssa.shares_owned,
-  ssa.total_shares,
-  ssa.purchase_price_per_share,
+  ir.pre_money_shares,
+  ir.investment,
   ssa.tax_rate,
   ssa.valuation_discount_factor,
   COALESCE(a.type_id, '') AS type_id
@@ -263,20 +263,10 @@ ORDER BY start_date,
   name,
   id;
 -- name: UpsertStartupShareAccount :one
-INSERT INTO startup_share_account (
-    account_id,
-    shares_owned,
-    total_shares,
-    purchase_price_per_share,
-    tax_rate,
-    valuation_discount_factor
-  )
-VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (account_id) DO
+INSERT INTO startup_share_account (account_id, tax_rate, valuation_discount_factor)
+VALUES (?, ?, ?) ON CONFLICT (account_id) DO
 UPDATE
-SET shares_owned = EXCLUDED.shares_owned,
-  total_shares = EXCLUDED.total_shares,
-  purchase_price_per_share = EXCLUDED.purchase_price_per_share,
-  tax_rate = EXCLUDED.tax_rate,
+SET tax_rate = EXCLUDED.tax_rate,
   valuation_discount_factor = EXCLUDED.valuation_discount_factor
 RETURNING *;
 -- name: GetStartupShareAccount :one
@@ -286,18 +276,53 @@ WHERE account_id = ?;
 -- name: DeleteStartupShareAccount :exec
 DELETE FROM startup_share_account
 WHERE account_id = ?;
+-- name: UpsertShareChange :one
+INSERT INTO share_change (
+    id,
+    account_id,
+    date,
+    delta_shares,
+    total_price,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET account_id = EXCLUDED.account_id,
+  date = EXCLUDED.date,
+  delta_shares = EXCLUDED.delta_shares,
+  total_price = EXCLUDED.total_price,
+  updated_at = EXCLUDED.updated_at
+RETURNING *;
+-- name: GetShareChange :one
+SELECT *
+FROM share_change
+WHERE id = ?;
+-- name: ListShareChanges :many
+SELECT *
+FROM share_change
+WHERE account_id = ?
+ORDER BY date ASC,
+  id;
+-- name: DeleteShareChange :exec
+DELETE FROM share_change
+WHERE id = ?;
 -- name: UpsertInvestmentRound :one
 INSERT INTO investment_round (
     id,
     account_id,
     date,
     valuation,
+    pre_money_shares,
+    investment,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (account_id, date) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (account_id, date) DO
 UPDATE
 SET valuation = EXCLUDED.valuation,
+  pre_money_shares = EXCLUDED.pre_money_shares,
+  investment = EXCLUDED.investment,
   updated_at = EXCLUDED.updated_at
 RETURNING *;
 -- name: GetInvestmentRound :one

@@ -16,20 +16,29 @@ import (
 
 type StartupShareAccount struct {
 	AccountID               string
-	SharesOwned             float64
-	TotalShares             float64
-	PurchasePricePerShare   float64
 	TaxRate                 float64
 	ValuationDiscountFactor float64
 }
 
 type InvestmentRound struct {
-	ID        string
-	AccountID string
-	Date      date.Date
-	Valuation float64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID              string
+	AccountID       string
+	Date            date.Date
+	Valuation       float64 // pre-money valuation
+	PreMoneyShares  float64
+	Investment      float64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type ShareChange struct {
+	ID          string
+	AccountID   string
+	Date        date.Date
+	DeltaShares float64
+	TotalPrice  float64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type StartupShareOption struct {
@@ -46,24 +55,12 @@ type StartupShareOption struct {
 
 type StartupShareAccountInput struct {
 	AccountID               string
-	SharesOwned             float64
-	TotalShares             float64
-	PurchasePricePerShare   float64
 	TaxRate                 float64
 	ValuationDiscountFactor float64
 }
 
 func (s *StartupShareAccountInput) FromForm(r *http.Request) error {
 	s.AccountID = r.FormValue("account_id")
-	if err := shttp.Parse(&s.SharesOwned, shttp.ParseFloat, r.FormValue("shares_owned"), 0.0); err != nil {
-		return fmt.Errorf("parsing shares owned: %w", err)
-	}
-	if err := shttp.Parse(&s.TotalShares, shttp.ParseFloat, r.FormValue("total_shares"), 0.0); err != nil {
-		return fmt.Errorf("parsing total shares: %w", err)
-	}
-	if err := shttp.Parse(&s.PurchasePricePerShare, shttp.ParseFloat, r.FormValue("purchase_price_per_share"), 0.0); err != nil {
-		return fmt.Errorf("parsing purchase price per share: %w", err)
-	}
 	if err := shttp.Parse(&s.TaxRate, shttp.ParseFloat, r.FormValue("tax_rate"), 0.0); err != nil {
 		return fmt.Errorf("parsing tax rate: %w", err)
 	}
@@ -74,10 +71,12 @@ func (s *StartupShareAccountInput) FromForm(r *http.Request) error {
 }
 
 type InvestmentRoundInput struct {
-	ID        string
-	AccountID string
-	Date      date.Date
-	Valuation float64
+	ID             string
+	AccountID      string
+	Date           date.Date
+	Valuation      float64
+	PreMoneyShares float64
+	Investment     float64
 }
 
 func (i *InvestmentRoundInput) FromForm(r *http.Request) error {
@@ -88,6 +87,35 @@ func (i *InvestmentRoundInput) FromForm(r *http.Request) error {
 	}
 	if err := shttp.Parse(&i.Valuation, shttp.ParseFloat, r.FormValue("valuation"), 0.0); err != nil {
 		return fmt.Errorf("parsing valuation: %w", err)
+	}
+	if err := shttp.Parse(&i.PreMoneyShares, shttp.ParseFloat, r.FormValue("pre_money_shares"), 0.0); err != nil {
+		return fmt.Errorf("parsing pre_money_shares: %w", err)
+	}
+	if err := shttp.Parse(&i.Investment, shttp.ParseFloat, r.FormValue("investment"), 0.0); err != nil {
+		return fmt.Errorf("parsing investment: %w", err)
+	}
+	return nil
+}
+
+type ShareChangeInput struct {
+	ID          string
+	AccountID   string
+	Date        date.Date
+	DeltaShares float64
+	TotalPrice  float64
+}
+
+func (s *ShareChangeInput) FromForm(r *http.Request) error {
+	s.ID = r.FormValue("id")
+	s.AccountID = r.FormValue("account_id")
+	if err := shttp.Parse(&s.Date, date.ParseDate, r.FormValue("date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing date: %w", err)
+	}
+	if err := shttp.Parse(&s.DeltaShares, shttp.ParseFloat, r.FormValue("delta_shares"), 0.0); err != nil {
+		return fmt.Errorf("parsing delta_shares: %w", err)
+	}
+	if err := shttp.Parse(&s.TotalPrice, shttp.ParseFloat, r.FormValue("total_price"), 0.0); err != nil {
+		return fmt.Errorf("parsing total_price: %w", err)
 	}
 	return nil
 }
@@ -124,9 +152,6 @@ func (o *StartupShareOptionInput) FromForm(r *http.Request) error {
 func startupShareAccountFromDB(s pdb.StartupShareAccount) StartupShareAccount {
 	return StartupShareAccount{
 		AccountID:               s.AccountID,
-		SharesOwned:             s.SharesOwned,
-		TotalShares:             s.TotalShares,
-		PurchasePricePerShare:   s.PurchasePricePerShare,
 		TaxRate:                 s.TaxRate,
 		ValuationDiscountFactor: s.ValuationDiscountFactor,
 	}
@@ -134,12 +159,26 @@ func startupShareAccountFromDB(s pdb.StartupShareAccount) StartupShareAccount {
 
 func investmentRoundFromDB(i pdb.InvestmentRound) InvestmentRound {
 	return InvestmentRound{
-		ID:        i.ID,
-		AccountID: i.AccountID,
-		Date:      date.Date(i.Date),
-		Valuation: i.Valuation,
-		CreatedAt: time.UnixMilli(i.CreatedAt),
-		UpdatedAt: time.UnixMilli(i.UpdatedAt),
+		ID:             i.ID,
+		AccountID:      i.AccountID,
+		Date:           date.Date(i.Date),
+		Valuation:      i.Valuation,
+		PreMoneyShares: i.PreMoneyShares,
+		Investment:     i.Investment,
+		CreatedAt:      time.UnixMilli(i.CreatedAt),
+		UpdatedAt:      time.UnixMilli(i.UpdatedAt),
+	}
+}
+
+func shareChangeFromDB(s pdb.ShareChange) ShareChange {
+	return ShareChange{
+		ID:          s.ID,
+		AccountID:   s.AccountID,
+		Date:        date.Date(s.Date),
+		DeltaShares: s.DeltaShares,
+		TotalPrice:  s.TotalPrice,
+		CreatedAt:   time.UnixMilli(s.CreatedAt),
+		UpdatedAt:   time.UnixMilli(s.UpdatedAt),
 	}
 }
 
@@ -160,9 +199,6 @@ func startupShareOptionFromDB(o pdb.StartupShareOption) StartupShareOption {
 func UpsertStartupShareAccount(ctx context.Context, db *sql.DB, inp StartupShareAccountInput) (StartupShareAccount, error) {
 	ssa, err := pdb.New(db).UpsertStartupShareAccount(ctx, pdb.UpsertStartupShareAccountParams{
 		AccountID:               inp.AccountID,
-		SharesOwned:             inp.SharesOwned,
-		TotalShares:             inp.TotalShares,
-		PurchasePricePerShare:   inp.PurchasePricePerShare,
 		TaxRate:                 inp.TaxRate,
 		ValuationDiscountFactor: inp.ValuationDiscountFactor,
 	})
@@ -192,12 +228,14 @@ func UpsertInvestmentRound(ctx context.Context, db *sql.DB, inp InvestmentRoundI
 		inp.ID = sid.MustNewString(32)
 	}
 	ir, err := pdb.New(db).UpsertInvestmentRound(ctx, pdb.UpsertInvestmentRoundParams{
-		ID:        inp.ID,
-		AccountID: inp.AccountID,
-		Date:      int64(inp.Date),
-		Valuation: inp.Valuation,
-		CreatedAt: time.Now().UnixMilli(),
-		UpdatedAt: time.Now().UnixMilli(),
+		ID:             inp.ID,
+		AccountID:      inp.AccountID,
+		Date:           int64(inp.Date),
+		Valuation:      inp.Valuation,
+		PreMoneyShares: inp.PreMoneyShares,
+		Investment:     inp.Investment,
+		CreatedAt:      time.Now().UnixMilli(),
+		UpdatedAt:      time.Now().UnixMilli(),
 	})
 	if err != nil {
 		return InvestmentRound{}, fmt.Errorf("failed to upsert investment round: %w", err)
@@ -244,6 +282,85 @@ func DeleteInvestmentRound(ctx context.Context, db *sql.DB, id string) error {
 		return fmt.Errorf("failed to delete investment round: %w", err)
 	}
 	return nil
+}
+
+func UpsertShareChange(ctx context.Context, db *sql.DB, inp ShareChangeInput) (ShareChange, error) {
+	if inp.ID == "" {
+		inp.ID = sid.MustNewString(32)
+	}
+	sc, err := pdb.New(db).UpsertShareChange(ctx, pdb.UpsertShareChangeParams{
+		ID:          inp.ID,
+		AccountID:   inp.AccountID,
+		Date:        int64(inp.Date),
+		DeltaShares: inp.DeltaShares,
+		TotalPrice:  inp.TotalPrice,
+		CreatedAt:   time.Now().UnixMilli(),
+		UpdatedAt:   time.Now().UnixMilli(),
+	})
+	if err != nil {
+		return ShareChange{}, fmt.Errorf("failed to upsert share change: %w", err)
+	}
+	return shareChangeFromDB(sc), nil
+}
+
+func GetShareChange(ctx context.Context, db *sql.DB, id string) (ShareChange, error) {
+	sc, err := pdb.New(db).GetShareChange(ctx, id)
+	if err != nil {
+		return ShareChange{}, fmt.Errorf("failed to get share change: %w", err)
+	}
+	return shareChangeFromDB(sc), nil
+}
+
+func ListShareChanges(ctx context.Context, db *sql.DB, accountID string) ([]ShareChange, error) {
+	changes, err := pdb.New(db).ListShareChanges(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list share changes: %w", err)
+	}
+	result := make([]ShareChange, len(changes))
+	for i, c := range changes {
+		result[i] = shareChangeFromDB(c)
+	}
+	return result, nil
+}
+
+func DeleteShareChange(ctx context.Context, db *sql.DB, id string) error {
+	if err := pdb.New(db).DeleteShareChange(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete share change: %w", err)
+	}
+	return nil
+}
+
+// DeriveShareState returns shares owned and weighted-average purchase price as of the given date.
+func DeriveShareState(changes []ShareChange, asOf date.Date) (sharesOwned float64, avgPurchasePricePerShare float64) {
+	var totalCostBasis float64
+	var costBasisShares float64
+	for _, c := range changes {
+		if c.Date > asOf {
+			continue
+		}
+		sharesOwned += c.DeltaShares
+		if c.DeltaShares > 0 {
+			totalCostBasis += c.TotalPrice
+			costBasisShares += c.DeltaShares
+		}
+	}
+	if costBasisShares <= 0 {
+		return sharesOwned, 0
+	}
+	avgPurchasePricePerShare = totalCostBasis / costBasisShares
+	return sharesOwned, avgPurchasePricePerShare
+}
+
+// PostMoneyValuationAndShares returns post-money valuation and total shares after the round.
+func PostMoneyValuationAndShares(preMoneyValuation, preMoneyShares, investment float64) (postMoneyValuation, postMoneyShares float64) {
+	postMoneyValuation = preMoneyValuation + investment
+	if preMoneyShares <= 0 {
+		return postMoneyValuation, preMoneyShares
+	}
+	pricePerShare := preMoneyValuation / preMoneyShares
+	newShares := investment / pricePerShare
+	postMoneyShares = preMoneyShares + newShares
+	return postMoneyValuation, postMoneyShares
 }
 
 func UpsertStartupShareOption(ctx context.Context, db *sql.DB, inp StartupShareOptionInput) (StartupShareOption, error) {
