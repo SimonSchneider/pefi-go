@@ -237,6 +237,26 @@ type TransferTemplateCategoriesView struct {
 	Categories []TransferTemplateCategory
 }
 
+type CategoriesPageView struct {
+	AccountTypes []AccountType
+	Categories   []TransferTemplateCategory
+}
+
+func (s *Service) GetCategoriesPageData(ctx context.Context) (*CategoriesPageView, error) {
+	accountTypes, err := s.ListAccountTypes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing account types: %w", err)
+	}
+	categories, err := s.ListCategories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing categories: %w", err)
+	}
+	return &CategoriesPageView{
+		AccountTypes: accountTypes,
+		Categories:   categories,
+	}, nil
+}
+
 type TransferTemplateCategoryEditView struct {
 	Category TransferTemplateCategory
 }

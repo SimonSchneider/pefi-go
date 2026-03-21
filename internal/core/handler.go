@@ -32,7 +32,8 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("GET /transfer-templates/new", h.transferTemplatesNewPage())
 	mux.Handle("GET /transfer-templates/{id}/edit", h.transferTemplatesEditPage())
 
-	mux.Handle("GET /account-types", h.accountTypesPage())
+	mux.Handle("GET /categories", h.categoriesPage())
+
 	mux.Handle("GET /account-types/new", h.accountTypeNewPage())
 	mux.Handle("GET /account-types/{id}/edit", h.accountTypeEditPage())
 	mux.Handle("POST /account-types/{$}", h.accountTypeUpsert())
@@ -76,7 +77,6 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /transfers/{id}/duplicate", h.transferTemplateDuplicate())
 	mux.Handle("POST /transfers/{id}/delete", h.transferTemplateDelete())
 
-	mux.Handle("GET /transfer-template-categories", h.transferTemplateCategoriesPage())
 	mux.Handle("GET /transfer-template-categories/new", h.transferTemplateCategoryNewPage())
 	mux.Handle("GET /transfer-template-categories/{id}/edit", h.transferTemplateCategoryEditPage())
 	mux.Handle("POST /transfer-template-categories/{$}", h.transferTemplateCategoryUpsert())
@@ -384,17 +384,19 @@ func (h *Handler) transferTemplateDelete() http.Handler {
 	})
 }
 
-// ---- Transfer Template Categories ----
+// ---- Categories (combined) ----
 
-func (h *Handler) transferTemplateCategoriesPage() http.Handler {
+func (h *Handler) categoriesPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		categories, err := h.svc.ListCategories(ctx)
+		view, err := h.svc.GetCategoriesPageData(ctx)
 		if err != nil {
-			return fmt.Errorf("listing categories: %w", err)
+			return fmt.Errorf("getting categories page data: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Transfer Template Categories", PageTransferTemplateCategories(&TransferTemplateCategoriesView{Categories: categories})))
+		return NewView(ctx, w, r).Render(Page("Categories", PageCategories(view)))
 	})
 }
+
+// ---- Transfer Template Categories ----
 
 func (h *Handler) transferTemplateCategoryNewPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -420,11 +422,10 @@ func (h *Handler) transferTemplateCategoryUpsert() http.Handler {
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		c, err := h.svc.UpsertCategory(ctx, inp.TransferTemplateCategoryInput)
-		if err != nil {
+		if _, err := h.svc.UpsertCategory(ctx, inp.TransferTemplateCategoryInput); err != nil {
 			return fmt.Errorf("upserting category: %w", err)
 		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfer-template-categories/%s", c.ID))
+		shttp.RedirectToNext(w, r, "/categories")
 		return nil
 	})
 }
@@ -434,22 +435,12 @@ func (h *Handler) transferTemplateCategoryDelete() http.Handler {
 		if err := h.svc.DeleteCategory(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting category: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/transfer-template-categories")
+		shttp.RedirectToNext(w, r, "/categories")
 		return nil
 	})
 }
 
 // ---- Account Types ----
-
-func (h *Handler) accountTypesPage() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accountTypes, err := h.svc.ListAccountTypes(ctx)
-		if err != nil {
-			return fmt.Errorf("listing account types: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Account Types", PageAccountTypes(AccountTypesView(accountTypes))))
-	})
-}
 
 func (h *Handler) accountTypeNewPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -477,7 +468,7 @@ func (h *Handler) accountTypeUpsert() http.Handler {
 		if err != nil {
 			return fmt.Errorf("upserting account type: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/account-types")
+		shttp.RedirectToNext(w, r, "/categories")
 		return nil
 	})
 }
@@ -487,7 +478,7 @@ func (h *Handler) accountTypeDelete() http.Handler {
 		if err := h.svc.DeleteAccountType(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting account type: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/account-types")
+		shttp.RedirectToNext(w, r, "/categories")
 		return nil
 	})
 }

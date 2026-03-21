@@ -416,6 +416,57 @@ func TestGetBudgetData(t *testing.T) {
 	}
 }
 
+// ---- Categories Page Data ----
+
+func TestGetCategoriesPageData(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+
+	at, err := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
+	if err != nil {
+		t.Fatalf("create account type: %v", err)
+	}
+
+	color := "#abcdef"
+	cat, err := svc.UpsertCategory(ctx, service.TransferTemplateCategoryInput{Name: "Housing", Color: &color})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+
+	view, err := svc.GetCategoriesPageData(ctx)
+	if err != nil {
+		t.Fatalf("get categories page data: %v", err)
+	}
+	if len(view.AccountTypes) != 1 {
+		t.Fatalf("expected 1 account type, got %d", len(view.AccountTypes))
+	}
+	if view.AccountTypes[0].Name != at.Name {
+		t.Fatalf("expected account type %s, got %s", at.Name, view.AccountTypes[0].Name)
+	}
+	if len(view.Categories) != 1 {
+		t.Fatalf("expected 1 category, got %d", len(view.Categories))
+	}
+	if view.Categories[0].Name != cat.Name {
+		t.Fatalf("expected category %s, got %s", cat.Name, view.Categories[0].Name)
+	}
+}
+
+func TestGetCategoriesPageDataEmpty(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+
+	view, err := svc.GetCategoriesPageData(ctx)
+	if err != nil {
+		t.Fatalf("get categories page data: %v", err)
+	}
+	if len(view.AccountTypes) != 0 {
+		t.Fatalf("expected 0 account types, got %d", len(view.AccountTypes))
+	}
+	if len(view.Categories) != 0 {
+		t.Fatalf("expected 0 categories, got %d", len(view.Categories))
+	}
+}
+
 // ---- Transfer Simplification ----
 
 func TestSimplifyTransfers(t *testing.T) {
