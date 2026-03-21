@@ -18,7 +18,7 @@ type Account struct {
 	ID                    string
 	Name                  string
 	BalanceUpperLimit     *float64
-	CashFlowFrequency    string
+	CashFlowFrequency     string
 	CashFlowDestinationID string
 	TypeID                string
 	BudgetCategoryID      *string
@@ -37,7 +37,7 @@ type AccountInput struct {
 	ID                    string
 	Name                  string
 	BalanceUpperLimit     *float64
-	CashFlowFrequency    string
+	CashFlowFrequency     string
 	CashFlowDestinationID string
 	TypeID                string
 	BudgetCategoryID      *string
@@ -48,7 +48,7 @@ func accountFromDB(a pdb.Account) Account {
 		ID:                    a.ID,
 		Name:                  a.Name,
 		BalanceUpperLimit:     a.BalanceUpperLimit,
-		CashFlowFrequency:    ui.OrDefault(a.CashFlowFrequency),
+		CashFlowFrequency:     ui.OrDefault(a.CashFlowFrequency),
 		CashFlowDestinationID: ui.OrDefault(a.CashFlowDestinationID),
 		TypeID:                ui.OrDefault(a.TypeID),
 		BudgetCategoryID:      a.BudgetCategoryID,
@@ -76,7 +76,7 @@ func (s *Service) UpsertAccount(ctx context.Context, inp AccountInput) (Account,
 			ID:                    inp.ID,
 			Name:                  inp.Name,
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
-			CashFlowFrequency:    ui.WithDefaultNull(inp.CashFlowFrequency),
+			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			BudgetCategoryID:      inp.BudgetCategoryID,
@@ -87,7 +87,7 @@ func (s *Service) UpsertAccount(ctx context.Context, inp AccountInput) (Account,
 			ID:                    sid.MustNewString(15),
 			Name:                  inp.Name,
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
-			CashFlowFrequency:    ui.WithDefaultNull(inp.CashFlowFrequency),
+			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			BudgetCategoryID:      inp.BudgetCategoryID,
