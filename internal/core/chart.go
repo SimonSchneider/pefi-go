@@ -211,159 +211,10 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 			}
 			slices.Reverse(rounds)
 
-			// Latest round on or before startDate gives post-money valuation and total shares at startDate
-			var currentValuation, currentTotalShares uncertain.Value
-			currentValuation = uncertain.NewFixed(0.0)
-			currentTotalShares = uncertain.NewFixed(0.0)
-			for _, round := range rounds {
-				if round.Date <= startDate {
-					postVal, postShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
-					currentValuation = uncertain.NewFixed(postVal)
-					currentTotalShares = uncertain.NewFixed(postShares)
-					break
-				}
-			}
-			sharesOwnedAtStart, avgPurchaseAtStart := DeriveShareState(shareChanges, startDate)
+			ssResult := buildStartupShareForecastState(ucfg, rounds, shareChanges, opts, ssa, startDate)
 
-			investmentRounds := make(map[date.Date]finance.StartupGrowthInvestmentRound)
-			for _, round := range rounds {
-				investmentRounds[round.Date] = finance.StartupGrowthInvestmentRound{
-					PreMoneyValuation: uncertain.NewFixed(round.Valuation),
-					PreMoneyShares:    uncertain.NewFixed(round.PreMoneyShares),
-					Investment:        uncertain.NewFixed(round.Investment),
-				}
-			}
-
-			shareChangesMap := make(map[date.Date]finance.StartupGrowthShareChange)
-			for _, sc := range shareChanges {
-				if sc.Date >= startDate {
-					shareChangesMap[sc.Date] = finance.StartupGrowthShareChange{
-						DeltaShares: uncertain.NewFixed(sc.DeltaShares),
-						TotalPrice:  uncertain.NewFixed(sc.TotalPrice),
-					}
-				}
-			}
-
-			options := make(map[date.Date]finance.StartupGrowthOption)
-			for _, opt := range opts {
-				options[opt.EndDate] = finance.StartupGrowthOption{
-					StrikePricePerShare: uncertain.NewFixed(opt.StrikePricePerShare),
-					NumShares:           uncertain.NewFixed(opt.Shares),
-					SourceAccountID:     opt.SourceAccountID,
-				}
-			}
-
-			startupGrowthModel := &finance.StartupGrowth{
-				TimeFrameGrowth: finance.TimeFrameGrowth{
-					StartDate: 0,
-					EndDate:   nil,
-				},
-				TotalShares: currentTotalShares,
-				OwnedShares: uncertain.NewFixed(sharesOwnedAtStart),
-				Valuation:   currentValuation,
-
-				TaxRate:               uncertain.NewFixed(ssa.TaxRate),
-				DiscountFactor:        uncertain.NewFixed(ssa.ValuationDiscountFactor),
-				PurchasePricePerShare: uncertain.NewFixed(avgPurchaseAtStart),
-
-				InvestmentRounds: investmentRounds,
-				ShareChanges:     shareChangesMap,
-				Options:          options,
-			}
-			entity.GrowthModel = startupGrowthModel
-			// Historic snapshots at round dates where shares owned > 0 (skip rounds before first share change).
-			// Then ensure we have at least one historic point at the first share change date if rounds were all before first purchase.
-			// GetLatestSnapshot requires snapshots sorted by date.
-			for _, round := range rounds {
-				if round.Date >= startDate {
-					continue
-				}
-				postMoneyValuation, postMoneyShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
-				if postMoneyShares <= 0 {
-					continue
-				}
-				sharesOwned, avgPrice := DeriveShareState(shareChanges, round.Date)
-				if sharesOwned == 0 {
-					continue // avoid 0-value snapshot before first share change (would create sloped line from 0)
-				}
-				balance := CalculateStartupShareBalance(
-					ucfg,
-					uncertain.NewFixed(postMoneyValuation),
-					sharesOwned,
-					avgPrice,
-					ssa.TaxRate,
-					postMoneyShares,
-					ssa.ValuationDiscountFactor,
-				)
-				entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
-					Date:    round.Date,
-					Balance: balance,
-				})
-			}
-			// If no historic snapshots yet (e.g. all rounds before first share change), add one at the first share change date.
-			var firstShareChangeDate date.Date
-			for _, sc := range shareChanges {
-				if sc.Date < startDate {
-					if firstShareChangeDate == 0 || sc.Date < firstShareChangeDate {
-						firstShareChangeDate = sc.Date
-					}
-				}
-			}
-			if firstShareChangeDate != 0 {
-				hasSnapshotAtOrBeforeFirst := false
-				for _, s := range entity.Snapshots {
-					if s.Date <= firstShareChangeDate {
-						hasSnapshotAtOrBeforeFirst = true
-						break
-					}
-				}
-				if !hasSnapshotAtOrBeforeFirst {
-					var best *InvestmentRound
-					for i := range rounds {
-						if rounds[i].Date <= firstShareChangeDate {
-							best = &rounds[i]
-						}
-					}
-					if best != nil {
-						postMoneyValuation, postMoneyShares := PostMoneyValuationAndShares(best.Valuation, best.PreMoneyShares, best.Investment)
-						if postMoneyShares > 0 {
-							sharesOwned, avgPrice := DeriveShareState(shareChanges, firstShareChangeDate)
-							if sharesOwned != 0 {
-								balance := CalculateStartupShareBalance(
-									ucfg,
-									uncertain.NewFixed(postMoneyValuation),
-									sharesOwned,
-									avgPrice,
-									ssa.TaxRate,
-									postMoneyShares,
-									ssa.ValuationDiscountFactor,
-								)
-								entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
-									Date:    firstShareChangeDate,
-									Balance: balance,
-								})
-							}
-						}
-					}
-				}
-			}
-			// Add startDate (today) only if it's a round date or we have no snapshots yet.
-			isRoundDate := false
-			for _, round := range rounds {
-				if round.Date == startDate {
-					isRoundDate = true
-					break
-				}
-			}
-			if isRoundDate || len(entity.Snapshots) == 0 {
-				entity.Snapshots = append(entity.Snapshots, finance.BalanceSnapshot{
-					Date:    startDate,
-					Balance: startupGrowthModel.Balance(ucfg),
-				})
-			}
-			sort.Slice(entity.Snapshots, func(i, j int) bool {
-				return entity.Snapshots[i].Date < entity.Snapshots[j].Date
-			})
+			entity.GrowthModel = ssResult.GrowthModel
+			entity.Snapshots = ssResult.Snapshots
 		} else {
 			// Add regular snapshots for non-startup-share accounts
 			for _, snap := range snaps {
@@ -398,6 +249,145 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 		return fmt.Errorf("running prediction for SSE: %w", err)
 	}
 	return h.Close()
+}
+
+type startupShareForecastState struct {
+	GrowthModel *finance.StartupGrowth
+	Snapshots   []finance.BalanceSnapshot
+}
+
+// buildStartupShareForecastState builds the growth model and historic snapshots
+// for a startup share account. Rounds must be sorted ascending by date.
+func buildStartupShareForecastState(
+	ucfg *uncertain.Config,
+	rounds []InvestmentRound,
+	shareChanges []ShareChange,
+	opts []StartupShareOption,
+	ssa StartupShareAccount,
+	startDate date.Date,
+) startupShareForecastState {
+	currentValuation := uncertain.NewFixed(0.0)
+	currentTotalShares := uncertain.NewFixed(0.0)
+	for _, round := range rounds {
+		if round.Date <= startDate {
+			postVal, postShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
+			currentValuation = uncertain.NewFixed(postVal)
+			currentTotalShares = uncertain.NewFixed(postShares)
+		}
+	}
+	sharesOwnedAtStart, avgPurchaseAtStart := DeriveShareState(shareChanges, startDate)
+
+	investmentRounds := make(map[date.Date]finance.StartupGrowthInvestmentRound)
+	for _, round := range rounds {
+		investmentRounds[round.Date] = finance.StartupGrowthInvestmentRound{
+			PreMoneyValuation: uncertain.NewFixed(round.Valuation),
+			PreMoneyShares:    uncertain.NewFixed(round.PreMoneyShares),
+			Investment:        uncertain.NewFixed(round.Investment),
+		}
+	}
+
+	shareChangesMap := make(map[date.Date]finance.StartupGrowthShareChange)
+	for _, sc := range shareChanges {
+		if sc.Date >= startDate {
+			shareChangesMap[sc.Date] = finance.StartupGrowthShareChange{
+				DeltaShares: uncertain.NewFixed(sc.DeltaShares),
+				TotalPrice:  uncertain.NewFixed(sc.TotalPrice),
+			}
+		}
+	}
+
+	options := make(map[date.Date]finance.StartupGrowthOption)
+	for _, opt := range opts {
+		options[opt.EndDate] = finance.StartupGrowthOption{
+			StrikePricePerShare: uncertain.NewFixed(opt.StrikePricePerShare),
+			NumShares:           uncertain.NewFixed(opt.Shares),
+			SourceAccountID:     opt.SourceAccountID,
+		}
+	}
+
+	growthModel := &finance.StartupGrowth{
+		TimeFrameGrowth: finance.TimeFrameGrowth{
+			StartDate: 0,
+			EndDate:   nil,
+		},
+		TotalShares: currentTotalShares,
+		OwnedShares: uncertain.NewFixed(sharesOwnedAtStart),
+		Valuation:   currentValuation,
+
+		TaxRate:               uncertain.NewFixed(ssa.TaxRate),
+		DiscountFactor:        uncertain.NewFixed(ssa.ValuationDiscountFactor),
+		PurchasePricePerShare: uncertain.NewFixed(avgPurchaseAtStart),
+
+		InvestmentRounds: investmentRounds,
+		ShareChanges:     shareChangesMap,
+		Options:          options,
+	}
+
+	// Historic snapshots at all event dates (round dates + share change dates)
+	// before startDate. For each date, use the latest round on or before it,
+	// matching the dashboard's balance history approach.
+	eventDates := make(map[date.Date]struct{})
+	for _, round := range rounds {
+		if round.Date < startDate {
+			eventDates[round.Date] = struct{}{}
+		}
+	}
+	for _, sc := range shareChanges {
+		if sc.Date < startDate {
+			eventDates[sc.Date] = struct{}{}
+		}
+	}
+	sortedEventDates := make([]date.Date, 0, len(eventDates))
+	for d := range eventDates {
+		sortedEventDates = append(sortedEventDates, d)
+	}
+	sort.Slice(sortedEventDates, func(i, j int) bool { return sortedEventDates[i] < sortedEventDates[j] })
+
+	snapshots := make([]finance.BalanceSnapshot, 0, len(sortedEventDates)+1)
+	for _, eventDate := range sortedEventDates {
+		var best *InvestmentRound
+		for i := range rounds {
+			if rounds[i].Date <= eventDate {
+				best = &rounds[i]
+			}
+		}
+		if best == nil {
+			continue
+		}
+		postMoneyValuation, postMoneyShares := PostMoneyValuationAndShares(best.Valuation, best.PreMoneyShares, best.Investment)
+		if postMoneyShares <= 0 {
+			continue
+		}
+		sharesOwned, avgPrice := DeriveShareState(shareChanges, eventDate)
+		if sharesOwned == 0 {
+			continue
+		}
+		balance := CalculateStartupShareBalance(
+			ucfg,
+			uncertain.NewFixed(postMoneyValuation),
+			sharesOwned,
+			avgPrice,
+			ssa.TaxRate,
+			postMoneyShares,
+			ssa.ValuationDiscountFactor,
+		)
+		snapshots = append(snapshots, finance.BalanceSnapshot{
+			Date:    eventDate,
+			Balance: balance,
+		})
+	}
+	snapshots = append(snapshots, finance.BalanceSnapshot{
+		Date:    startDate,
+		Balance: growthModel.Balance(ucfg),
+	})
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].Date < snapshots[j].Date
+	})
+
+	return startupShareForecastState{
+		GrowthModel: growthModel,
+		Snapshots:   snapshots,
+	}
 }
 
 type GroupingEventHandler struct {
