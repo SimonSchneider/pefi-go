@@ -467,6 +467,94 @@ func TestGetCategoriesPageDataEmpty(t *testing.T) {
 	}
 }
 
+// ---- Transfer Chart Data ----
+
+func TestGetTransferChartData_NodeColorsFromAccountTypes(t *testing.T) {
+	svc := newTestService(t)
+	ctx := context.Background()
+
+	at1, _ := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
+	at2, _ := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Checking", Color: "#0000ff"})
+
+	acc1, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "My Savings", TypeID: at1.ID})
+	acc2, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "My Checking", TypeID: at2.ID})
+
+	svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Salary",
+		FromAccountID: "",
+		ToAccountID:   acc1.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(5000),
+		Recurrence:    "*-*-25",
+		StartDate:     mustParseDate("2020-01-01"),
+		Enabled:       true,
+	})
+	svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Transfer",
+		FromAccountID: acc1.ID,
+		ToAccountID:   acc2.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(2000),
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2020-01-01"),
+		Enabled:       true,
+	})
+	svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Groceries",
+		FromAccountID: acc2.ID,
+		ToAccountID:   "",
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(500),
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2020-01-01"),
+		Enabled:       true,
+	})
+
+	t.Run("group by account uses account type color in itemStyle", func(t *testing.T) {
+		data, err := svc.GetTransferChartData(ctx, service.GroupByAccount)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		nodeColors := make(map[string]string)
+		for _, node := range data.Data {
+			if node.ItemStyle != nil {
+				nodeColors[node.Name] = node.ItemStyle.Color
+			}
+		}
+		if nodeColors["My Savings"] != "#00ff00" {
+			t.Errorf("expected My Savings color #00ff00, got %q", nodeColors["My Savings"])
+		}
+		if nodeColors["My Checking"] != "#0000ff" {
+			t.Errorf("expected My Checking color #0000ff, got %q", nodeColors["My Checking"])
+		}
+		if nodeColors["Income"] != "#388E3C" {
+			t.Errorf("expected Income color #388E3C, got %q", nodeColors["Income"])
+		}
+	})
+
+	t.Run("group by account_type uses account type color in itemStyle", func(t *testing.T) {
+		data, err := svc.GetTransferChartData(ctx, service.GroupByAccountType)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		nodeColors := make(map[string]string)
+		for _, node := range data.Data {
+			if node.ItemStyle != nil {
+				nodeColors[node.Name] = node.ItemStyle.Color
+			}
+		}
+		if nodeColors["Savings"] != "#00ff00" {
+			t.Errorf("expected Savings color #00ff00, got %q", nodeColors["Savings"])
+		}
+		if nodeColors["Checking"] != "#0000ff" {
+			t.Errorf("expected Checking color #0000ff, got %q", nodeColors["Checking"])
+		}
+		if nodeColors["Expenses"] != "#D32F2F" {
+			t.Errorf("expected Expenses color #D32F2F, got %q", nodeColors["Expenses"])
+		}
+	})
+}
+
 // ---- Transfer Simplification ----
 
 func TestSimplifyTransfers(t *testing.T) {
