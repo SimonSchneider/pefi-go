@@ -358,7 +358,7 @@ func (h *Handler) transferTemplateUpsert() http.Handler {
 		if err != nil {
 			return fmt.Errorf("upserting transfer template: %w", err)
 		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfers/%s", t.ID))
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfer-templates/%s/edit", t.ID))
 		return nil
 	})
 }

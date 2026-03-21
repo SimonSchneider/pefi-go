@@ -351,8 +351,15 @@ func (s *Service) GetAccountEditPageData(ctx context.Context, accountID string, 
 			return nil, fmt.Errorf("listing startup share options: %w", err)
 		}
 		today := date.Today()
-		round, _ := s.GetLatestInvestmentRound(ctx, acc.ID, today)
-		_, postShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
+		var postShares float64
+		round, roundErr := s.GetLatestInvestmentRound(ctx, acc.ID, today)
+		if roundErr != nil {
+			if !errors.Is(roundErr, sql.ErrNoRows) {
+				return nil, fmt.Errorf("getting latest investment round: %w", roundErr)
+			}
+		} else {
+			_, postShares = PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
+		}
 		sharesOwned, avgPrice := DeriveShareState(shareChanges, today)
 		derivedSummary = &DerivedStartupShareSummary{
 			SharesOwned:              sharesOwned,

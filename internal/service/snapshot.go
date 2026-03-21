@@ -65,14 +65,14 @@ func (s *Service) UpsertAccountSnapshot(ctx context.Context, accountID string, i
 		Balance:   balance,
 	})
 	if err != nil {
-		return AccountSnapshot{}, fmt.Errorf("failed to upsert account: %w", err)
+		return AccountSnapshot{}, fmt.Errorf("failed to upsert snapshot: %w", err)
 	}
 	return accountSnapshotFromDB(snap), nil
 }
 
 func (s *Service) DeleteAccountSnapshot(ctx context.Context, id string, d date.Date) error {
 	if err := pdb.New(s.db).DeleteSnapshot(ctx, pdb.DeleteSnapshotParams{AccountID: id, Date: int64(d)}); err != nil {
-		return fmt.Errorf("failed to delete account: %w", err)
+		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
 	return nil
 }
