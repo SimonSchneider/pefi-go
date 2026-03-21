@@ -83,6 +83,7 @@ type (
 	SnapshotsRow                     = service.SnapshotsRow
 	TransferTemplateCategoriesView   = service.TransferTemplateCategoriesView
 	TransferTemplateCategoryEditView = service.TransferTemplateCategoryEditView
+	CategoriesPageView               = service.CategoriesPageView
 	PredictionParams                 = service.PredictionParams
 	AccountTypeGroup                 = service.AccountTypeGroup
 	AccountTypeChartEntry            = service.AccountTypeChartEntry
