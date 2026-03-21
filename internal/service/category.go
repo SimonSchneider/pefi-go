@@ -1,10 +1,8 @@
-package core
+package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/SimonSchneider/goslu/sid"
@@ -19,16 +17,10 @@ type TransferTemplateCategory struct {
 	UpdatedAt int64
 }
 
-func (c *TransferTemplateCategory) FromForm(r *http.Request) error {
-	c.ID = r.FormValue("id")
-	c.Name = r.FormValue("name")
-	color := r.FormValue("color")
-	if color != "" {
-		c.Color = &color
-	} else {
-		c.Color = nil
-	}
-	return nil
+type TransferTemplateCategoryInput struct {
+	ID    string
+	Name  string
+	Color *string
 }
 
 func categoryFromDB(c pdb.TransferTemplateCategory) TransferTemplateCategory {
@@ -41,8 +33,8 @@ func categoryFromDB(c pdb.TransferTemplateCategory) TransferTemplateCategory {
 	}
 }
 
-func ListCategories(ctx context.Context, db *sql.DB) ([]TransferTemplateCategory, error) {
-	categories, err := pdb.New(db).ListTransferTemplateCategories(ctx)
+func (s *Service) ListCategories(ctx context.Context) ([]TransferTemplateCategory, error) {
+	categories, err := pdb.New(s.db).ListTransferTemplateCategories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list categories: %w", err)
 	}
@@ -53,28 +45,28 @@ func ListCategories(ctx context.Context, db *sql.DB) ([]TransferTemplateCategory
 	return result, nil
 }
 
-func GetCategory(ctx context.Context, db *sql.DB, id string) (TransferTemplateCategory, error) {
-	c, err := pdb.New(db).GetTransferTemplateCategory(ctx, id)
+func (s *Service) GetCategory(ctx context.Context, id string) (TransferTemplateCategory, error) {
+	c, err := pdb.New(s.db).GetTransferTemplateCategory(ctx, id)
 	if err != nil {
 		return TransferTemplateCategory{}, fmt.Errorf("failed to get category: %w", err)
 	}
 	return categoryFromDB(c), nil
 }
 
-func UpsertCategory(ctx context.Context, db *sql.DB, inp TransferTemplateCategory) (TransferTemplateCategory, error) {
+func (s *Service) UpsertCategory(ctx context.Context, inp TransferTemplateCategoryInput) (TransferTemplateCategory, error) {
 	now := time.Now().Unix()
-	if inp.ID == "" {
-		inp.ID = sid.MustNewString(32)
-		inp.CreatedAt = now
+	id := inp.ID
+	createdAt := now
+	if id == "" {
+		id = sid.MustNewString(32)
 	}
-	inp.UpdatedAt = now
 
-	c, err := pdb.New(db).UpsertTransferTemplateCategory(ctx, pdb.UpsertTransferTemplateCategoryParams{
-		ID:        inp.ID,
+	c, err := pdb.New(s.db).UpsertTransferTemplateCategory(ctx, pdb.UpsertTransferTemplateCategoryParams{
+		ID:        id,
 		Name:      inp.Name,
 		Color:     inp.Color,
-		CreatedAt: inp.CreatedAt,
-		UpdatedAt: inp.UpdatedAt,
+		CreatedAt: createdAt,
+		UpdatedAt: now,
 	})
 	if err != nil {
 		return TransferTemplateCategory{}, fmt.Errorf("failed to upsert category: %w", err)
@@ -82,8 +74,8 @@ func UpsertCategory(ctx context.Context, db *sql.DB, inp TransferTemplateCategor
 	return categoryFromDB(c), nil
 }
 
-func DeleteCategory(ctx context.Context, db *sql.DB, id string) error {
-	if err := pdb.New(db).DeleteTransferTemplateCategory(ctx, id); err != nil {
+func (s *Service) DeleteCategory(ctx context.Context, id string) error {
+	if err := pdb.New(s.db).DeleteTransferTemplateCategory(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete category: %w", err)
 	}
 	return nil

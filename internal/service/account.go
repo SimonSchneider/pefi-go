@@ -1,16 +1,14 @@
-package core
+package service
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
-	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
@@ -20,7 +18,7 @@ type Account struct {
 	ID                    string
 	Name                  string
 	BalanceUpperLimit     *float64
-	CashFlowFrequency     string
+	CashFlowFrequency    string
 	CashFlowDestinationID string
 	TypeID                string
 	BudgetCategoryID      *string
@@ -39,26 +37,10 @@ type AccountInput struct {
 	ID                    string
 	Name                  string
 	BalanceUpperLimit     *float64
-	CashFlowFrequency     string
+	CashFlowFrequency    string
 	CashFlowDestinationID string
 	TypeID                string
 	BudgetCategoryID      *string
-}
-
-func (a *AccountInput) FromForm(r *http.Request) error {
-	a.ID = r.FormValue("id")
-	a.Name = r.FormValue("name")
-	if err := shttp.Parse(&a.BalanceUpperLimit, ui.ParseNullableFloat, r.FormValue("balance_upper_limit"), nil); err != nil {
-		return fmt.Errorf("parsing balance limit: %w", err)
-	}
-	a.CashFlowFrequency = r.FormValue("cash_flow_frequency")
-	a.CashFlowDestinationID = r.FormValue("cash_flow_destination_id")
-	a.TypeID = r.FormValue("type_id")
-	budgetCategoryID := r.FormValue("budget_category_id")
-	if budgetCategoryID != "" {
-		a.BudgetCategoryID = &budgetCategoryID
-	}
-	return nil
 }
 
 func accountFromDB(a pdb.Account) Account {
@@ -66,7 +48,7 @@ func accountFromDB(a pdb.Account) Account {
 		ID:                    a.ID,
 		Name:                  a.Name,
 		BalanceUpperLimit:     a.BalanceUpperLimit,
-		CashFlowFrequency:     ui.OrDefault(a.CashFlowFrequency),
+		CashFlowFrequency:    ui.OrDefault(a.CashFlowFrequency),
 		CashFlowDestinationID: ui.OrDefault(a.CashFlowDestinationID),
 		TypeID:                ui.OrDefault(a.TypeID),
 		BudgetCategoryID:      a.BudgetCategoryID,
@@ -75,17 +57,17 @@ func accountFromDB(a pdb.Account) Account {
 	}
 }
 
-func GetAccount(ctx context.Context, db *sql.DB, id string) (Account, error) {
-	acc, err := pdb.New(db).GetAccount(ctx, id)
+func (s *Service) GetAccount(ctx context.Context, id string) (Account, error) {
+	acc, err := pdb.New(s.db).GetAccount(ctx, id)
 	if err != nil {
 		return Account{}, fmt.Errorf("failed to get account: %w", err)
 	}
 	return accountFromDB(acc), nil
 }
 
-func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, error) {
+func (s *Service) UpsertAccount(ctx context.Context, inp AccountInput) (Account, error) {
 	var (
-		q   = pdb.New(db)
+		q   = pdb.New(s.db)
 		acc pdb.Account
 		err error
 	)
@@ -94,7 +76,7 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			ID:                    inp.ID,
 			Name:                  inp.Name,
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
-			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
+			CashFlowFrequency:    ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			BudgetCategoryID:      inp.BudgetCategoryID,
@@ -105,7 +87,7 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 			ID:                    sid.MustNewString(15),
 			Name:                  inp.Name,
 			BalanceUpperLimit:     inp.BalanceUpperLimit,
-			CashFlowFrequency:     ui.WithDefaultNull(inp.CashFlowFrequency),
+			CashFlowFrequency:    ui.WithDefaultNull(inp.CashFlowFrequency),
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			BudgetCategoryID:      inp.BudgetCategoryID,
@@ -119,8 +101,29 @@ func UpsertAccount(ctx context.Context, db *sql.DB, inp AccountInput) (Account, 
 	return accountFromDB(acc), nil
 }
 
-func DeleteAccount(ctx context.Context, db *sql.DB, id string) error {
-	_, err := pdb.New(db).DeleteAccount(ctx, id)
+func (s *Service) UpsertAccountWithStartupShares(ctx context.Context, inp AccountInput, startupShares *StartupShareAccountInput) (Account, error) {
+	acc, err := s.UpsertAccount(ctx, inp)
+	if err != nil {
+		return Account{}, fmt.Errorf("upserting account: %w", err)
+	}
+	if startupShares != nil {
+		startupShares.AccountID = acc.ID
+		if _, err := s.UpsertStartupShareAccount(ctx, *startupShares); err != nil {
+			return Account{}, fmt.Errorf("upserting startup share account: %w", err)
+		}
+	} else {
+		_, err := s.GetStartupShareAccount(ctx, acc.ID)
+		if err == nil {
+			if err := s.DeleteStartupShareAccount(ctx, acc.ID); err != nil {
+				return Account{}, fmt.Errorf("deleting startup share account: %w", err)
+			}
+		}
+	}
+	return acc, nil
+}
+
+func (s *Service) DeleteAccount(ctx context.Context, id string) error {
+	_, err := pdb.New(s.db).DeleteAccount(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete account: %w", err)
 	}
@@ -158,27 +161,23 @@ func accountsListFromDBDetailed(dbAccs []pdb.Account, snapshots map[string]pdb.A
 	return accs
 }
 
-func ListAccounts(ctx context.Context, db *sql.DB) ([]Account, error) {
-	accs, err := pdb.New(db).ListAccounts(ctx)
+func (s *Service) ListAccounts(ctx context.Context) ([]Account, error) {
+	accs, err := pdb.New(s.db).ListAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return accountsListFromDB(accs), nil
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func ListBudgetAccounts(ctx context.Context, db *sql.DB, today date.Date) ([]AccountDetailed, error) {
-	budgetAccs, err := pdb.New(db).GetBudgetAccounts(ctx)
+func (s *Service) ListBudgetAccounts(ctx context.Context, today date.Date) ([]AccountDetailed, error) {
+	budgetAccs, err := pdb.New(s.db).GetBudgetAccounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list budget accounts: %w", err)
 	}
 	if len(budgetAccs) == 0 {
 		return nil, nil
 	}
-	snapshots, err := pdb.New(db).ListLatestSnapshotPerAccount(ctx)
+	snapshots, err := pdb.New(s.db).ListLatestSnapshotPerAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +185,7 @@ func ListBudgetAccounts(ctx context.Context, db *sql.DB, today date.Date) ([]Acc
 	for _, snapshot := range snapshots {
 		snapshotsMap[snapshot.AccountID] = snapshot
 	}
-	growthModels, err := pdb.New(db).ListActiveGrowthModels(ctx, ptr(int64(today)))
+	growthModels, err := pdb.New(s.db).ListActiveGrowthModels(ctx, ptr(int64(today)))
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +196,12 @@ func ListBudgetAccounts(ctx context.Context, db *sql.DB, today date.Date) ([]Acc
 	return accountsListFromDBDetailed(budgetAccs, snapshotsMap, growthModelsMap, nil), nil
 }
 
-func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]AccountDetailed, error) {
-	accs, err := pdb.New(db).ListAccounts(ctx)
+func (s *Service) ListAccountsDetailed(ctx context.Context, today date.Date) ([]AccountDetailed, error) {
+	accs, err := pdb.New(s.db).ListAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	snapshots, err := pdb.New(db).ListLatestSnapshotPerAccount(ctx)
+	snapshots, err := pdb.New(s.db).ListLatestSnapshotPerAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +209,7 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 	for _, snapshot := range snapshots {
 		snapshotsMap[snapshot.AccountID] = snapshot
 	}
-	growthModels, err := pdb.New(db).ListActiveGrowthModels(ctx, ptr(int64(today)))
+	growthModels, err := pdb.New(s.db).ListActiveGrowthModels(ctx, ptr(int64(today)))
 	if err != nil {
 		return nil, err
 	}
@@ -218,11 +217,10 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 	for _, growthModel := range growthModels {
 		growthModelsMap[growthModel.AccountID] = growthModel
 	}
-	// Load startup share accounts and compute their current balances
 	startupShareAccountsMap := make(map[string]pdb.StartupShareAccount)
 	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), 1)
 	for _, acc := range accs {
-		ssa, err := pdb.New(db).GetStartupShareAccount(ctx, acc.ID)
+		ssa, err := pdb.New(s.db).GetStartupShareAccount(ctx, acc.ID)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				return nil, fmt.Errorf("failed to get startup share account: %w", err)
@@ -230,9 +228,8 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 			continue
 		}
 		startupShareAccountsMap[acc.ID] = ssa
-		// If there's no DB snapshot, compute balance from latest investment round and share changes
 		if _, hasSnapshot := snapshotsMap[acc.ID]; !hasSnapshot {
-			round, err := GetLatestInvestmentRound(ctx, db, acc.ID, today)
+			round, err := s.GetLatestInvestmentRound(ctx, acc.ID, today)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					continue
@@ -240,7 +237,7 @@ func ListAccountsDetailed(ctx context.Context, db *sql.DB, today date.Date) ([]A
 				return nil, fmt.Errorf("failed to get latest investment round for account %s: %w", acc.ID, err)
 			}
 			postMoneyValuation, postMoneyShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
-			changes, err := ListShareChanges(ctx, db, acc.ID)
+			changes, err := s.ListShareChanges(ctx, acc.ID)
 			if err != nil {
 				return nil, fmt.Errorf("listing share changes for account %s: %w", acc.ID, err)
 			}
