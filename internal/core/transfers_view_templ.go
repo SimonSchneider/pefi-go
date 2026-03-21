@@ -74,7 +74,7 @@ func TransfersContent(view *TransfersView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if view.transfersReady {
+		if view.TransfersReady {
 			templ_7745c5c3_Err = TransfersTable(view).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -127,7 +127,7 @@ func TransfersForm(view *TransfersView) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(view.day.String())
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(view.Day.String())
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/transfers_view.templ`, Line: 28, Col: 74}
 		}
@@ -223,7 +223,7 @@ func TransfersTable(view *TransfersView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if len(view.transfers) == 0 {
+		if len(view.Transfers) == 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<tr><td colspan=\"3\" class=\"text-center py-8 text-base-content/70\"><div class=\"flex flex-col items-center gap-2\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -237,14 +237,14 @@ func TransfersTable(view *TransfersView) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			for _, t := range view.transfers {
+			for _, t := range view.Transfers {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<tr class=\"hover:bg-base-100\"><td class=\"font-medium\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if t.FromAccountID != "" {
 					var templ_7745c5c3_Var10 string
-					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(view.accounts[t.FromAccountID].Name)
+					templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(view.Accounts[t.FromAccountID].Name)
 					if templ_7745c5c3_Err != nil {
 						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/transfers_view.templ`, Line: 71, Col: 48}
 					}
@@ -264,7 +264,7 @@ func TransfersTable(view *TransfersView) templ.Component {
 				}
 				if t.ToAccountID != "" {
 					var templ_7745c5c3_Var11 string
-					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(view.accounts[t.ToAccountID].Name)
+					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(view.Accounts[t.ToAccountID].Name)
 					if templ_7745c5c3_Err != nil {
 						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/transfers_view.templ`, Line: 78, Col: 46}
 					}

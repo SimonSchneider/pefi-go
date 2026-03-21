@@ -10,7 +10,7 @@ templ TransfersContent(view *TransfersView) {
 		<div class="flex-1 p-6 overflow-auto bg-base-100">
 			<div class="flex flex-col gap-4">
 				@TransfersForm(view)
-				if view.transfersReady {
+				if view.TransfersReady {
 					@TransfersTable(view)
 				}
 			</div>
@@ -25,7 +25,7 @@ templ TransfersForm(view *TransfersView) {
 				<fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4">
 					<legend class="fieldset-legend">Transfer Configuration</legend>
 					<label class="label">Date</label>
-					<input type="date" class="input" name="day" value={ view.day.String() }/>
+					<input type="date" class="input" name="day" value={ view.Day.String() }/>
 					if len(view.TransferTemplatesThatNeedAmount) > 0 {
 						<div class="divider">Amounts Required</div>
 						for _, t := range view.TransferTemplatesThatNeedAmount {
@@ -53,7 +53,7 @@ templ TransfersTable(view *TransfersView) {
 						</tr>
 					</thead>
 					<tbody>
-						if len(view.transfers) == 0 {
+						if len(view.Transfers) == 0 {
 							<tr>
 								<td colspan="3" class="text-center py-8 text-base-content/70">
 									<div class="flex flex-col items-center gap-2">
@@ -64,18 +64,18 @@ templ TransfersTable(view *TransfersView) {
 								</td>
 							</tr>
 						} else {
-							for _, t := range view.transfers {
+							for _, t := range view.Transfers {
 								<tr class="hover:bg-base-100">
 									<td class="font-medium">
 										if t.FromAccountID != "" {
-											{ view.accounts[t.FromAccountID].Name }
+											{ view.Accounts[t.FromAccountID].Name }
 										} else {
 											<span class="text-green-700">External</span>
 										}
 									</td>
 									<td>
 										if t.ToAccountID != "" {
-											{ view.accounts[t.ToAccountID].Name }
+											{ view.Accounts[t.ToAccountID].Name }
 										} else {
 											<span class="text-red-600">External</span>
 										}

@@ -2,8 +2,7 @@ package core
 
 import (
 	"context"
-	"database/sql"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -12,52 +11,167 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
+	"github.com/SimonSchneider/pefigo/internal/service"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 )
 
-func HandlerAccountUpsert(db *sql.DB) http.Handler {
+type Handler struct {
+	svc *service.Service
+}
+
+func NewHandler(svc *service.Service, public fs.FS) http.Handler {
+	h := &Handler{svc: svc}
+	mux := http.NewServeMux()
+	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
+
+	mux.Handle("GET /{$}", h.dashboardPage())
+	mux.Handle("GET /accounts", h.accountsPage())
+	mux.Handle("GET /accounts/new", h.accountNewPage())
+	mux.Handle("GET /accounts/{id}/edit", h.accountEditPage())
+	mux.Handle("GET /transfer-templates", h.transferTemplatesPage())
+	mux.Handle("GET /transfer-templates/new", h.transferTemplatesNewPage())
+	mux.Handle("GET /transfer-templates/{id}/edit", h.transferTemplatesEditPage())
+
+	mux.Handle("GET /account-types", h.accountTypesPage())
+	mux.Handle("GET /account-types/new", h.accountTypeNewPage())
+	mux.Handle("GET /account-types/{id}/edit", h.accountTypeEditPage())
+	mux.Handle("POST /account-types/{$}", h.accountTypeUpsert())
+	mux.Handle("POST /account-types/{id}/delete", h.accountTypeDelete())
+
+	mux.Handle("GET /special-dates", h.specialDatesPage())
+	mux.Handle("GET /special-dates/new", h.specialDateNewPage())
+	mux.Handle("GET /special-dates/{id}/edit", h.specialDateEditPage())
+	mux.Handle("POST /special-dates/{$}", h.specialDateUpsert())
+	mux.Handle("POST /special-dates/{id}/delete", h.specialDateDelete())
+
+	mux.Handle("GET /snapshots-table", h.snapshotsTablePage())
+	mux.Handle("POST /snapshots-table/modify-date", h.snapshotsTableModifyDate())
+	mux.Handle("GET /snapshots-table/empty-row", h.snapshotsTableEmptyRow())
+	mux.Handle("POST /accounts/{id}/snapshots/{date}/", h.accountSnapshotUpsert())
+
+	mux.Handle("GET /transfers", h.transfersPage())
+	mux.Handle("GET /transfers/chart/{$}", h.transferChartPage())
+	mux.Handle("GET /transfers/chart/data", h.transferChartData())
+
+	mux.Handle("GET /budget", h.budgetPage())
+
+	mux.Handle("GET /chart", h.chartPage())
+	mux.Handle("GET /chart/stream", h.chartsDataStream())
+
+	mux.Handle("POST /accounts/{$}", h.accountUpsert())
+	mux.Handle("POST /accounts/{id}/delete", h.accountDelete())
+
+	mux.Handle("POST /growth-models/", h.accountGrowthModelUpsert())
+	mux.Handle("POST /growth-models/{id}/delete", h.accountGrowthModelDelete())
+
+	mux.Handle("POST /startup-share-accounts/", h.startupShareAccountUpsert())
+	mux.Handle("POST /investment-rounds/", h.investmentRoundUpsert())
+	mux.Handle("POST /investment-rounds/{id}/delete", h.investmentRoundDelete())
+	mux.Handle("POST /share-changes/", h.shareChangeUpsert())
+	mux.Handle("POST /share-changes/{id}/delete", h.shareChangeDelete())
+	mux.Handle("POST /startup-share-options/", h.startupShareOptionUpsert())
+	mux.Handle("POST /startup-share-options/{id}/delete", h.startupShareOptionDelete())
+
+	mux.Handle("POST /transfers/{$}", h.transferTemplateUpsert())
+	mux.Handle("POST /transfers/{id}/duplicate", h.transferTemplateDuplicate())
+	mux.Handle("POST /transfers/{id}/delete", h.transferTemplateDelete())
+
+	mux.Handle("GET /transfer-template-categories", h.transferTemplateCategoriesPage())
+	mux.Handle("GET /transfer-template-categories/new", h.transferTemplateCategoryNewPage())
+	mux.Handle("GET /transfer-template-categories/{id}/edit", h.transferTemplateCategoryEditPage())
+	mux.Handle("POST /transfer-template-categories/{$}", h.transferTemplateCategoryUpsert())
+	mux.Handle("POST /transfer-template-categories/{id}/delete", h.transferTemplateCategoryDelete())
+
+	mux.Handle("POST /sleep/{$}", srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		time.Sleep(1 * time.Second)
+		w.WriteHeader(200)
+		return nil
+	}))
+
+	return mux
+}
+
+// ---- Dashboard ----
+
+func (h *Handler) dashboardPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp AccountInput
+		view, err := h.svc.GetDashboardData(ctx)
+		if err != nil {
+			return fmt.Errorf("computing dashboard view: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Dashboard", PageDashboard(view)))
+	})
+}
+
+// ---- Budget ----
+
+func (h *Handler) budgetPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetBudgetData(ctx)
+		if err != nil {
+			return fmt.Errorf("computing budget view: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Budget", PageBudget(view)))
+	})
+}
+
+// ---- Accounts ----
+
+func (h *Handler) accountsPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetAccountsPageData(ctx, extractExcludedTypeIDs(r))
+		if err != nil {
+			return fmt.Errorf("getting accounts page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(view)))
+	})
+}
+
+func (h *Handler) accountNewPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetAccountNewPageData(ctx, extractExcludedTypeIDs(r))
+		if err != nil {
+			return fmt.Errorf("getting account new page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(view)))
+	})
+}
+
+func (h *Handler) accountEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetAccountEditPageData(ctx, r.PathValue("id"), extractExcludedTypeIDs(r))
+		if err != nil {
+			return fmt.Errorf("getting account edit page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(view)))
+	})
+}
+
+func (h *Handler) accountUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp accountInputForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		acc, err := UpsertAccount(ctx, db, inp)
+		var startupShares *service.StartupShareAccountInput
+		if r.FormValue("enable_startup_shares") == "on" {
+			var ssaInp startupShareAccountInputForm
+			if err := srvu.Decode(r, &ssaInp, false); err == nil {
+				startupShares = &ssaInp.StartupShareAccountInput
+			}
+		}
+		acc, err := h.svc.UpsertAccountWithStartupShares(ctx, inp.AccountInput, startupShares)
 		if err != nil {
 			return fmt.Errorf("upserting account: %w", err)
-		}
-		// Handle startup share account configuration
-		enableStartupShares := r.FormValue("enable_startup_shares") == "on"
-		if enableStartupShares {
-			// User wants to enable/update startup shares
-			var ssaInp StartupShareAccountInput
-			if err := srvu.Decode(r, &ssaInp, false); err == nil {
-				ssaInp.AccountID = acc.ID
-				// Convert tax rate and discount factor from percentage to decimal
-				ssaInp.TaxRate = ssaInp.TaxRate / 100.0
-				ssaInp.ValuationDiscountFactor = ssaInp.ValuationDiscountFactor / 100.0
-				_, err := UpsertStartupShareAccount(ctx, db, ssaInp)
-				if err != nil {
-					return fmt.Errorf("upserting startup share account: %w", err)
-				}
-			}
-		} else {
-			// User unchecked the box, delete startup share account if it exists
-			_, err := GetStartupShareAccount(ctx, db, acc.ID)
-			if err == nil {
-				// Startup share account exists, delete it
-				if err := DeleteStartupShareAccount(ctx, db, acc.ID); err != nil {
-					return fmt.Errorf("deleting startup share account: %w", err)
-				}
-			}
-			// If it doesn't exist (sql.ErrNoRows), that's fine, nothing to do
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", acc.ID))
 		return nil
 	})
 }
 
-func HandlerAccountDelete(db *sql.DB) http.Handler {
+func (h *Handler) accountDelete() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := DeleteAccount(ctx, db, r.PathValue("id")); err != nil {
+		if err := h.svc.DeleteAccount(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting account: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/accounts/")
@@ -65,13 +179,15 @@ func HandlerAccountDelete(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerAccountGrowthModelUpsert(db *sql.DB) http.Handler {
+// ---- Account Growth Models ----
+
+func (h *Handler) accountGrowthModelUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp AccountGrowthModelInput
+		var inp accountGrowthModelInputForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		_, err := UpsertAccountGrowthModel(ctx, db, inp)
+		_, err := h.svc.UpsertAccountGrowthModel(ctx, inp.AccountGrowthModelInput)
 		if err != nil {
 			return fmt.Errorf("upserting account growth model: %w", err)
 		}
@@ -80,9 +196,9 @@ func HandlerAccountGrowthModelUpsert(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerAccountGrowthModelDelete(db *sql.DB) http.Handler {
+func (h *Handler) accountGrowthModelDelete() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := DeleteAccountGrowthModel(ctx, db, r.PathValue("id")); err != nil {
+		if err := h.svc.DeleteAccountGrowthModel(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting account growth model: %w", err)
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", r.PathValue("id")))
@@ -90,16 +206,15 @@ func HandlerAccountGrowthModelDelete(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerStartupShareAccountUpsert(db *sql.DB) http.Handler {
+// ---- Startup Shares ----
+
+func (h *Handler) startupShareAccountUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp StartupShareAccountInput
+		var inp startupShareAccountInputForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		// Convert tax rate and discount factor from percentage to decimal
-		inp.TaxRate = inp.TaxRate / 100.0
-		inp.ValuationDiscountFactor = inp.ValuationDiscountFactor / 100.0
-		_, err := UpsertStartupShareAccount(ctx, db, inp)
+		_, err := h.svc.UpsertStartupShareAccount(ctx, inp.StartupShareAccountInput)
 		if err != nil {
 			return fmt.Errorf("upserting startup share account: %w", err)
 		}
@@ -108,13 +223,13 @@ func HandlerStartupShareAccountUpsert(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerInvestmentRoundUpsert(db *sql.DB) http.Handler {
+func (h *Handler) investmentRoundUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp InvestmentRoundInput
+		var inp investmentRoundInputForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		_, err := UpsertInvestmentRound(ctx, db, inp)
+		_, err := h.svc.UpsertInvestmentRound(ctx, inp.InvestmentRoundInput)
 		if err != nil {
 			return fmt.Errorf("upserting investment round: %w", err)
 		}
@@ -123,14 +238,14 @@ func HandlerInvestmentRoundUpsert(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerInvestmentRoundDelete(db *sql.DB) http.Handler {
+func (h *Handler) investmentRoundDelete() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		roundID := r.PathValue("id")
-		round, err := GetInvestmentRound(ctx, db, roundID)
+		round, err := h.svc.GetInvestmentRound(ctx, roundID)
 		if err != nil {
 			return fmt.Errorf("getting investment round: %w", err)
 		}
-		if err := DeleteInvestmentRound(ctx, db, roundID); err != nil {
+		if err := h.svc.DeleteInvestmentRound(ctx, roundID); err != nil {
 			return fmt.Errorf("deleting investment round: %w", err)
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", round.AccountID))
@@ -138,13 +253,13 @@ func HandlerInvestmentRoundDelete(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerShareChangeUpsert(db *sql.DB) http.Handler {
+func (h *Handler) shareChangeUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp ShareChangeInput
+		var inp shareChangeInputForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		_, err := UpsertShareChange(ctx, db, inp)
+		_, err := h.svc.UpsertShareChange(ctx, inp.ShareChangeInput)
 		if err != nil {
 			return fmt.Errorf("upserting share change: %w", err)
 		}
@@ -153,14 +268,14 @@ func HandlerShareChangeUpsert(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerShareChangeDelete(db *sql.DB) http.Handler {
+func (h *Handler) shareChangeDelete() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		changeID := r.PathValue("id")
-		sc, err := GetShareChange(ctx, db, changeID)
+		sc, err := h.svc.GetShareChange(ctx, changeID)
 		if err != nil {
 			return fmt.Errorf("getting share change: %w", err)
 		}
-		if err := DeleteShareChange(ctx, db, changeID); err != nil {
+		if err := h.svc.DeleteShareChange(ctx, changeID); err != nil {
 			return fmt.Errorf("deleting share change: %w", err)
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", sc.AccountID))
@@ -168,13 +283,13 @@ func HandlerShareChangeDelete(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerStartupShareOptionUpsert(db *sql.DB) http.Handler {
+func (h *Handler) startupShareOptionUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp StartupShareOptionInput
+		var inp startupShareOptionInputForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		_, err := UpsertStartupShareOption(ctx, db, inp)
+		_, err := h.svc.UpsertStartupShareOption(ctx, inp.StartupShareOptionInput)
 		if err != nil {
 			return fmt.Errorf("upserting startup share option: %w", err)
 		}
@@ -183,14 +298,14 @@ func HandlerStartupShareOptionUpsert(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerStartupShareOptionDelete(db *sql.DB) http.Handler {
+func (h *Handler) startupShareOptionDelete() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		optionID := r.PathValue("id")
-		option, err := GetStartupShareOption(ctx, db, optionID)
+		option, err := h.svc.GetStartupShareOption(ctx, optionID)
 		if err != nil {
 			return fmt.Errorf("getting startup share option: %w", err)
 		}
-		if err := DeleteStartupShareOption(ctx, db, optionID); err != nil {
+		if err := h.svc.DeleteStartupShareOption(ctx, optionID); err != nil {
 			return fmt.Errorf("deleting startup share option: %w", err)
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", option.AccountID))
@@ -198,28 +313,59 @@ func HandlerStartupShareOptionDelete(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerTransferTemplateUpsert(db *sql.DB) http.Handler {
+// ---- Transfer Templates ----
+
+func (h *Handler) transferTemplatesPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetTransferTemplatesPageData(ctx)
+		if err != nil {
+			return fmt.Errorf("getting transfer templates page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageTransferTemplates(view)))
+	})
+}
+
+func (h *Handler) transferTemplatesNewPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetTransferTemplateNewPageData(ctx)
+		if err != nil {
+			return fmt.Errorf("getting transfer template new page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(view)))
+	})
+}
+
+func (h *Handler) transferTemplatesEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetTransferTemplateEditPageData(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting transfer template edit page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(view)))
+	})
+}
+
+func (h *Handler) transferTemplateUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return fmt.Errorf("parsing form: %w", err)
 		}
-		var inp TransferTemplate
+		var inp transferTemplateForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		t, err := UpsertTransferTemplate(ctx, db, inp)
+		t, err := h.svc.UpsertTransferTemplate(ctx, inp.TransferTemplate)
 		if err != nil {
 			return fmt.Errorf("upserting transfer template: %w", err)
 		}
-
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfers/%s", t.ID))
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfer-templates/%s/edit", t.ID))
 		return nil
 	})
 }
 
-func HandlerTransferTemplateDuplicate(db *sql.DB) http.Handler {
+func (h *Handler) transferTemplateDuplicate() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		tr, err := DuplicateTransferTemplate(ctx, db, r.PathValue("id"))
+		tr, err := h.svc.DuplicateTransferTemplate(ctx, r.PathValue("id"))
 		if err != nil {
 			return fmt.Errorf("duplicating transfer template: %w", err)
 		}
@@ -228,9 +374,9 @@ func HandlerTransferTemplateDuplicate(db *sql.DB) http.Handler {
 	})
 }
 
-func HandlerTransferTemplateDelete(db *sql.DB) http.Handler {
+func (h *Handler) transferTemplateDelete() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := DeleteTransferTemplate(ctx, db, r.PathValue("id")); err != nil {
+		if err := h.svc.DeleteTransferTemplate(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting transfer template: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/")
@@ -238,51 +384,27 @@ func HandlerTransferTemplateDelete(db *sql.DB) http.Handler {
 	})
 }
 
-// Transfer Template Category Handlers
-func HandlerTransferTemplateCategoryUpsert(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp TransferTemplateCategory
-		if err := srvu.Decode(r, &inp, false); err != nil {
-			return fmt.Errorf("decoding input: %w", err)
-		}
-		c, err := UpsertCategory(ctx, db, inp)
-		if err != nil {
-			return fmt.Errorf("upserting category: %w", err)
-		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfer-template-categories/%s", c.ID))
-		return nil
-	})
-}
+// ---- Transfer Template Categories ----
 
-func HandlerTransferTemplateCategoryDelete(db *sql.DB) http.Handler {
+func (h *Handler) transferTemplateCategoriesPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := DeleteCategory(ctx, db, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting category: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/transfer-template-categories")
-		return nil
-	})
-}
-
-func TransferTemplateCategoriesPage(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		categories, err := ListCategories(ctx, db)
+		categories, err := h.svc.ListCategories(ctx)
 		if err != nil {
 			return fmt.Errorf("listing categories: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Transfer Template Categories", PageTransferTemplateCategories(NewTransferTemplateCategoriesView(categories))))
+		return NewView(ctx, w, r).Render(Page("Transfer Template Categories", PageTransferTemplateCategories(&TransferTemplateCategoriesView{Categories: categories})))
 	})
 }
 
-func TransferTemplateCategoryNewPage(db *sql.DB) http.Handler {
+func (h *Handler) transferTemplateCategoryNewPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		return NewView(ctx, w, r).Render(Page("Transfer Template Categories", PageEditTransferTemplateCategory(&TransferTemplateCategoryEditView{})))
 	})
 }
 
-func TransferTemplateCategoryEditPage(db *sql.DB) http.Handler {
+func (h *Handler) transferTemplateCategoryEditPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		c, err := GetCategory(ctx, db, r.PathValue("id"))
+		c, err := h.svc.GetCategory(ctx, r.PathValue("id"))
 		if err != nil {
 			return fmt.Errorf("getting category: %w", err)
 		}
@@ -292,276 +414,281 @@ func TransferTemplateCategoryEditPage(db *sql.DB) http.Handler {
 	})
 }
 
-type AccountTypesWithFilter []AccountTypeWithFilter
-
-func (a AccountTypesWithFilter) GetAccountType(typeID string) AccountTypeWithFilter {
-	if typeID == "" {
-		return AccountTypeWithFilter{}
-	}
-	for _, at := range a {
-		if at.ID == typeID {
-			return at
-		}
-	}
-	return AccountTypeWithFilter{}
-}
-
-func getAccountTypesWithFilter(r *http.Request, accountTypes []AccountType) AccountTypesWithFilter {
-	accountTypesWithFilter := make(AccountTypesWithFilter, 0, len(accountTypes))
-	for _, accountType := range accountTypes {
-		exclude := r.FormValue("exclude_at_"+accountType.ID) == "on"
-		accountTypesWithFilter = append(accountTypesWithFilter, AccountTypeWithFilter{AccountType: accountType, Exclude: exclude})
-	}
-	return accountTypesWithFilter
-}
-
-func AccountsPage(db *sql.DB) http.Handler {
+func (h *Handler) transferTemplateCategoryUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accs, err := ListAccountsDetailed(ctx, db, date.Today())
+		var inp transferTemplateCategoryInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		c, err := h.svc.UpsertCategory(ctx, inp.TransferTemplateCategoryInput)
 		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
+			return fmt.Errorf("upserting category: %w", err)
 		}
-		accountTypes, err := ListAccountTypes(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing account types: %w", err)
-		}
-		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
-		categories, err := ListCategories(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing categories: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageAccounts(NewAccountsView(accs, accountTypesWithFilter, categories))))
-	})
-}
-
-func TransferTemplatesPage(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		transferTemplates, err := ListTransferTemplatesWithChildren(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing transfer templates: %w", err)
-		}
-		accounts, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
-		}
-		categories, err := ListCategories(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing categories: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageTransferTemplates(NewTransferTemplatesView2(transferTemplates, accounts, categories))))
-	})
-}
-
-func AccountNewPage(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
-		}
-		accountTypes, err := ListAccountTypes(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing account types: %w", err)
-		}
-		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
-		categories, err := ListCategories(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing categories: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(Account{}, accs, nil, accountTypesWithFilter, categories, nil, nil, nil, nil, nil))))
-	})
-}
-
-func AccountEditPage(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
-		}
-		acc, err := GetAccount(ctx, db, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting account: %w", err)
-		}
-		growthModels, err := ListAccountGrowthModels(ctx, db, string(acc.ID))
-		if err != nil {
-			return fmt.Errorf("listing account growth models: %w", err)
-		}
-		accountTypes, err := ListAccountTypes(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing account types: %w", err)
-		}
-		accountTypesWithFilter := getAccountTypesWithFilter(r, accountTypes)
-
-		// Load startup share data if account has startup share configuration
-		var startupShareAccount *StartupShareAccount
-		var investmentRounds []InvestmentRound
-		var shareChanges []ShareChange
-		var options []StartupShareOption
-		var derivedSummary *DerivedStartupShareSummary
-		ssa, err := GetStartupShareAccount(ctx, db, acc.ID)
-		if err == nil {
-			startupShareAccount = &ssa
-			investmentRounds, err = ListInvestmentRounds(ctx, db, acc.ID)
-			if err != nil {
-				return fmt.Errorf("listing investment rounds: %w", err)
-			}
-			shareChanges, err = ListShareChanges(ctx, db, acc.ID)
-			if err != nil {
-				return fmt.Errorf("listing share changes: %w", err)
-			}
-			options, err = ListStartupShareOptions(ctx, db, acc.ID)
-			if err != nil {
-				return fmt.Errorf("listing startup share options: %w", err)
-			}
-			today := date.Today()
-			round, _ := GetLatestInvestmentRound(ctx, db, acc.ID, today)
-			_, postShares := PostMoneyValuationAndShares(round.Valuation, round.PreMoneyShares, round.Investment)
-			sharesOwned, avgPrice := DeriveShareState(shareChanges, today)
-			derivedSummary = &DerivedStartupShareSummary{
-				SharesOwned:              sharesOwned,
-				TotalShares:              postShares,
-				AvgPurchasePricePerShare: avgPrice,
-			}
-		} else if errors.Is(err, sql.ErrNoRows) {
-			// Account doesn't have startup share configuration, which is fine
-			// Leave startupShareAccount, investmentRounds, and options as nil/empty
-		} else {
-			return fmt.Errorf("getting startup share account: %w", err)
-		}
-
-		categories, err := ListCategories(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing categories: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Accounts", PageEditAccount(NewAccountEditView2(acc, accs, growthModels, accountTypesWithFilter, categories, startupShareAccount, investmentRounds, shareChanges, options, derivedSummary))))
-	})
-}
-
-func TransferTemplatesNewPage(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
-		}
-		categories, err := ListCategories(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing categories: %w", err)
-		}
-		allTemplates, err := ListTransferTemplatesWithChildren(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing templates: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(&TransferTemplateEditView{
-			Accounts:     accs,
-			Categories:   categories,
-			AllTemplates: allTemplates,
-		})))
-	})
-}
-
-func TransferTemplatesEditPage(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		id := r.PathValue("id")
-		t, err := GetTransferTemplate(ctx, db, id)
-		if err != nil {
-			return fmt.Errorf("getting transfer template: %w", err)
-		}
-		accs, err := ListAccounts(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing accounts: %w", err)
-		}
-		categories, err := ListCategories(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing categories: %w", err)
-		}
-		allTemplates, err := ListTransferTemplatesWithChildren(ctx, db)
-		if err != nil {
-			return fmt.Errorf("listing templates: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Transfer Templates", PageEditTransferTemplate(&TransferTemplateEditView{
-			Accounts:         accs,
-			TransferTemplate: t,
-			Categories:       categories,
-			AllTemplates:     allTemplates,
-		})))
-	})
-}
-
-func NewHandler(db *sql.DB, public fs.FS) http.Handler {
-	mux := http.NewServeMux()
-	mux.Handle("GET /static/public/", srvu.With(http.StripPrefix("/static/public/", http.FileServerFS(public)), srvu.WithCacheCtrlHeader(365*24*time.Hour)))
-
-	mux.Handle("GET /{$}", DashboardPage(db))
-	mux.Handle("GET /accounts", AccountsPage(db))
-	mux.Handle("GET /accounts/new", AccountNewPage(db))
-	mux.Handle("GET /accounts/{id}/edit", AccountEditPage(db))
-	mux.Handle("GET /transfer-templates", TransferTemplatesPage(db))
-	mux.Handle("GET /transfer-templates/new", TransferTemplatesNewPage(db))
-	mux.Handle("GET /transfer-templates/{id}/edit", TransferTemplatesEditPage(db))
-
-	// Account types
-	mux.Handle("GET /account-types", AccountTypesPage(db))
-	mux.Handle("GET /account-types/new", AccountTypeNewPage(db))
-	mux.Handle("GET /account-types/{id}/edit", AccountTypeEditPage(db))
-	mux.Handle("POST /account-types/{$}", HandlerAccountTypeUpsert(db))
-	mux.Handle("POST /account-types/{id}/delete", HandlerAccountTypeDelete(db))
-
-	// Special dates
-	mux.Handle("GET /special-dates", SpecialDatesPage(db))
-	mux.Handle("GET /special-dates/new", SpecialDateNewPage(db))
-	mux.Handle("GET /special-dates/{id}/edit", SpecialDateEditPage(db))
-	mux.Handle("POST /special-dates/{$}", HandlerSpecialDateUpsert(db))
-	mux.Handle("POST /special-dates/{id}/delete", HandlerSpecialDateDelete(db))
-
-	// Snapshots table
-	mux.Handle("GET /snapshots-table", SnapshotsTablePage(db))
-	mux.Handle("POST /snapshots-table/modify-date", SnapshotsTableModifyDate(db))
-	mux.Handle("GET /snapshots-table/empty-row", SnapshotsTableEmptyRow(db))
-	mux.Handle("POST /accounts/{id}/snapshots/{date}/", HandlerAccountSnapshotUpsert(db))
-
-	// Transfers
-	mux.Handle("GET /transfers", TransfersPage(db))
-	mux.Handle("GET /transfers/chart/{$}", TransferChartPage(db))
-	mux.Handle("GET /transfers/chart/data", TransferChartData(db))
-
-	// Budget
-	mux.Handle("GET /budget", BudgetPage(db))
-
-	// Chart
-	mux.Handle("GET /chart", ChartPage())
-	mux.Handle("GET /chart/stream", HandlerChartsDataStream(db))
-
-	mux.Handle("POST /accounts/{$}", HandlerAccountUpsert(db))
-	mux.Handle("POST /accounts/{id}/delete", HandlerAccountDelete(db))
-
-	mux.Handle("POST /growth-models/", HandlerAccountGrowthModelUpsert(db))
-	mux.Handle("POST /growth-models/{id}/delete", HandlerAccountGrowthModelDelete(db))
-
-	// Startup shares
-	mux.Handle("POST /startup-share-accounts/", HandlerStartupShareAccountUpsert(db))
-	mux.Handle("POST /investment-rounds/", HandlerInvestmentRoundUpsert(db))
-	mux.Handle("POST /investment-rounds/{id}/delete", HandlerInvestmentRoundDelete(db))
-	mux.Handle("POST /share-changes/", HandlerShareChangeUpsert(db))
-	mux.Handle("POST /share-changes/{id}/delete", HandlerShareChangeDelete(db))
-	mux.Handle("POST /startup-share-options/", HandlerStartupShareOptionUpsert(db))
-	mux.Handle("POST /startup-share-options/{id}/delete", HandlerStartupShareOptionDelete(db))
-
-	mux.Handle("POST /transfers/{$}", HandlerTransferTemplateUpsert(db))
-	mux.Handle("POST /transfers/{id}/duplicate", HandlerTransferTemplateDuplicate(db))
-	mux.Handle("POST /transfers/{id}/delete", HandlerTransferTemplateDelete(db))
-
-	// Transfer template categories
-	mux.Handle("GET /transfer-template-categories", TransferTemplateCategoriesPage(db))
-	mux.Handle("GET /transfer-template-categories/new", TransferTemplateCategoryNewPage(db))
-	mux.Handle("GET /transfer-template-categories/{id}/edit", TransferTemplateCategoryEditPage(db))
-	mux.Handle("POST /transfer-template-categories/{$}", HandlerTransferTemplateCategoryUpsert(db))
-	mux.Handle("POST /transfer-template-categories/{id}/delete", HandlerTransferTemplateCategoryDelete(db))
-
-	mux.Handle("POST /sleep/{$}", srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		// Simulate a long-running operation
-		time.Sleep(1 * time.Second)
-		w.WriteHeader(200)
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/transfer-template-categories/%s", c.ID))
 		return nil
-	}))
+	})
+}
 
-	return mux
+func (h *Handler) transferTemplateCategoryDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteCategory(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting category: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/transfer-template-categories")
+		return nil
+	})
+}
+
+// ---- Account Types ----
+
+func (h *Handler) accountTypesPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		accountTypes, err := h.svc.ListAccountTypes(ctx)
+		if err != nil {
+			return fmt.Errorf("listing account types: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Account Types", PageAccountTypes(AccountTypesView(accountTypes))))
+	})
+}
+
+func (h *Handler) accountTypeNewPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return NewView(ctx, w, r).Render(Page("Account Types", PageEditAccountType(AccountTypeEditView(AccountType{}))))
+	})
+}
+
+func (h *Handler) accountTypeEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		at, err := h.svc.GetAccountType(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting account type: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Account Types", PageEditAccountType(AccountTypeEditView(at))))
+	})
+}
+
+func (h *Handler) accountTypeUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp accountTypeInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := h.svc.UpsertAccountType(ctx, inp.AccountTypeInput)
+		if err != nil {
+			return fmt.Errorf("upserting account type: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/account-types")
+		return nil
+	})
+}
+
+func (h *Handler) accountTypeDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteAccountType(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting account type: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/account-types")
+		return nil
+	})
+}
+
+// ---- Special Dates ----
+
+func (h *Handler) specialDatesPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		specialDates, err := h.svc.ListSpecialDates(ctx)
+		if err != nil {
+			return fmt.Errorf("listing special dates: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Special Dates", PageSpecialDates(SpecialDatesView(specialDates))))
+	})
+}
+
+func (h *Handler) specialDateNewPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return NewView(ctx, w, r).Render(Page("Special Dates", PageEditSpecialDate(SpecialDateEditView(SpecialDate{}))))
+	})
+}
+
+func (h *Handler) specialDateEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		sd, err := h.svc.GetSpecialDate(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting special date: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Special Dates", PageEditSpecialDate(SpecialDateEditView(sd))))
+	})
+}
+
+func (h *Handler) specialDateUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp specialDateInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := h.svc.UpsertSpecialDate(ctx, inp.SpecialDateInput)
+		if err != nil {
+			return fmt.Errorf("upserting special date: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/special-dates")
+		return nil
+	})
+}
+
+func (h *Handler) specialDateDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteSpecialDate(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting special date: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/special-dates")
+		return nil
+	})
+}
+
+// ---- Snapshots Table ----
+
+func (h *Handler) snapshotsTablePage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetSnapshotsTablePageData(ctx, extractExcludedTypeIDs(r))
+		if err != nil {
+			return fmt.Errorf("getting snapshots table page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Snapshots Table", PageSnapshotsTable(view)))
+	})
+}
+
+func (h *Handler) snapshotsTableModifyDate() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp dateInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		row, err := h.svc.ModifySnapshotDateRow(ctx, inp.OldDate, inp.NewDate)
+		if err != nil {
+			return fmt.Errorf("modifying snapshot date: %w", err)
+		}
+		return NewView(ctx, w, r).Render(SnapshotsTableRow(row))
+	})
+}
+
+func (h *Handler) snapshotsTableEmptyRow() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		row, err := h.svc.GetEmptySnapshotRow(ctx)
+		if err != nil {
+			return fmt.Errorf("getting empty snapshot row: %w", err)
+		}
+		return NewView(ctx, w, r).Render(SnapshotsTableRow(row))
+	})
+}
+
+func (h *Handler) accountSnapshotUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp accountSnapshotInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		accID := r.PathValue("id")
+		snap, err := h.svc.UpsertOrDeleteSnapshot(ctx, accID, inp.AccountSnapshotInput)
+		if err != nil {
+			return fmt.Errorf("upserting snapshot: %w", err)
+		}
+		if r.Header.Get("HX-Request") == "true" {
+			return NewView(ctx, w, r).Render(SnapshotCell(accID, inp.Date, snap))
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", accID))
+		return nil
+	})
+}
+
+// ---- Transfers ----
+
+func (h *Handler) transfersPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var day date.Date
+		if err := shttp.Parse(&day, date.ParseDate, r.FormValue("day"), date.Today()); err != nil {
+			return fmt.Errorf("parsing day: %w", err)
+		}
+		amounts := make(map[string]float64)
+		if err := r.ParseForm(); err == nil {
+			for key, values := range r.Form {
+				if len(key) > 7 && key[:7] == "amount_" {
+					templateID := key[7:]
+					if amount, err := ui.ParseAmount(values[0]); err == nil {
+						amounts[templateID] = amount
+					}
+				}
+			}
+		}
+		view, err := h.svc.ComputeTransfersView(ctx, day, amounts)
+		if err != nil {
+			return fmt.Errorf("computing transfers view: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfers", PageTransfers(view)))
+	})
+}
+
+func (h *Handler) transferChartPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var groupBy TransferChartGroupBy
+		if err := shttp.Parse(&groupBy, service.ParseTransferChartGroupBy, r.FormValue("group_by"), service.GroupByAccount); err != nil {
+			return fmt.Errorf("parsing group_by: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Transfers Chart", PageTransfersChart(groupBy)))
+	})
+}
+
+func (h *Handler) transferChartData() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var groupBy TransferChartGroupBy
+		if err := shttp.Parse(&groupBy, service.ParseTransferChartGroupBy, r.FormValue("group_by"), service.GroupByAccount); err != nil {
+			return fmt.Errorf("parsing group_by: %w", err)
+		}
+		data, err := h.svc.GetTransferChartData(ctx, groupBy)
+		if err != nil {
+			return fmt.Errorf("getting transfer chart data: %w", err)
+		}
+		if err := json.NewEncoder(w).Encode(data); err != nil {
+			return fmt.Errorf("encoding JSON: %w", err)
+		}
+		return nil
+	})
+}
+
+// ---- Chart ----
+
+func (h *Handler) chartPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var p predictionParamsForm
+		if err := srvu.Decode(r, &p, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Chart", PageChart(p.PredictionParams)))
+	})
+}
+
+type ssePredictionEventHandler struct {
+	w *srvu.SSESender
+}
+
+func (s *ssePredictionEventHandler) Setup(e service.PredictionSetupEvent) error {
+	return s.w.SendNamedJson("setup", e)
+}
+func (s *ssePredictionEventHandler) Snapshot(e service.PredictionBalanceSnapshot) error {
+	return s.w.SendNamedJson("balanceSnapshot", e)
+}
+func (s *ssePredictionEventHandler) Close() error {
+	return s.w.SendEventWithoutData("close")
+}
+
+func (h *Handler) chartsDataStream() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var params predictionParamsForm
+		if err := srvu.Decode(r, &params, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		if err := h.svc.RunPrediction(ctx, &ssePredictionEventHandler{w: srvu.SSEResponse(w)}, params.PredictionParams); err != nil {
+			return fmt.Errorf("running prediction: %w", err)
+		}
+		return nil
+	})
 }

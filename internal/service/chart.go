@@ -1,59 +1,18 @@
-package core
+package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"net/http"
 	"slices"
 	"sort"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/goslu/srvu"
-	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/finance"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
-
-func ChartPage() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		p := PredictionParams{}
-		if err := srvu.Decode(r, &p, false); err != nil {
-			return fmt.Errorf("decoding input: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Chart", PageChart(p)))
-	})
-}
-
-type SSEPredictionEventHandler struct {
-	w *srvu.SSESender
-}
-
-func (s *SSEPredictionEventHandler) Setup(e PredictionSetupEvent) error {
-	return s.w.SendNamedJson("setup", e)
-}
-func (s *SSEPredictionEventHandler) Snapshot(e PredictionBalanceSnapshot) error {
-	return s.w.SendNamedJson("balanceSnapshot", e)
-}
-func (s *SSEPredictionEventHandler) Close() error {
-	return s.w.SendEventWithoutData("close")
-}
-
-func HandlerChartsDataStream(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var params PredictionParams
-		if err := srvu.Decode(r, &params, false); err != nil {
-			return fmt.Errorf("decoding input: %w", err)
-		}
-		if err := RunPrediction(ctx, db, &SSEPredictionEventHandler{w: srvu.SSEResponse(w)}, params); err != nil {
-			return fmt.Errorf("running prediction: %w", err)
-		}
-		return nil
-	})
-}
 
 type PredictionParams struct {
 	Duration         date.Duration
@@ -84,25 +43,6 @@ func ParseGroupBy(val string) (GroupBy, error) {
 	}
 }
 
-func (p *PredictionParams) FromForm(r *http.Request) error {
-	if err := shttp.Parse(&p.Duration, date.ParseDuration, r.FormValue("duration"), 365); err != nil {
-		return fmt.Errorf("parsing duration: %w", err)
-	}
-	if err := shttp.Parse(&p.Samples, ui.ParseHumanNumber(ui.ParseInt64), r.FormValue("samples"), 2000); err != nil {
-		return fmt.Errorf("parsing samples: %w", err)
-	}
-	if err := shttp.Parse(&p.Quantile, shttp.ParseFloat, r.FormValue("quantile"), 0.8); err != nil {
-		return fmt.Errorf("parsing quantile: %w", err)
-	}
-	if err := shttp.Parse(&p.SnapshotInterval, ui.ParseDateCron, r.FormValue("snapshot_interval"), "*-*-28"); err != nil {
-		return fmt.Errorf("parsing snapshot interval: %w", err)
-	}
-	if err := shttp.Parse(&p.GroupBy, ParseGroupBy, r.FormValue("group_by"), GroupByType); err != nil {
-		return fmt.Errorf("parsing group by: %w", err)
-	}
-	return nil
-}
-
 type PredictionBalanceSnapshot struct {
 	ID         string  `json:"id"`
 	Day        int64   `json:"day"`
@@ -110,17 +50,20 @@ type PredictionBalanceSnapshot struct {
 	LowerBound float64 `json:"lowerBound"`
 	UpperBound float64 `json:"upperBound"`
 }
+
 type PredictionFinancialEntity struct {
 	ID        string                      `json:"id"`
 	Name      string                      `json:"name"`
 	Color     string                      `json:"color"`
 	Snapshots []PredictionBalanceSnapshot `json:"snapshots"`
 }
+
 type Markline struct {
 	Date  int64  `json:"date"`
 	Color string `json:"color"`
 	Name  string `json:"name"`
 }
+
 type PredictionSetupEvent struct {
 	Max       int64                       `json:"max"`
 	Entities  []PredictionFinancialEntity `json:"entities"`
@@ -133,8 +76,8 @@ type PredictionEventHandler interface {
 	Close() error
 }
 
-func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEventHandler, params PredictionParams) error {
-	q := pdb.New(db)
+func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEventHandler, params PredictionParams) error {
+	q := pdb.New(s.db)
 	q1, q2 := (1-params.Quantile)/2, (1+params.Quantile)/2
 
 	transfers := make([]finance.TransferTemplate, 0)
@@ -143,7 +86,7 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	if err != nil {
 		return fmt.Errorf("listing accounts for Prediction: %w", err)
 	}
-	trans, err := ListTransferTemplates(ctx, db)
+	trans, err := s.ListTransferTemplates(ctx)
 	if err != nil {
 		return fmt.Errorf("listing transfers for Prediction: %w", err)
 	}
@@ -151,7 +94,7 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	if err != nil {
 		return fmt.Errorf("listing account types for Prediction: %w", err)
 	}
-	specialDates, err := ListSpecialDates(ctx, db)
+	specialDates, err := s.ListSpecialDates(ctx)
 	if err != nil {
 		return fmt.Errorf("listing special dates for Prediction: %w", err)
 	}
@@ -169,11 +112,11 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), params.Samples)
 	for _, acc := range accs {
 		accsById[acc.ID] = acc
-		snaps, err := ListAccountSnapshots(ctx, db, acc.ID)
+		snaps, err := s.ListAccountSnapshots(ctx, acc.ID)
 		if err != nil {
 			return fmt.Errorf("getting snapshots for account %s: %w", acc.ID, err)
 		}
-		gms, err := ListAccountGrowthModels(ctx, db, acc.ID)
+		gms, err := s.ListAccountGrowthModels(ctx, acc.ID)
 		if err != nil {
 			return fmt.Errorf("getting growth models for account %s: %w", acc.ID, err)
 		}
@@ -195,17 +138,17 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 				DestinationID: ui.OrDefault(acc.CashFlowDestinationID),
 			}
 		}
-		ssa, err := GetStartupShareAccount(ctx, db, acc.ID)
+		ssa, err := s.GetStartupShareAccount(ctx, acc.ID)
 		if err == nil && ssa.AccountID == acc.ID {
-			rounds, err := ListInvestmentRounds(ctx, db, acc.ID)
+			rounds, err := s.ListInvestmentRounds(ctx, acc.ID)
 			if err != nil {
 				return fmt.Errorf("listing investment rounds for account %s: %w", acc.ID, err)
 			}
-			shareChanges, err := ListShareChanges(ctx, db, acc.ID)
+			shareChanges, err := s.ListShareChanges(ctx, acc.ID)
 			if err != nil {
 				return fmt.Errorf("listing share changes for account %s: %w", acc.ID, err)
 			}
-			opts, err := ListStartupShareOptions(ctx, db, acc.ID)
+			opts, err := s.ListStartupShareOptions(ctx, acc.ID)
 			if err != nil {
 				return fmt.Errorf("listing startup share options for account %s: %w", acc.ID, err)
 			}
@@ -216,7 +159,6 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 			entity.GrowthModel = ssResult.GrowthModel
 			entity.Snapshots = ssResult.Snapshots
 		} else {
-			// Add regular snapshots for non-startup-share accounts
 			for _, snap := range snaps {
 				entity.Snapshots = append(entity.Snapshots, snap.ToFinance())
 				if snap.Date.After(startDate) {
@@ -236,19 +178,27 @@ func RunPrediction(ctx context.Context, db *sql.DB, eventHandler PredictionEvent
 	startDate += 1
 	endDate := startDate.Add(params.Duration)
 
-	h := &GroupingEventHandler{eventHandler: eventHandler, ucfg: ucfg, accsById: accsById, accountTypesById: accountTypesById, groupBy: params.GroupBy, q1: q1, q2: q2}
+	h := &groupingEventHandler{
+		eventHandler:     eventHandler,
+		ucfg:             ucfg,
+		accsById:         accsById,
+		accountTypesById: accountTypesById,
+		groupBy:          params.GroupBy,
+		q1:               q1,
+		q2:               q2,
+	}
 
-	if err := h.Setup(entities, endDate, specialDates); err != nil {
+	if err := h.setup(entities, endDate, specialDates); err != nil {
 		return fmt.Errorf("setting up grouping event handler: %w", err)
 	}
 
 	snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
-		return h.Snapshot(accountID, day, balance)
+		return h.snapshot(accountID, day, balance)
 	})
 	if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, params.SnapshotInterval, entities, transfers, finance.CompositeRecorder{SnapshotRecorder: snapshotRecorder}); err != nil {
 		return fmt.Errorf("running prediction for SSE: %w", err)
 	}
-	return h.Close()
+	return h.close()
 }
 
 type startupShareForecastState struct {
@@ -256,8 +206,6 @@ type startupShareForecastState struct {
 	Snapshots   []finance.BalanceSnapshot
 }
 
-// buildStartupShareForecastState builds the growth model and historic snapshots
-// for a startup share account. Rounds must be sorted ascending by date.
 func buildStartupShareForecastState(
 	ucfg *uncertain.Config,
 	rounds []InvestmentRound,
@@ -323,9 +271,6 @@ func buildStartupShareForecastState(
 		Options:          options,
 	}
 
-	// Historic snapshots at all event dates (round dates + share change dates)
-	// before startDate. For each date, use the latest round on or before it,
-	// matching the dashboard's balance history approach.
 	eventDates := make(map[date.Date]struct{})
 	for _, round := range rounds {
 		if round.Date < startDate {
@@ -390,7 +335,7 @@ func buildStartupShareForecastState(
 	}
 }
 
-type GroupingEventHandler struct {
+type groupingEventHandler struct {
 	eventHandler     PredictionEventHandler
 	ucfg             *uncertain.Config
 	accsById         map[string]pdb.Account
@@ -403,7 +348,7 @@ type GroupingEventHandler struct {
 	currentAccs map[string]uncertain.Value
 }
 
-func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Date, specialDates []SpecialDate) error {
+func (h *groupingEventHandler) setup(entities []finance.Entity, endDate date.Date, specialDates []SpecialDate) error {
 	for _, e := range h.accsById {
 		if e.TypeID == nil {
 			h.accountTypesById[""] = pdb.AccountType{
@@ -501,7 +446,7 @@ func (h *GroupingEventHandler) Setup(entities []finance.Entity, endDate date.Dat
 	})
 }
 
-func (h *GroupingEventHandler) getKey(id string) string {
+func (h *groupingEventHandler) getKey(id string) string {
 	switch h.groupBy {
 	case GroupByType:
 		return h.accountTypesById[ui.OrDefault(h.accsById[id].TypeID)].ID
@@ -514,9 +459,9 @@ func (h *GroupingEventHandler) getKey(id string) string {
 	}
 }
 
-func (h *GroupingEventHandler) Snapshot(id string, day date.Date, balance uncertain.Value) error {
+func (h *groupingEventHandler) snapshot(id string, day date.Date, balance uncertain.Value) error {
 	if h.currentDate != day {
-		if err := h.Flush(); err != nil {
+		if err := h.flush(); err != nil {
 			return err
 		}
 		h.currentDate = day
@@ -532,7 +477,7 @@ func (h *GroupingEventHandler) Snapshot(id string, day date.Date, balance uncert
 	return nil
 }
 
-func (h *GroupingEventHandler) Flush() error {
+func (h *groupingEventHandler) flush() error {
 	for id, balance := range h.currentAccs {
 		q := balance.Quantiles()
 		err := h.eventHandler.Snapshot(PredictionBalanceSnapshot{
@@ -550,8 +495,8 @@ func (h *GroupingEventHandler) Flush() error {
 	return nil
 }
 
-func (h *GroupingEventHandler) Close() error {
-	if err := h.Flush(); err != nil {
+func (h *groupingEventHandler) close() error {
+	if err := h.flush(); err != nil {
 		return err
 	}
 	return h.eventHandler.Close()

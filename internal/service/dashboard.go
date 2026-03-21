@@ -1,15 +1,12 @@
-package core
+package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math"
-	"net/http"
 	"sort"
 
 	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
@@ -31,14 +28,12 @@ type AccountChartEntry struct {
 	Balance float64 `json:"balance"`
 }
 
-// SnapshotHistorySeries is one series (account type) for the snapshot history grouped bar chart.
 type SnapshotHistorySeries struct {
 	Name  string    `json:"name"`
 	Color string    `json:"color"`
 	Data  []float64 `json:"data"`
 }
 
-// SnapshotHistoryChartData is the data for the dashboard snapshot history grouped bar chart.
 type SnapshotHistoryChartData struct {
 	Dates  []string                `json:"dates"`
 	Series []SnapshotHistorySeries `json:"series"`
@@ -54,30 +49,20 @@ type DashboardView struct {
 	SnapshotHistoryChart SnapshotHistoryChartData
 }
 
-func DashboardPage(db *sql.DB) http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		view, err := computeDashboardView(ctx, db)
-		if err != nil {
-			return fmt.Errorf("computing dashboard view: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Dashboard", PageDashboard(view)))
-	})
-}
-
-func computeDashboardView(ctx context.Context, db *sql.DB) (*DashboardView, error) {
+func (s *Service) GetDashboardData(ctx context.Context) (*DashboardView, error) {
 	today := date.Today()
 
-	budget, err := computeBudgetView(ctx, db)
+	budget, err := s.GetBudgetData(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("computing budget view: %w", err)
 	}
 
-	accounts, err := ListAccountsDetailed(ctx, db, today)
+	accounts, err := s.ListAccountsDetailed(ctx, today)
 	if err != nil {
 		return nil, fmt.Errorf("listing accounts: %w", err)
 	}
 
-	accountTypes, err := ListAccountTypes(ctx, db)
+	accountTypes, err := s.ListAccountTypes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing account types: %w", err)
 	}
@@ -98,7 +83,7 @@ func computeDashboardView(ctx context.Context, db *sql.DB) (*DashboardView, erro
 	groups := groupAccountsByType(accounts, accountTypes)
 	chartData := buildAccountChartData(groups)
 
-	snapshotHistory, err := buildSnapshotHistoryChart(ctx, db, accountTypes)
+	snapshotHistory, err := s.buildSnapshotHistoryChart(ctx, accountTypes)
 	if err != nil {
 		return nil, fmt.Errorf("building snapshot history chart: %w", err)
 	}
@@ -114,8 +99,8 @@ func computeDashboardView(ctx context.Context, db *sql.DB) (*DashboardView, erro
 	}, nil
 }
 
-func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []AccountType) (SnapshotHistoryChartData, error) {
-	q := pdb.New(db)
+func (s *Service) buildSnapshotHistoryChart(ctx context.Context, accountTypes []AccountType) (SnapshotHistoryChartData, error) {
+	q := pdb.New(s.db)
 	rows, err := q.ListSnapshotHistoryWithType(ctx)
 	if err != nil {
 		return SnapshotHistoryChartData{}, err
@@ -147,17 +132,14 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 	const snapshotHistoryMaxBars = 24
 	dates = downsampleDates(dates, snapshotHistoryMaxBars)
 
-	// For each chart date, compute startup share balances from the latest
-	// investment round on or before that date (skip accounts with DB snapshots).
 	startupRows, err := q.ListStartupShareSnapshotHistory(ctx)
 	if err != nil {
 		return SnapshotHistoryChartData{}, fmt.Errorf("listing startup share snapshot history: %w", err)
 	}
 	if len(startupRows) > 0 {
-		// Group investment rounds by account and load share changes per account.
 		type startupAccount struct {
-			TypeID      string
-			Rounds      []pdb.ListStartupShareSnapshotHistoryRow
+			TypeID       string
+			Rounds       []pdb.ListStartupShareSnapshotHistoryRow
 			ShareChanges []ShareChange
 		}
 		startupAccounts := make(map[string]*startupAccount)
@@ -173,7 +155,7 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 			sa.Rounds = append(sa.Rounds, r)
 		}
 		for accountID, sa := range startupAccounts {
-			changes, err := ListShareChanges(ctx, db, accountID)
+			changes, err := s.ListShareChanges(ctx, accountID)
 			if err != nil {
 				return SnapshotHistoryChartData{}, fmt.Errorf("listing share changes for %s: %w", accountID, err)
 			}
@@ -211,7 +193,6 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 	for _, at := range accountTypes {
 		typeByName[at.ID] = at
 	}
-	// Include untyped accounts (type_id "") in the chart if they have any balance
 	for _, d := range dates {
 		if sumByDateAndType[typeKey(d, "")] != 0 {
 			if _, ok := typeByName[""]; !ok {
@@ -261,8 +242,6 @@ func buildSnapshotHistoryChart(ctx context.Context, db *sql.DB, accountTypes []A
 	}, nil
 }
 
-// downsampleDates returns at most maxBars dates from dates, evenly spaced,
-// with the first being the oldest and the last being the latest (most recent).
 func downsampleDates(dates []int64, maxBars int) []int64 {
 	if len(dates) <= maxBars || maxBars <= 1 {
 		return dates
