@@ -274,10 +274,21 @@ func ParseTransferChartGroupBy(val string) (TransferChartGroupBy, error) {
 	}
 }
 
-type TransferChartDataNode struct {
-	Name  string `json:"name"`
-	Label string `json:"label"`
+type TransferChartDataNodeStyle struct {
 	Color string `json:"color"`
+}
+
+func newNodeStyle(color string) *TransferChartDataNodeStyle {
+	if color == "" {
+		return nil
+	}
+	return &TransferChartDataNodeStyle{Color: color}
+}
+
+type TransferChartDataNode struct {
+	Name      string                     `json:"name"`
+	Label     string                     `json:"label"`
+	ItemStyle *TransferChartDataNodeStyle `json:"itemStyle,omitempty"`
 }
 
 type TransferChartDataEnvelope struct {
@@ -333,9 +344,9 @@ func (s *Service) GetTransferChartData(ctx context.Context, groupBy TransferChar
 		chartData = make([]TransferChartDataNode, 0, len(accountTypeSet))
 		for _, at := range accountTypeSet {
 			chartData = append(chartData, TransferChartDataNode{
-				Name:  at.Name,
-				Label: at.Name,
-				Color: at.Color,
+				Name:      at.Name,
+				Label:     at.Name,
+				ItemStyle: newNodeStyle(at.Color),
 			})
 		}
 
@@ -357,9 +368,9 @@ func (s *Service) GetTransferChartData(ctx context.Context, groupBy TransferChar
 				at = AccountType{ID: "", Name: "unknown", Color: ""}
 			}
 			chartData = append(chartData, TransferChartDataNode{
-				Name:  a.Name,
-				Label: a.Name,
-				Color: at.Color,
+				Name:      a.Name,
+				Label:     a.Name,
+				ItemStyle: newNodeStyle(at.Color),
 			})
 		}
 
@@ -369,8 +380,8 @@ func (s *Service) GetTransferChartData(ctx context.Context, groupBy TransferChar
 		}
 	}
 
-	chartData = append(chartData, TransferChartDataNode{Name: "Income", Label: "Income", Color: "#388E3C"})
-	chartData = append(chartData, TransferChartDataNode{Name: "Expenses", Label: "Expenses", Color: "#D32F2F"})
+	chartData = append(chartData, TransferChartDataNode{Name: "Income", Label: "Income", ItemStyle: newNodeStyle("#388E3C")})
+	chartData = append(chartData, TransferChartDataNode{Name: "Expenses", Label: "Expenses", ItemStyle: newNodeStyle("#D32F2F")})
 
 	type LinkKey struct {
 		Source string
