@@ -104,7 +104,7 @@ func mks[T any](accounts ...T) []T {
 	return accounts
 }
 
-func runPredict(accounts []finance.Entity, transfers []finance.TransferTemplate) (map[string]uncertain.Value, error) {
+func runPredict(ctx context.Context, accounts []finance.Entity, transfers []finance.TransferTemplate) (map[string]uncertain.Value, error) {
 	m := make(map[string]finance.BalanceSnapshot)
 	snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
 		if s, ok := m[accountID]; !ok || s.Date < day {
@@ -116,7 +116,7 @@ func runPredict(accounts []finance.Entity, transfers []finance.TransferTemplate)
 		return nil
 	})
 	err := finance.RunPrediction(
-		context.Background(),
+		ctx,
 		uncertain.NewConfig(time.Now().UnixMilli(), 2_000),
 		startDate,
 		startDate.Add(1*date.Year).Add(2*date.Day),
@@ -157,7 +157,7 @@ func TestMortgageInterestPayments(t *testing.T) {
 		withInterest(uncertain.NewFixed(0.03), "*-*-01", checkAcc.ID),
 		withBalance(firstDate, uncertain.NewFixed(-10000)),
 	)
-	bals, err := runPredict(mks(*checkAcc, *mortgAcc), nil)
+	bals, err := runPredict(t.Context(), mks(*checkAcc, *mortgAcc), nil)
 	if err != nil {
 		t.Fatalf("failed to run simulation: %s", err)
 	}
@@ -174,7 +174,7 @@ func TestSavingsAccountInterestPayments(t *testing.T) {
 		withLogNormGrowth(uncertain.NewFixed(0.04), uncertain.NewFixed(0.04)),
 		withBalance(firstDate, uncertain.NewFixed(1000)),
 	)
-	bals, err := runPredict(mks(*savingsAcc), nil)
+	bals, err := runPredict(t.Context(), mks(*savingsAcc), nil)
 	if err != nil {
 		t.Fatalf("failed to run simulation: %s", err)
 	}
@@ -186,7 +186,7 @@ func TestSavingsAccountInterestPayments(t *testing.T) {
 func TestTransfersToAndFromExternal(t *testing.T) {
 	salaryAcc := newAccount("Salary Account")
 	salaryTrn := newTransfer("", salaryAcc.ID, 1, "*-*-25", withFixed(uncertain.NewFixed(1000)))
-	bals, err := runPredict(mks(*salaryAcc), mks(salaryTrn))
+	bals, err := runPredict(t.Context(), mks(*salaryAcc), mks(salaryTrn))
 	if err != nil {
 		t.Fatalf("failed to run simulation: %s", err)
 	}
@@ -199,7 +199,7 @@ func TestTransfersBetweenAccounts(t *testing.T) {
 	checkingAcc := newAccount("Checking Account", withBalance(firstDate, uncertain.NewFixed(13000)))
 	savingsAcc := newAccount("Savings Account")
 	savingsTrn := newTransfer(checkingAcc.ID, savingsAcc.ID, 1, "*-*-25", withFixed(uncertain.NewFixed(1000)))
-	bals, err := runPredict(mks(*checkingAcc, *savingsAcc), mks(savingsTrn))
+	bals, err := runPredict(t.Context(), mks(*checkingAcc, *savingsAcc), mks(savingsTrn))
 	if err != nil {
 		t.Fatalf("failed to run simulation: %s", err)
 	}
@@ -216,7 +216,7 @@ func TestRealEstateAppreciation(t *testing.T) {
 		withBalance(firstDate, uncertain.NewUniform(99_000, 101_000)),
 		withGrowthModel(uncertain.NewUniform(0.00, 0.06)),
 	)
-	bals, err := runPredict(mks(*realEstateAcc), nil)
+	bals, err := runPredict(t.Context(), mks(*realEstateAcc), nil)
 	if err != nil {
 		t.Fatalf("failed to run simulation: %s", err)
 	}
@@ -231,7 +231,7 @@ func BenchmarkRealEstateAppreciation(b *testing.B) {
 		withGrowthModel(uncertain.NewUniform(0.00, 0.06)),
 	)
 	for b.Loop() {
-		if _, err := runPredict(mks(*realEstateAcc), nil); err != nil {
+		if _, err := runPredict(b.Context(), mks(*realEstateAcc), nil); err != nil {
 			b.Fatalf("failed to run simulation: %s", err)
 		}
 	}
@@ -245,7 +245,7 @@ func TestInterestForwardingUntilFromDate(t *testing.T) {
 	)
 	salary := newTransfer("", checkingAcc.ID, 1, "*-*-25", withFixed(uncertain.NewFixed(10_000)))
 	transfer := newTransfer(checkingAcc.ID, savingsAcc.ID, 1, "*-01-24", withFixed(uncertain.NewFixed(1000)))
-	bals, err := runPredict(mks(*checkingAcc, *savingsAcc), mks(salary, transfer))
+	bals, err := runPredict(t.Context(), mks(*checkingAcc, *savingsAcc), mks(salary, transfer))
 	if err != nil {
 		t.Fatalf("failed to run simulation: %s", err)
 	}
