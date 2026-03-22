@@ -413,12 +413,12 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 											if !isChild {
 												@TransferTemplateTableRow(view, &tpl)
 												{{ rendered[tpl.ID] = true }}
-												if isParent {
-													for _, child := range tpl.ChildTemplates {
-														{{ childWithAmount := TransferTemplateWithAmount{TransferTemplate: child, SimDate: tpl.SimDate, Amount: 0} }}
-														@TransferTemplateTableRow(view, &childWithAmount)
-														{{ rendered[child.ID] = true }}
-													}
+											if isParent {
+												for _, child := range tpl.ChildTemplates {
+													{{ childWithAmount := view.GetChildWithAmount(child) }}
+													@TransferTemplateTableRow(view, &childWithAmount)
+													{{ rendered[child.ID] = true }}
+												}
 												}
 											}
 										}

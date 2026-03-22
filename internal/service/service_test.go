@@ -626,3 +626,170 @@ func TestListAccountsDetailed(t *testing.T) {
 		t.Fatal("expected non-nil growth model")
 	}
 }
+
+// ---- Transfer Template Child Amount Computation ----
+
+func TestGetTransferTemplatesPageData_ChildAmountsComputed(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	pastEnd := mustParseDate("2020-12-31")
+	parent, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:        "Rent",
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(1500),
+		Priority:    1,
+		Recurrence:  "*-*-01",
+		StartDate:   mustParseDate("2020-01-01"),
+		EndDate:     &pastEnd,
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:             "Rent",
+		AmountType:       "fixed",
+		AmountFixed:      newFixedValue(2000),
+		Priority:         1,
+		Recurrence:       "*-*-01",
+		StartDate:        mustParseDate("2020-01-01"),
+		Enabled:          true,
+		ParentTemplateID: &parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	if len(view.TransferTemplates) != 1 {
+		t.Fatalf("expected 1 root template, got %d", len(view.TransferTemplates))
+	}
+
+	parentTpl := view.TransferTemplates[0]
+	if parentTpl.Amount != 0 {
+		t.Errorf("inactive parent: expected amount 0, got %f", parentTpl.Amount)
+	}
+
+	if len(parentTpl.ChildTemplates) != 1 {
+		t.Fatalf("expected 1 child template, got %d", len(parentTpl.ChildTemplates))
+	}
+
+	childWithAmount := view.GetChildWithAmount(parentTpl.ChildTemplates[0])
+	if childWithAmount.Amount != 2000 {
+		t.Errorf("active child: expected amount 2000, got %f", childWithAmount.Amount)
+	}
+}
+
+func TestGetTransferTemplatesPageData_ActiveChildContributesToMonthlyIncome(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, err := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	pastEnd := mustParseDate("2020-12-31")
+	parent, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:        "Salary",
+		ToAccountID: acc.ID,
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(4000),
+		Priority:    1,
+		Recurrence:  "*-*-25",
+		StartDate:   mustParseDate("2020-01-01"),
+		EndDate:     &pastEnd,
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:             "Salary",
+		ToAccountID:      acc.ID,
+		AmountType:       "fixed",
+		AmountFixed:      newFixedValue(5000),
+		Priority:         1,
+		Recurrence:       "*-*-25",
+		StartDate:        mustParseDate("2020-01-01"),
+		Enabled:          true,
+		ParentTemplateID: &parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	if view.MonthlyIncome != 5000 {
+		t.Errorf("expected monthly income 5000 from active child, got %f", view.MonthlyIncome)
+	}
+}
+
+func TestComputeTransfersView_IncludesActiveChildOfInactiveParent(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc1, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+	acc2, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Savings"})
+
+	pastEnd := mustParseDate("2024-12-31")
+	parent, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc1.ID,
+		ToAccountID:   acc2.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(1500),
+		Priority:      1,
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2020-01-01"),
+		EndDate:       &pastEnd,
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create parent: %v", err)
+	}
+
+	child, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:             "Rent",
+		FromAccountID:    acc1.ID,
+		ToAccountID:      acc2.ID,
+		AmountType:       "fixed",
+		AmountFixed:      newFixedValue(2000),
+		Priority:         1,
+		Recurrence:       "*-*-01",
+		StartDate:        mustParseDate("2025-01-01"),
+		Enabled:          true,
+		ParentTemplateID: &parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("create child: %v", err)
+	}
+
+	day := mustParseDate("2025-06-01")
+	view, err := svc.ComputeTransfersView(ctx, day, nil)
+	if err != nil {
+		t.Fatalf("ComputeTransfersView: %v", err)
+	}
+
+	found := false
+	for _, tt := range view.TransferTemplates {
+		if tt.ID == child.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("active child template %s not found in TransfersView; parent-child should be a visual grouping only", child.ID)
+	}
+}
