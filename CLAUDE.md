@@ -90,3 +90,4 @@ When adding a new feature, follow this order:
 - No explicit linter configured; use standard Go formatting (`gofmt`)
 - Tests exist in `internal/finance/` and `internal/core/` — run with `go test ./...`
 - Avoid dependencies when possible
+- Always use Red Green TDD when doing any changes.
