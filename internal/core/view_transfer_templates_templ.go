@@ -1154,7 +1154,7 @@ func TransferTemplatesContent(view *TransferTemplatesView2) templ.Component {
 					rendered[tpl.ID] = true
 					if isParent {
 						for _, child := range tpl.ChildTemplates {
-							childWithAmount := TransferTemplateWithAmount{TransferTemplate: child, SimDate: tpl.SimDate, Amount: 0}
+							childWithAmount := view.GetChildWithAmount(child)
 							templ_7745c5c3_Err = TransferTemplateTableRow(view, &childWithAmount).Render(ctx, templ_7745c5c3_Buffer)
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err

@@ -89,20 +89,47 @@ type TransferTemplatesView2 struct {
 	Categories        map[string]TransferTemplateCategory
 	MonthlyIncome     float64
 	MonthlyExpenses   float64
+	childAmounts      map[string]TransferTemplateWithAmount
 }
 
-func NewTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
+func (v *TransferTemplatesView2) GetChildWithAmount(child TransferTemplate) TransferTemplateWithAmount {
+	if a, ok := v.childAmounts[child.ID]; ok {
+		return a
+	}
+	return TransferTemplateWithAmount{TransferTemplate: child}
+}
+
+func newTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
+	day := date.Today()
 	v := &TransferTemplatesView2{
-		TransferTemplates: MakeTransferTemplatesWithAmount(transferTemplates, date.Today()),
+		TransferTemplates: MakeTransferTemplatesWithAmount(transferTemplates, day),
 		Accounts:          KeyBy(accounts, func(a Account) string { return a.ID }),
 		Categories:        KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
+		childAmounts:      make(map[string]TransferTemplateWithAmount),
 	}
-	for _, t := range v.TransferTemplates {
+
+	var children []TransferTemplate
+	for _, t := range transferTemplates {
+		children = append(children, t.ChildTemplates...)
+	}
+	if len(children) > 0 {
+		for _, c := range MakeTransferTemplatesWithAmount(children, day) {
+			v.childAmounts[c.ID] = c
+		}
+	}
+
+	addToMonthlyTotals := func(t TransferTemplateWithAmount) {
 		if t.FromAccountID == "" {
 			v.MonthlyIncome += t.Amount
 		} else if t.ToAccountID == "" {
 			v.MonthlyExpenses += -t.Amount
 		}
+	}
+	for _, t := range v.TransferTemplates {
+		addToMonthlyTotals(t)
+	}
+	for _, t := range v.childAmounts {
+		addToMonthlyTotals(t)
 	}
 	return v
 }
@@ -421,7 +448,7 @@ func (s *Service) GetTransferTemplatesPageData(ctx context.Context) (*TransferTe
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
-	return NewTransferTemplatesView2(transferTemplates, accounts, categories), nil
+	return newTransferTemplatesView2(transferTemplates, accounts, categories), nil
 }
 
 func (s *Service) GetTransferTemplateNewPageData(ctx context.Context) (*TransferTemplateEditView, error) {
