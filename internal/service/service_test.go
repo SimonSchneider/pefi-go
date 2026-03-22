@@ -1,7 +1,6 @@
 package service_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/SimonSchneider/goslu/date"
@@ -27,7 +26,7 @@ func mustParseDate(s string) date.Date {
 
 func newTestService(t *testing.T) *service.Service {
 	t.Helper()
-	db, err := service.GetMigratedDB(context.Background(), pefigo.StaticEmbeddedFS, "static/migrations", ":memory:")
+	db, err := service.GetMigratedDB(t.Context(), pefigo.StaticEmbeddedFS, "static/migrations", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
 	}
@@ -39,7 +38,7 @@ func newTestService(t *testing.T) *service.Service {
 
 func TestAccountTypeCRUD(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	at, err := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
 	if err != nil {
@@ -89,7 +88,7 @@ func TestAccountTypeCRUD(t *testing.T) {
 
 func TestCategoryCRUD(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	color := "#abcdef"
 	cat, err := svc.UpsertCategory(ctx, service.TransferTemplateCategoryInput{Name: "Housing", Color: &color})
@@ -125,7 +124,7 @@ func TestCategoryCRUD(t *testing.T) {
 
 func TestAccountCRUD(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	at, err := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Checking"})
 	if err != nil {
@@ -180,7 +179,7 @@ func TestAccountCRUD(t *testing.T) {
 
 func TestSpecialDateCRUD(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	sd, err := svc.UpsertSpecialDate(ctx, service.SpecialDateInput{Name: "Christmas", Date: mustParseDate("2025-12-25"), Color: "#ff0000"})
 	if err != nil {
@@ -215,7 +214,7 @@ func TestSpecialDateCRUD(t *testing.T) {
 
 func TestSnapshotCRUD(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	acc, err := svc.UpsertAccount(ctx, service.AccountInput{Name: "Test"})
 	if err != nil {
@@ -258,7 +257,7 @@ func TestSnapshotCRUD(t *testing.T) {
 
 func TestTransferTemplateCRUD(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	acc1, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "From"})
 	acc2, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "To"})
@@ -316,7 +315,7 @@ func TestTransferTemplateCRUD(t *testing.T) {
 
 func TestGrowthModelCRUD(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Savings"})
 
@@ -351,7 +350,7 @@ func TestGrowthModelCRUD(t *testing.T) {
 
 func TestGetDashboardData(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	at, _ := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
 	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "My Savings", TypeID: at.ID})
@@ -382,7 +381,7 @@ func TestGetDashboardData(t *testing.T) {
 
 func TestGetBudgetData(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	color := "#ff0000"
 	cat, _ := svc.UpsertCategory(ctx, service.TransferTemplateCategoryInput{Name: "Housing", Color: &color})
@@ -420,7 +419,7 @@ func TestGetBudgetData(t *testing.T) {
 
 func TestGetCategoriesPageData(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	at, err := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
 	if err != nil {
@@ -453,7 +452,7 @@ func TestGetCategoriesPageData(t *testing.T) {
 
 func TestGetCategoriesPageDataEmpty(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	view, err := svc.GetCategoriesPageData(ctx)
 	if err != nil {
@@ -471,7 +470,7 @@ func TestGetCategoriesPageDataEmpty(t *testing.T) {
 
 func TestGetTransferChartData_NodeColorsFromAccountTypes(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	at1, _ := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
 	at2, _ := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Checking", Color: "#0000ff"})
@@ -597,7 +596,7 @@ func TestSimplifyTransfersRemovesSelfAndExternal(t *testing.T) {
 
 func TestListAccountsDetailed(t *testing.T) {
 	svc := newTestService(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	at, _ := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Bank"})
 	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Savings", TypeID: at.ID})
