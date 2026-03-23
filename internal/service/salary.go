@@ -383,7 +383,9 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		salary.Amounts = amountsBySalary[salary.ID]
 
 		if salary.IsGross && salary.Kommun != "" && salary.Forsamling != "" {
-			s.populateNetAmounts(ctx, &salary)
+			if err := s.populateNetAmounts(ctx, &salary); err != nil {
+				return nil, fmt.Errorf("populating net amounts: %w", err)
+			}
 			salary.PensionSegments = s.computePensionSegments(ctx, salary, ibbs)
 		}
 
@@ -392,47 +394,36 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 	return templates, nil
 }
 
-
 // populateNetAmounts sets amt.Net on each salary amount as a mapped uncertain.Value
 // that derives net salary from the gross amount via cached tax lookups.
-func (s *Service) populateNetAmounts(ctx context.Context, sal *Salary) {
+func (s *Service) populateNetAmounts(ctx context.Context, sal *Salary) error {
 	for i := range sal.Amounts {
 		amt := &sal.Amounts[i]
 		year := strings.SplitN(amt.StartDate.String(), "-", 2)[0]
 
-		// Pre-warm the cache by doing one lookup with the mean value.
-		// This ensures the tax table is cached for subsequent samples.
-		s.sweClient.CalculateNetSalary(ctx, swe.GrossSalaryInput{
-			GrossMonthly: amt.Amount.Mean(),
+		calculator, err := s.sweClient.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
 			Kommun:       sal.Kommun,
 			Forsamling:   sal.Forsamling,
 			Year:         year,
 			ChurchMember: sal.ChurchMember,
 			Column:       1,
 		})
+		if err != nil {
+			return fmt.Errorf("creating net salary calculator: %w", err)
+		}
 
 		grossAmount := amt.Amount
-		kommun := sal.Kommun
-		forsamling := sal.Forsamling
-		churchMember := sal.ChurchMember
-		sweClient := s.sweClient
-
+		calc := calculator
 		amt.Net = uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
 			gross := grossAmount.Sample(cfg)
-			res, err := sweClient.CalculateNetSalary(context.Background(), swe.GrossSalaryInput{
-				GrossMonthly: gross,
-				Kommun:       kommun,
-				Forsamling:   forsamling,
-				Year:         year,
-				ChurchMember: churchMember,
-				Column:       1,
-			})
+			res, err := calc(gross)
 			if err != nil {
 				return gross
 			}
 			return res.NetMonthly
 		})
 	}
+	return nil
 }
 
 // computePensionSegments builds pension segments split at the union of

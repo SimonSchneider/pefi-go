@@ -44,8 +44,62 @@ func grossToNetServers() (taxRateSrv, taxTableSrv *httptest.Server) {
 	return taxRateSrv, taxTableSrv
 }
 
+func yearAwareServers() (taxRateSrv, taxTableSrv *httptest.Server) {
+	taxRates := []map[string]string{
+		{
+			"kommun":                   "STOCKHOLM",
+			"församling":               "ADOLF FREDRIKS FÖRSAMLING",
+			"summa, exkl. kyrkoavgift": "30.67",
+			"summa, inkl. kyrkoavgift": "31.85",
+			"år":                       "2025",
+		},
+		{
+			"kommun":                   "STOCKHOLM",
+			"församling":               "ADOLF FREDRIKS FÖRSAMLING",
+			"summa, exkl. kyrkoavgift": "31.00",
+			"summa, inkl. kyrkoavgift": "32.00",
+			"år":                       "2026",
+		},
+	}
+
+	taxTables := []map[string]string{
+		{"inkomst fr.o.m.": "0", "inkomst t.o.m.": "24999", "kolumn 1": "0", "tabellnr": "31", "år": "2025", "antal dgr": "30B"},
+		{"inkomst fr.o.m.": "25000", "inkomst t.o.m.": "49999", "kolumn 1": "7500", "tabellnr": "31", "år": "2025", "antal dgr": "30B"},
+		{"inkomst fr.o.m.": "50000", "inkomst t.o.m.": "99999", "kolumn 1": "15000", "tabellnr": "31", "år": "2025", "antal dgr": "30B"},
+		{"inkomst fr.o.m.": "0", "inkomst t.o.m.": "24999", "kolumn 1": "0", "tabellnr": "31", "år": "2026", "antal dgr": "30B"},
+		{"inkomst fr.o.m.": "25000", "inkomst t.o.m.": "49999", "kolumn 1": "8000", "tabellnr": "31", "år": "2026", "antal dgr": "30B"},
+		{"inkomst fr.o.m.": "50000", "inkomst t.o.m.": "99999", "kolumn 1": "16000", "tabellnr": "31", "år": "2026", "antal dgr": "30B"},
+	}
+
+	filterByYear := func(rows []map[string]string, year string) []map[string]string {
+		var out []map[string]string
+		for _, r := range rows {
+			if r["år"] == year {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+
+	taxRateSrv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		year := r.URL.Query().Get("år")
+		results := filterByYear(taxRates, year)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(swe.RowStoreResponse{ResultCount: len(results), Results: results})
+	}))
+
+	taxTableSrv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		year := r.URL.Query().Get("år")
+		results := filterByYear(taxTables, year)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(swe.RowStoreResponse{ResultCount: len(results), Results: results})
+	}))
+
+	return taxRateSrv, taxTableSrv
+}
+
 func TestCalculateNetSalary(t *testing.T) {
-	taxRateSrv, taxTableSrv := grossToNetServers()
+	taxRateSrv, taxTableSrv := yearAwareServers()
 	defer taxRateSrv.Close()
 	defer taxTableSrv.Close()
 
@@ -58,13 +112,15 @@ func TestCalculateNetSalary(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("basic gross to net", func(t *testing.T) {
-		result, err := client.CalculateNetSalary(ctx, swe.GrossSalaryInput{
+		result, err := client.CalculateNetSalary(ctx, swe.GrossSalaryInputWithAmount{
+			GrossSalaryInput: swe.GrossSalaryInput{
+				Kommun:       "STOCKHOLM",
+				Forsamling:   "ADOLF FREDRIKS FÖRSAMLING",
+				Year:         "2025",
+				ChurchMember: false,
+				Column:       1,
+			},
 			GrossMonthly: 40000,
-			Kommun:       "STOCKHOLM",
-			Forsamling:   "ADOLF FREDRIKS FÖRSAMLING",
-			Year:         "2025",
-			ChurchMember: false,
-			Column:       1,
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -82,13 +138,15 @@ func TestCalculateNetSalary(t *testing.T) {
 	})
 
 	t.Run("higher salary bracket", func(t *testing.T) {
-		result, err := client.CalculateNetSalary(ctx, swe.GrossSalaryInput{
+		result, err := client.CalculateNetSalary(ctx, swe.GrossSalaryInputWithAmount{
+			GrossSalaryInput: swe.GrossSalaryInput{
+				Kommun:       "STOCKHOLM",
+				Forsamling:   "ADOLF FREDRIKS FÖRSAMLING",
+				Year:         "2025",
+				ChurchMember: false,
+				Column:       1,
+			},
 			GrossMonthly: 60000,
-			Kommun:       "STOCKHOLM",
-			Forsamling:   "ADOLF FREDRIKS FÖRSAMLING",
-			Year:         "2025",
-			ChurchMember: false,
-			Column:       1,
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -99,6 +157,62 @@ func TestCalculateNetSalary(t *testing.T) {
 		}
 		if result.NetMonthly != 45000 {
 			t.Errorf("net = %v, want 45000", result.NetMonthly)
+		}
+	})
+
+	t.Run("falls back to previous year when requested year has no data", func(t *testing.T) {
+		// 2027 has no data, should fall back to 2026 (tax=8000 for 40k bracket)
+		result, err := client.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
+			Kommun:       "STOCKHOLM",
+			Forsamling:   "ADOLF FREDRIKS FÖRSAMLING",
+			Year:         "2027",
+			ChurchMember: false,
+			Column:       1,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		res, err := result(40000)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Tax != 8000 {
+			t.Errorf("tax = %v, want 8000 (from 2026 fallback)", res.Tax)
+		}
+	})
+
+	t.Run("falls back multiple years", func(t *testing.T) {
+		// 2028 has no data, 2027 has no data, should fall back to 2026
+		result, err := client.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
+			Kommun:       "STOCKHOLM",
+			Forsamling:   "ADOLF FREDRIKS FÖRSAMLING",
+			Year:         "2028",
+			ChurchMember: false,
+			Column:       1,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		res, err := result(40000)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if res.Tax != 8000 {
+			t.Errorf("tax = %v, want 8000 (from 2026 fallback)", res.Tax)
+		}
+	})
+
+	t.Run("errors when no previous year data exists", func(t *testing.T) {
+		// 2020 has no data, and no previous years have data either
+		_, err := client.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
+			Kommun:       "STOCKHOLM",
+			Forsamling:   "ADOLF FREDRIKS FÖRSAMLING",
+			Year:         "2020",
+			ChurchMember: false,
+			Column:       1,
+		})
+		if err == nil {
+			t.Fatal("expected error for year with no data and no fallback, got nil")
 		}
 	})
 }
