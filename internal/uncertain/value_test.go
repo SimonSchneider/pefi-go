@@ -1,6 +1,7 @@
 package uncertain
 
 import (
+	"math"
 	"reflect"
 	"testing"
 )
@@ -27,5 +28,27 @@ func TestDecode(t *testing.T) {
 				t.Errorf("Decode() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMappedMean(t *testing.T) {
+	base := NewFixed(100)
+	mapped := NewMapped(func(cfg *Config) float64 {
+		return base.Sample(cfg) * 2
+	})
+	got := mapped.Mean()
+	if math.Abs(got-200) > 0.01 {
+		t.Errorf("Mean() = %v, want 200", got)
+	}
+}
+
+func TestMappedMeanWithUncertain(t *testing.T) {
+	base := NewUniform(90, 110)
+	mapped := NewMapped(func(cfg *Config) float64 {
+		return base.Sample(cfg) * 2
+	})
+	got := mapped.Mean()
+	if math.Abs(got-200) > 5 {
+		t.Errorf("Mean() = %v, want ~200", got)
 	}
 }

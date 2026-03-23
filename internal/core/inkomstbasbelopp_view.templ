@@ -1,0 +1,105 @@
+package core
+
+import (
+	"fmt"
+	"github.com/SimonSchneider/pefigo/internal/ui"
+)
+
+templ InkomstbasbeloppListPage(ibbs []Inkomstbasbelopp) {
+	@Layout("/settings/inkomstbasbelopp", inkomstbasbeloppListContent(ibbs))
+}
+
+templ inkomstbasbeloppListContent(ibbs []Inkomstbasbelopp) {
+	<main class="flex-1 flex flex-col">
+		@Header("Inkomstbasbelopp", NewButton("/settings/inkomstbasbelopp/new", IconPlus("w-4 h-4"), "New"))
+		<div class="flex-1 p-6 overflow-auto bg-base-100">
+			<div class="flex flex-col gap-4">
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead class="bg-base-200/60">
+									<tr>
+										<th class="font-semibold">Valid From</th>
+										<th class="font-semibold text-right">Amount</th>
+										<th class="font-semibold text-right sticky">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(ibbs) == 0 {
+										<tr>
+											<td colspan="3" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													@NoDataImg()
+													<p class="text-lg font-medium">No inkomstbasbelopp configured</p>
+													<p>Add an entry to enable Swedish gross salary pension calculations</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, ibb := range ibbs {
+											<tr class="hover:bg-base-200/50 transition-colors">
+												<td class="font-medium">{ ibb.ValidFrom.String() }</td>
+												<td class="text-right">{ ui.FormatWithThousands(ibb.Amount) }</td>
+												<td class="text-right">
+													<div class="row-actions">
+														<a href={ templ.SafeURL("/settings/inkomstbasbelopp/" + ibb.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+															@IconPencil("w-4 h-4")
+														</a>
+													</div>
+												</td>
+											</tr>
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}
+
+templ InkomstbasbeloppEditPage(ibb Inkomstbasbelopp, isEdit bool) {
+	@Layout("/settings/inkomstbasbelopp", inkomstbasbeloppEditContent(ibb, isEdit))
+}
+
+templ inkomstbasbeloppEditContent(ibb Inkomstbasbelopp, isEdit bool) {
+	<main class="flex-1 flex flex-col">
+		if isEdit {
+			@Header("Edit Inkomstbasbelopp", inkomstbasbeloppDeleteButton(ibb.ID))
+		} else {
+			@Header("New Inkomstbasbelopp", BackButton("/settings/inkomstbasbelopp"))
+		}
+		<div class="flex-1 p-6 overflow-auto bg-base-100">
+			<div class="max-w-lg mx-auto">
+				<form action={ "/settings/inkomstbasbelopp/?next=" + templ.EscapeString("/settings/inkomstbasbelopp") } method="post">
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Inkomstbasbelopp Details</h3>
+							<input type="hidden" name="id" value={ ibb.ID }/>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Valid From</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="2025-01-01" name="valid_from" value={ ibb.ValidFrom.String() }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Amount</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="76200" name="amount" value={ fmt.Sprintf("%.0f", ibb.Amount) }/>
+							</div>
+							@SaveButton(isEdit)
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+	</main>
+}
+
+templ inkomstbasbeloppDeleteButton(id string) {
+	<form method="post" action={ "/settings/inkomstbasbelopp/" + id + "/delete?next=" + templ.EscapeString("/settings/inkomstbasbelopp") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}

@@ -29,6 +29,12 @@ type AccountType struct {
 	Color *string
 }
 
+type ApiCache struct {
+	CacheKey  string
+	Value     string
+	CreatedAt int64
+}
+
 type GrowthModel struct {
 	ID               string
 	AccountID        string
@@ -39,6 +45,14 @@ type GrowthModel struct {
 	EndDate          *int64
 	CreatedAt        int64
 	UpdatedAt        int64
+}
+
+type Inkomstbasbelopp struct {
+	ID        string
+	Amount    float64
+	ValidFrom int64
+	CreatedAt int64
+	UpdatedAt int64
 }
 
 type InvestmentRound struct {
@@ -62,6 +76,11 @@ type Salary struct {
 	Enabled          bool
 	CreatedAt        int64
 	UpdatedAt        int64
+	PensionAccountID *string
+	Kommun           string
+	Forsamling       string
+	ChurchMember     bool
+	IsGross          bool
 }
 
 type SalaryAmount struct {

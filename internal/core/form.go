@@ -269,6 +269,7 @@ func (s *salaryInputForm) FromForm(r *http.Request) error {
 	s.ID = r.FormValue("id")
 	s.Name = r.FormValue("name")
 	s.ToAccountID = r.FormValue("to_account_id")
+	s.PensionAccountID = r.FormValue("pension_account_id")
 	if err := shttp.Parse(&s.Priority, ui.ParseInt64, r.FormValue("priority"), int64(0)); err != nil {
 		return fmt.Errorf("parsing priority: %w", err)
 	}
@@ -276,6 +277,10 @@ func (s *salaryInputForm) FromForm(r *http.Request) error {
 		return fmt.Errorf("parsing recurrence: %w", err)
 	}
 	s.Enabled = r.FormValue("enabled") == "on"
+	s.IsGross = r.FormValue("is_gross") == "on"
+	s.Kommun = r.FormValue("kommun")
+	s.Forsamling = r.FormValue("forsamling")
+	s.ChurchMember = r.FormValue("church_member") == "on"
 	budgetCategoryID := r.FormValue("budget_category_id")
 	if budgetCategoryID != "" {
 		s.BudgetCategoryID = &budgetCategoryID
@@ -335,6 +340,21 @@ func (d *dateInputForm) FromForm(r *http.Request) error {
 	}
 	if err := shttp.Parse(&d.NewDate, date.ParseDate, r.FormValue("new-date"), date.Date(0)); err != nil {
 		return fmt.Errorf("parsing new date: %w", err)
+	}
+	return nil
+}
+
+type inkomstbasbeloppInputForm struct {
+	service.Inkomstbasbelopp
+}
+
+func (f *inkomstbasbeloppInputForm) FromForm(r *http.Request) error {
+	f.ID = r.FormValue("id")
+	if err := shttp.Parse(&f.Amount, ui.ParseAmount, r.FormValue("amount"), float64(0)); err != nil {
+		return fmt.Errorf("parsing amount: %w", err)
+	}
+	if err := shttp.Parse(&f.ValidFrom, date.ParseDate, r.FormValue("valid_from"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing valid_from: %w", err)
 	}
 	return nil
 }

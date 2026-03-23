@@ -86,6 +86,7 @@ templ SidebarContent(page string) {
 			)
 			@NavGroup("Settings",
 				NavItem("/categories", IconTag("w-5 h-5"), "Categories", page),
+				NavItem("/settings/inkomstbasbelopp", IconCoin("w-5 h-5"), "Inkomstbasbelopp", page),
 			)
 				@NavGroup("Forecasting",
 					NavItem("/transfers/chart", IconChartSankey("w-5 h-5"), "Cashflows", page),

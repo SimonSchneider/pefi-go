@@ -13,21 +13,31 @@ INSERT INTO salary (
     id,
     name,
     to_account_id,
+    pension_account_id,
     priority,
     recurrence,
     budget_category_id,
     enabled,
+    kommun,
+    forsamling,
+    church_member,
+    is_gross,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
   to_account_id = EXCLUDED.to_account_id,
+  pension_account_id = EXCLUDED.pension_account_id,
   priority = EXCLUDED.priority,
   recurrence = EXCLUDED.recurrence,
   budget_category_id = EXCLUDED.budget_category_id,
   enabled = EXCLUDED.enabled,
+  kommun = EXCLUDED.kommun,
+  forsamling = EXCLUDED.forsamling,
+  church_member = EXCLUDED.church_member,
+  is_gross = EXCLUDED.is_gross,
   updated_at = EXCLUDED.updated_at
 RETURNING *;
 

@@ -30,7 +30,7 @@ func (q *Queries) DeleteSalaryAmount(ctx context.Context, id string) error {
 }
 
 const getSalary = `-- name: GetSalary :one
-SELECT id, name, to_account_id, priority, recurrence, budget_category_id, enabled, created_at, updated_at
+SELECT id, name, to_account_id, priority, recurrence, budget_category_id, enabled, created_at, updated_at, pension_account_id, kommun, forsamling, church_member, is_gross
 FROM salary
 WHERE id = ?
 `
@@ -48,6 +48,11 @@ func (q *Queries) GetSalary(ctx context.Context, id string) (Salary, error) {
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PensionAccountID,
+		&i.Kommun,
+		&i.Forsamling,
+		&i.ChurchMember,
+		&i.IsGross,
 	)
 	return i, err
 }
@@ -109,7 +114,7 @@ func (q *Queries) ListAllSalaryAmounts(ctx context.Context) ([]SalaryAmount, err
 }
 
 const listSalaries = `-- name: ListSalaries :many
-SELECT id, name, to_account_id, priority, recurrence, budget_category_id, enabled, created_at, updated_at
+SELECT id, name, to_account_id, priority, recurrence, budget_category_id, enabled, created_at, updated_at, pension_account_id, kommun, forsamling, church_member, is_gross
 FROM salary
 ORDER BY name, id
 `
@@ -133,6 +138,11 @@ func (q *Queries) ListSalaries(ctx context.Context) ([]Salary, error) {
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PensionAccountID,
+			&i.Kommun,
+			&i.Forsamling,
+			&i.ChurchMember,
+			&i.IsGross,
 		); err != nil {
 			return nil, err
 		}
@@ -189,33 +199,48 @@ INSERT INTO salary (
     id,
     name,
     to_account_id,
+    pension_account_id,
     priority,
     recurrence,
     budget_category_id,
     enabled,
+    kommun,
+    forsamling,
+    church_member,
+    is_gross,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
   to_account_id = EXCLUDED.to_account_id,
+  pension_account_id = EXCLUDED.pension_account_id,
   priority = EXCLUDED.priority,
   recurrence = EXCLUDED.recurrence,
   budget_category_id = EXCLUDED.budget_category_id,
   enabled = EXCLUDED.enabled,
+  kommun = EXCLUDED.kommun,
+  forsamling = EXCLUDED.forsamling,
+  church_member = EXCLUDED.church_member,
+  is_gross = EXCLUDED.is_gross,
   updated_at = EXCLUDED.updated_at
-RETURNING id, name, to_account_id, priority, recurrence, budget_category_id, enabled, created_at, updated_at
+RETURNING id, name, to_account_id, priority, recurrence, budget_category_id, enabled, created_at, updated_at, pension_account_id, kommun, forsamling, church_member, is_gross
 `
 
 type UpsertSalaryParams struct {
 	ID               string
 	Name             string
 	ToAccountID      *string
+	PensionAccountID *string
 	Priority         int64
 	Recurrence       string
 	BudgetCategoryID *string
 	Enabled          bool
+	Kommun           string
+	Forsamling       string
+	ChurchMember     bool
+	IsGross          bool
 	CreatedAt        int64
 	UpdatedAt        int64
 }
@@ -225,10 +250,15 @@ func (q *Queries) UpsertSalary(ctx context.Context, arg UpsertSalaryParams) (Sal
 		arg.ID,
 		arg.Name,
 		arg.ToAccountID,
+		arg.PensionAccountID,
 		arg.Priority,
 		arg.Recurrence,
 		arg.BudgetCategoryID,
 		arg.Enabled,
+		arg.Kommun,
+		arg.Forsamling,
+		arg.ChurchMember,
+		arg.IsGross,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -243,6 +273,11 @@ func (q *Queries) UpsertSalary(ctx context.Context, arg UpsertSalaryParams) (Sal
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PensionAccountID,
+		&i.Kommun,
+		&i.Forsamling,
+		&i.ChurchMember,
+		&i.IsGross,
 	)
 	return i, err
 }

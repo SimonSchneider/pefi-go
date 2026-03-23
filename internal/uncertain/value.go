@@ -139,8 +139,12 @@ func (u Value) Mean() float64 {
 		}
 		return sum / float64(len(u.Samples))
 	case DistMapped:
-		// TODO: mean will have to take *config as an argument for sampling
-		panic("not yet implemented: Mapped distribution does not have a defined mean")
+		cfg := NewConfig(42, 100)
+		sum := 0.0
+		for i := 0; i < int(cfg.Samples); i++ {
+			sum += u.SampleFun(cfg)
+		}
+		return sum / float64(cfg.Samples)
 	default:
 		return 0
 	}

@@ -76,10 +76,18 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("GET /salaries", h.salariesPage())
 	mux.Handle("GET /salaries/new", h.salaryNewPage())
 	mux.Handle("GET /salaries/{id}/edit", h.salaryEditPage())
+	mux.Handle("GET /salaries/kommuner", h.salaryKommuner())
+	mux.Handle("GET /salaries/forsamlingar", h.salaryForsamlingar())
 	mux.Handle("POST /salaries/{$}", h.salaryUpsert())
 	mux.Handle("POST /salaries/{id}/delete", h.salaryDelete())
 	mux.Handle("POST /salary-amounts/{$}", h.salaryAmountUpsert())
 	mux.Handle("POST /salary-amounts/{id}/delete", h.salaryAmountDelete())
+
+	mux.Handle("GET /settings/inkomstbasbelopp", h.inkomstbasbeloppListPage())
+	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
+	mux.Handle("GET /settings/inkomstbasbelopp/{id}/edit", h.inkomstbasbeloppEditPage())
+	mux.Handle("POST /settings/inkomstbasbelopp/{$}", h.inkomstbasbeloppUpsert())
+	mux.Handle("POST /settings/inkomstbasbelopp/{id}/delete", h.inkomstbasbeloppDelete())
 
 	mux.Handle("POST /transfers/{$}", h.transferTemplateUpsert())
 	mux.Handle("POST /transfers/{id}/duplicate", h.transferTemplateDuplicate())
@@ -401,6 +409,40 @@ func (h *Handler) salaryAmountDelete() http.Handler {
 		}
 		shttp.RedirectToNext(w, r, "/salaries")
 		return nil
+	})
+}
+
+func (h *Handler) salaryKommuner() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		year := r.URL.Query().Get("year")
+		if year == "" {
+			year = fmt.Sprintf("%d", time.Now().Year())
+		}
+		selected := r.URL.Query().Get("selected")
+		kommuner, err := h.svc.SweClient().ListKommuner(ctx, year)
+		if err != nil {
+			return fmt.Errorf("listing kommuner: %w", err)
+		}
+		return SalaryKommunOptions(kommuner, selected).Render(ctx, w)
+	})
+}
+
+func (h *Handler) salaryForsamlingar() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		kommun := r.URL.Query().Get("kommun")
+		year := r.URL.Query().Get("year")
+		if year == "" {
+			year = fmt.Sprintf("%d", time.Now().Year())
+		}
+		selected := r.URL.Query().Get("selected")
+		if kommun == "" {
+			return SalaryForsamlingOptions(nil, selected).Render(ctx, w)
+		}
+		forsamlingar, err := h.svc.SweClient().ListForsamlingar(ctx, kommun, year)
+		if err != nil {
+			return fmt.Errorf("listing forsamlingar: %w", err)
+		}
+		return SalaryForsamlingOptions(forsamlingar, selected).Render(ctx, w)
 	})
 }
 
@@ -771,6 +813,57 @@ func (h *Handler) chartsDataStream() http.Handler {
 		if err := h.svc.RunPrediction(ctx, &ssePredictionEventHandler{w: srvu.SSEResponse(w)}, params.PredictionParams); err != nil {
 			return fmt.Errorf("running prediction: %w", err)
 		}
+		return nil
+	})
+}
+
+func (h *Handler) inkomstbasbeloppListPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		ibbs, err := h.svc.ListInkomstbasbelopp(ctx)
+		if err != nil {
+			return fmt.Errorf("listing inkomstbasbelopp: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Inkomstbasbelopp", InkomstbasbeloppListPage(ibbs)))
+	})
+}
+
+func (h *Handler) inkomstbasbeloppNewPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		return NewView(ctx, w, r).Render(Page("New Inkomstbasbelopp", InkomstbasbeloppEditPage(Inkomstbasbelopp{}, false)))
+	})
+}
+
+func (h *Handler) inkomstbasbeloppEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		ibb, err := h.svc.GetInkomstbasbelopp(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting inkomstbasbelopp: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Edit Inkomstbasbelopp", InkomstbasbeloppEditPage(ibb, true)))
+	})
+}
+
+func (h *Handler) inkomstbasbeloppUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp inkomstbasbeloppInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		ibb, err := h.svc.UpsertInkomstbasbelopp(ctx, inp.Inkomstbasbelopp)
+		if err != nil {
+			return fmt.Errorf("upserting inkomstbasbelopp: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/settings/inkomstbasbelopp/%s/edit", ibb.ID))
+		return nil
+	})
+}
+
+func (h *Handler) inkomstbasbeloppDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteInkomstbasbelopp(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting inkomstbasbelopp: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/settings/inkomstbasbelopp")
 		return nil
 	})
 }

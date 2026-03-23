@@ -8,14 +8,24 @@ import (
 
 	"github.com/SimonSchneider/goslu/config"
 	"github.com/SimonSchneider/goslu/migrate"
+	"github.com/SimonSchneider/pefigo/internal/swe"
 )
 
 type Service struct {
-	db *sql.DB
+	db     *sql.DB
+	sweClient *swe.Client
 }
 
 func New(db *sql.DB) *Service {
-	return &Service{db: db}
+	cache := NewSQLiteCache(db)
+	return &Service{
+		db:        db,
+		sweClient: swe.NewClient(cache),
+	}
+}
+
+func (s *Service) SweClient() *swe.Client {
+	return s.sweClient
 }
 
 func (s *Service) DB() *sql.DB {
