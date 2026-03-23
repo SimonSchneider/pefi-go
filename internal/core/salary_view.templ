@@ -2,8 +2,8 @@ package core
 
 import (
 	"strconv"
+	"fmt"
 )
-
 
 templ PageSalaries(child templ.Component) {
 	@Layout("/salaries", child)
@@ -23,6 +23,7 @@ templ SalariesListView(salaries []Salary) {
 										<th class="font-semibold">Name</th>
 										<th class="font-semibold">Recurrence</th>
 										<th class="font-semibold">Current Amount</th>
+										<th class="font-semibold">Type</th>
 										<th class="font-semibold">Status</th>
 										<th class="font-semibold text-right">Actions</th>
 									</tr>
@@ -30,7 +31,7 @@ templ SalariesListView(salaries []Salary) {
 								<tbody>
 									if len(salaries) == 0 {
 										<tr>
-											<td colspan="5" class="text-center py-8 text-base-content/70">
+											<td colspan="6" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No salaries yet</p>
@@ -45,6 +46,13 @@ templ SalariesListView(salaries []Salary) {
 												<td><code class="text-sm">{ string(sal.Recurrence) }</code></td>
 												<td>
 													@BalanceBadge(sal.CurrentAmount(), false, "")
+												</td>
+												<td>
+													if sal.IsGross {
+														<span class="badge badge-info badge-sm">Gross (SE)</span>
+													} else {
+														<span class="badge badge-ghost badge-sm">Net</span>
+													}
 												</td>
 												<td>
 													if sal.Enabled {
@@ -124,6 +132,21 @@ templ SalaryForm(view *SalaryEditView) {
 									<span class="label-text font-medium">Enabled</span>
 								</label>
 							</div>
+							<div class="form-control">
+								<label class="flex items-center gap-2 cursor-pointer">
+									<input
+										type="checkbox"
+										class="checkbox"
+										name="is_gross"
+										id="is-gross-toggle"
+										if view.Salary.IsGross {
+											checked
+										}
+										onclick="document.getElementById('gross-salary-fields').classList.toggle('hidden', !this.checked)"
+									/>
+									<span class="label-text font-medium">Gross salary (Swedish tax)</span>
+								</label>
+							</div>
 						</div>
 					</div>
 					<div class="card bg-base-100 shadow-sm border border-base-300">
@@ -168,6 +191,91 @@ templ SalaryForm(view *SalaryEditView) {
 						</div>
 					</div>
 				</div>
+				<div
+					id="gross-salary-fields"
+					if !view.Salary.IsGross {
+						class="hidden mt-6"
+					} else {
+						class="mt-6"
+					}
+				>
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Swedish Gross Salary Settings</h3>
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+								<div class="form-control">
+									<label class="label"><span class="label-text font-medium">Kommun</span></label>
+									<select
+										class="select select-bordered w-full"
+										name="kommun"
+										id="kommun-select"
+										hx-get="/salaries/forsamlingar"
+										hx-trigger="change"
+										hx-target="#forsamling-select"
+										hx-include="#kommun-select"
+										hx-vals={ fmt.Sprintf(`{"selected": "%s"}`, view.Salary.Forsamling) }
+									>
+										<option value="">Select kommun...</option>
+										if view.Salary.Kommun != "" {
+											<option value={ view.Salary.Kommun } selected>{ view.Salary.Kommun }</option>
+										}
+									</select>
+									<div
+										hx-get={ fmt.Sprintf("/salaries/kommuner?selected=%s", view.Salary.Kommun) }
+										hx-trigger="load"
+										hx-target="#kommun-select"
+										hx-swap="innerHTML"
+									></div>
+								</div>
+								<div class="form-control">
+									<label class="label"><span class="label-text font-medium">Församling</span></label>
+									<select
+										class="select select-bordered w-full"
+										name="forsamling"
+										id="forsamling-select"
+									>
+										<option value="">Select församling...</option>
+										if view.Salary.Forsamling != "" {
+											<option value={ view.Salary.Forsamling } selected>{ view.Salary.Forsamling }</option>
+										}
+									</select>
+									if view.Salary.Kommun != "" {
+										<div
+											hx-get={ fmt.Sprintf("/salaries/forsamlingar?kommun=%s&selected=%s", view.Salary.Kommun, view.Salary.Forsamling) }
+											hx-trigger="load"
+											hx-target="#forsamling-select"
+											hx-swap="innerHTML"
+										></div>
+									}
+								</div>
+								<div class="form-control">
+									<label class="flex items-center gap-2 cursor-pointer">
+										<input type="checkbox" class="checkbox" name="church_member"
+											if view.Salary.ChurchMember {
+												checked
+											}
+										/>
+										<span class="label-text font-medium">Church member</span>
+									</label>
+								</div>
+								<div class="form-control">
+									<label class="label"><span class="label-text font-medium">Pension Account</span></label>
+									<select class="select select-bordered w-full" name="pension_account_id">
+										<option value="">None</option>
+										for _, acc := range view.Accounts {
+											<option
+												value={ acc.ID }
+												if acc.ID == view.Salary.PensionAccountID {
+													selected
+												}
+											>{ acc.Name }</option>
+										}
+									</select>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 				@SaveButton(view.IsEdit())
 			</form>
 			if view.IsEdit() {
@@ -179,13 +287,17 @@ templ SalaryForm(view *SalaryEditView) {
 						<div class="card-body p-5">
 							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Salary Amounts</h3>
 							<div class="text-sm text-base-content/60 mb-3">
-								Each amount is effective from its start date until the next amount's start date.
+								if view.Salary.IsGross {
+									Each amount is the gross monthly salary, effective from its start date until the next amount's start date.
+								} else {
+									Each amount is the net monthly salary, effective from its start date until the next amount's start date.
+								}
 							</div>
 							<div class="space-y-3">
 								for _, amt := range view.Salary.Amounts {
-									@SalaryAmountForm(view.Salary.ID, amt)
+									@SalaryAmountForm(view.Salary.ID, amt, view.Salary.IsGross)
 								}
-								@SalaryAmountForm(view.Salary.ID, SalaryAmount{})
+								@SalaryAmountForm(view.Salary.ID, SalaryAmount{}, view.Salary.IsGross)
 							</div>
 						</div>
 					</div>
@@ -195,7 +307,7 @@ templ SalaryForm(view *SalaryEditView) {
 	</div>
 }
 
-templ SalaryAmountForm(salaryID string, amt SalaryAmount) {
+templ SalaryAmountForm(salaryID string, amt SalaryAmount, isGross bool) {
 	<form method="post" action={ "/salary-amounts/?next=" + templ.EscapeString("/salaries/"+salaryID+"/edit") }>
 		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
 			if amt.ID != "" {
@@ -211,7 +323,13 @@ templ SalaryAmountForm(salaryID string, amt SalaryAmount) {
 					<input type="text" class="input input-sm w-full" placeholder="2024-01-01" name="start_date" value={ amt.GetStartDateString() }/>
 				</div>
 				<div class="form-control flex-1">
-					<label class="label label-text text-xs pb-1">Net Amount</label>
+					<label class="label label-text text-xs pb-1">
+						if isGross {
+							Gross Amount
+						} else {
+							Net Amount
+						}
+					</label>
 					<input type="text" class="input input-sm w-full" placeholder="30000" name="amount" value={ amt.GetAmountString() }/>
 				</div>
 				<div class="flex items-end">
@@ -220,6 +338,30 @@ templ SalaryAmountForm(salaryID string, amt SalaryAmount) {
 			</div>
 		</div>
 	</form>
+}
+
+templ SalaryKommunOptions(kommuner []string, selected string) {
+	<option value="">Select kommun...</option>
+	for _, k := range kommuner {
+		<option
+			value={ k }
+			if k == selected {
+				selected
+			}
+		>{ k }</option>
+	}
+}
+
+templ SalaryForsamlingOptions(forsamlingar []string, selected string) {
+	<option value="">Select församling...</option>
+	for _, f := range forsamlingar {
+		<option
+			value={ f }
+			if f == selected {
+				selected
+			}
+		>{ f }</option>
+	}
 }
 
 func salaryRecurrenceValue(s Salary) string {

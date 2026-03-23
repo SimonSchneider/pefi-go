@@ -4,24 +4,40 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
+	"github.com/SimonSchneider/pefigo/internal/swe"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
+
+type PensionSegment struct {
+	StartDate date.Date
+	EndDate   *date.Date
+	Pension   uncertain.Value
+}
 
 type Salary struct {
 	ID               string
 	Name             string
 	ToAccountID      string
+	PensionAccountID string
 	Priority         int64
 	Recurrence       date.Cron
 	BudgetCategoryID *string
 	Enabled          bool
+	Kommun           string
+	Forsamling       string
+	ChurchMember     bool
+	IsGross          bool
 	Amounts          []SalaryAmount
+	// PensionSegments is populated by the service layer when IsGross is true.
+	// Segments are split at the union of salary-amount and IBB change dates.
+	PensionSegments []PensionSegment
 }
 
 type SalaryAmount struct {
@@ -29,6 +45,9 @@ type SalaryAmount struct {
 	SalaryID  string
 	Amount    uncertain.Value
 	StartDate date.Date
+	// Net is populated by the service layer for gross salaries.
+	// It is an uncertain.Value derived from Amount via tax computation.
+	Net uncertain.Value
 }
 
 func (s Salary) GenerateTransferTemplates() []TransferTemplate {
@@ -37,34 +56,67 @@ func (s Salary) GenerateTransferTemplates() []TransferTemplate {
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].StartDate < sorted[j].StartDate
 	})
+
+	source := TransferTemplateSource{
+		Type:     "salary",
+		EntityID: s.ID,
+		Label:    s.Name,
+		EditURL:  "/salaries/" + s.ID + "/edit",
+	}
+
 	var templates []TransferTemplate
+
+	// Net salary TTs: one per salary amount period
 	for i, amt := range sorted {
 		var endDate *date.Date
 		if i+1 < len(sorted) {
 			ed := sorted[i+1].StartDate
 			endDate = &ed
 		}
+
+		amountFixed := amt.Amount
+		if s.IsGross && amt.Net.Valid() {
+			amountFixed = amt.Net
+		}
+
 		templates = append(templates, TransferTemplate{
 			ID:               "salary:" + amt.ID,
 			Name:             s.Name,
 			FromAccountID:    "",
 			ToAccountID:      s.ToAccountID,
 			AmountType:       "fixed",
-			AmountFixed:      amt.Amount,
+			AmountFixed:      amountFixed,
 			Priority:         s.Priority,
 			Recurrence:       s.Recurrence,
 			StartDate:        amt.StartDate,
 			EndDate:          endDate,
 			Enabled:          s.Enabled,
 			BudgetCategoryID: s.BudgetCategoryID,
-			Source: TransferTemplateSource{
-				Type:     "salary",
-				EntityID: s.ID,
-				Label:    s.Name,
-				EditURL:  "/salaries/" + s.ID + "/edit",
-			},
+			Source:           source,
 		})
 	}
+
+	// Pension TTs: split at both salary-amount and IBB change boundaries
+	if s.IsGross && s.PensionAccountID != "" {
+		for i, seg := range s.PensionSegments {
+			templates = append(templates, TransferTemplate{
+				ID:               fmt.Sprintf("salary-pension:%s:%d", s.ID, i),
+				Name:             s.Name + " (pension)",
+				FromAccountID:    "",
+				ToAccountID:      s.PensionAccountID,
+				AmountType:       "fixed",
+				AmountFixed:      seg.Pension,
+				Priority:         s.Priority,
+				Recurrence:       s.Recurrence,
+				StartDate:        seg.StartDate,
+				EndDate:          seg.EndDate,
+				Enabled:          s.Enabled,
+				BudgetCategoryID: s.BudgetCategoryID,
+				Source:           source,
+			})
+		}
+	}
+
 	return templates
 }
 
@@ -73,10 +125,15 @@ func salaryFromDB(s pdb.Salary) Salary {
 		ID:               s.ID,
 		Name:             s.Name,
 		ToAccountID:      ui.OrDefault(s.ToAccountID),
+		PensionAccountID: ui.OrDefault(s.PensionAccountID),
 		Priority:         s.Priority,
 		Recurrence:       date.Cron(s.Recurrence),
 		BudgetCategoryID: s.BudgetCategoryID,
 		Enabled:          s.Enabled,
+		Kommun:           s.Kommun,
+		Forsamling:       s.Forsamling,
+		ChurchMember:     s.ChurchMember,
+		IsGross:          s.IsGross,
 	}
 }
 
@@ -102,10 +159,15 @@ func (s *Service) UpsertSalary(ctx context.Context, inp Salary) (Salary, error) 
 		ID:               inp.ID,
 		Name:             inp.Name,
 		ToAccountID:      ui.WithDefaultNull(inp.ToAccountID),
+		PensionAccountID: ui.WithDefaultNull(inp.PensionAccountID),
 		Priority:         inp.Priority,
 		Recurrence:       string(inp.Recurrence),
 		BudgetCategoryID: inp.BudgetCategoryID,
 		Enabled:          inp.Enabled,
+		Kommun:           inp.Kommun,
+		Forsamling:       inp.Forsamling,
+		ChurchMember:     inp.ChurchMember,
+		IsGross:          inp.IsGross,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	})
@@ -309,11 +371,130 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		}
 		amountsBySalary[a.SalaryID] = append(amountsBySalary[a.SalaryID], parsed)
 	}
+
+	ibbs, err := s.ListInkomstbasbelopp(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
+	}
+
 	var templates []TransferTemplate
 	for _, sal := range salaries {
-		s := salaryFromDB(sal)
-		s.Amounts = amountsBySalary[s.ID]
-		templates = append(templates, s.GenerateTransferTemplates()...)
+		salary := salaryFromDB(sal)
+		salary.Amounts = amountsBySalary[salary.ID]
+
+		if salary.IsGross && salary.Kommun != "" && salary.Forsamling != "" {
+			if err := s.populateNetAmounts(ctx, &salary); err != nil {
+				return nil, fmt.Errorf("populating net amounts: %w", err)
+			}
+			salary.PensionSegments = s.computePensionSegments(ctx, salary, ibbs)
+		}
+
+		templates = append(templates, salary.GenerateTransferTemplates()...)
 	}
 	return templates, nil
+}
+
+// populateNetAmounts sets amt.Net on each salary amount as a mapped uncertain.Value
+// that derives net salary from the gross amount via cached tax lookups.
+func (s *Service) populateNetAmounts(ctx context.Context, sal *Salary) error {
+	for i := range sal.Amounts {
+		amt := &sal.Amounts[i]
+		year := strings.SplitN(amt.StartDate.String(), "-", 2)[0]
+
+		calculator, err := s.sweClient.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
+			Kommun:       sal.Kommun,
+			Forsamling:   sal.Forsamling,
+			Year:         year,
+			ChurchMember: sal.ChurchMember,
+			Column:       1,
+		})
+		if err != nil {
+			return fmt.Errorf("creating net salary calculator: %w", err)
+		}
+
+		grossAmount := amt.Amount
+		calc := calculator
+		amt.Net = uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+			gross := grossAmount.Sample(cfg)
+			res, err := calc(gross)
+			if err != nil {
+				return gross
+			}
+			return res.NetMonthly
+		})
+	}
+	return nil
+}
+
+// computePensionSegments builds pension segments split at the union of
+// salary-amount and IBB change-point dates. Each segment's Pension is a
+// mapped uncertain.Value that derives pension from the gross amount.
+func (s *Service) computePensionSegments(_ context.Context, sal Salary, ibbs []Inkomstbasbelopp) []PensionSegment {
+	if len(sal.Amounts) == 0 {
+		return nil
+	}
+
+	sorted := make([]SalaryAmount, len(sal.Amounts))
+	copy(sorted, sal.Amounts)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].StartDate < sorted[j].StartDate
+	})
+
+	dateSet := make(map[date.Date]struct{})
+	for _, amt := range sorted {
+		dateSet[amt.StartDate] = struct{}{}
+	}
+	for _, ibb := range ibbs {
+		if ibb.ValidFrom >= sorted[0].StartDate {
+			dateSet[ibb.ValidFrom] = struct{}{}
+		}
+	}
+
+	dates := make([]date.Date, 0, len(dateSet))
+	for d := range dateSet {
+		dates = append(dates, d)
+	}
+	sort.Slice(dates, func(i, j int) bool { return dates[i] < dates[j] })
+
+	var segments []PensionSegment
+	for i, d := range dates {
+		grossAmount := activeSalaryAmountAt(sorted, d)
+		if grossAmount == nil {
+			continue
+		}
+		ibb := activeIBBAt(ibbs, d)
+		if ibb == 0 {
+			continue
+		}
+
+		gross := *grossAmount
+		ibbVal := ibb
+		pension := uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+			return swe.CalculateITP1Pension(gross.Sample(cfg), ibbVal)
+		})
+
+		var endDate *date.Date
+		if i+1 < len(dates) {
+			ed := dates[i+1]
+			endDate = &ed
+		}
+
+		segments = append(segments, PensionSegment{
+			StartDate: d,
+			EndDate:   endDate,
+			Pension:   pension,
+		})
+	}
+	return segments
+}
+
+// activeSalaryAmountAt returns the uncertain.Value gross salary active at a given date.
+func activeSalaryAmountAt(sorted []SalaryAmount, d date.Date) *uncertain.Value {
+	var active *uncertain.Value
+	for i := range sorted {
+		if sorted[i].StartDate <= d {
+			active = &sorted[i].Amount
+		}
+	}
+	return active
 }

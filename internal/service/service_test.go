@@ -6,6 +6,7 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo"
 	"github.com/SimonSchneider/pefigo/internal/service"
+	"github.com/SimonSchneider/pefigo/internal/swe"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
@@ -902,6 +903,215 @@ func TestSalaryAmountCascadeDelete(t *testing.T) {
 	}
 }
 
+// ---- Salary Transfer Template Generation (Gross) ----
+
+func TestSalaryGenerateTransferTemplates_GrossSalary(t *testing.T) {
+	sal := service.Salary{
+		ID:               "sal1",
+		Name:             "Acme Corp",
+		ToAccountID:      "acc1",
+		PensionAccountID: "pension1",
+		Priority:         0,
+		Recurrence:       "*-*-25",
+		Enabled:          true,
+		IsGross:          true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+		},
+		PensionSegments: []service.PensionSegment{
+			{StartDate: mustParseDate("2025-01-01"), Pension: newFixedValue(2500)},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+	if len(templates) != 2 {
+		t.Fatalf("expected 2 templates (net + pension), got %d", len(templates))
+	}
+
+	var netTpl, pensionTpl service.TransferTemplate
+	for _, tt := range templates {
+		if tt.ToAccountID == "acc1" {
+			netTpl = tt
+		} else if tt.ToAccountID == "pension1" {
+			pensionTpl = tt
+		}
+	}
+
+	if netTpl.AmountFixed.Mean() != 35000 {
+		t.Errorf("net template amount = %v, want 35000", netTpl.AmountFixed.Mean())
+	}
+	if netTpl.FromAccountID != "" {
+		t.Errorf("net template FromAccountID should be empty, got %s", netTpl.FromAccountID)
+	}
+
+	if pensionTpl.AmountFixed.Mean() != 2500 {
+		t.Errorf("pension template amount = %v, want 2500", pensionTpl.AmountFixed.Mean())
+	}
+	if pensionTpl.FromAccountID != "" {
+		t.Errorf("pension template FromAccountID should be empty, got %s", pensionTpl.FromAccountID)
+	}
+	if pensionTpl.ToAccountID != "pension1" {
+		t.Errorf("pension template ToAccountID = %s, want pension1", pensionTpl.ToAccountID)
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_GrossNoPensionAccount(t *testing.T) {
+	sal := service.Salary{
+		ID:          "sal1",
+		Name:        "Acme Corp",
+		ToAccountID: "acc1",
+		Priority:    0,
+		Recurrence:  "*-*-25",
+		Enabled:     true,
+		IsGross:     true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+		},
+		PensionSegments: []service.PensionSegment{
+			{StartDate: mustParseDate("2025-01-01"), Pension: newFixedValue(2500)},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+	if len(templates) != 1 {
+		t.Fatalf("expected 1 template (net only, no pension account), got %d", len(templates))
+	}
+	if templates[0].AmountFixed.Mean() != 35000 {
+		t.Errorf("net template amount = %v, want 35000", templates[0].AmountFixed.Mean())
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_GrossWithIBBChange(t *testing.T) {
+	// One salary amount spanning two IBB values:
+	// Salary: 50000 from 2025-01-01
+	// IBB: 76200 from 2025-01-01, 80000 from 2025-07-01
+	// Expected: 1 net TT, 2 pension TTs (split at IBB boundary)
+
+	ibb1 := 76200.0
+	ibb2 := 80000.0
+	gross := 50000.0
+	pension1 := swe.CalculateITP1Pension(gross, ibb1)
+	pension2 := swe.CalculateITP1Pension(gross, ibb2)
+
+	ibbChangeDate := mustParseDate("2025-07-01")
+
+	sal := service.Salary{
+		ID:               "sal1",
+		Name:             "Acme Corp",
+		ToAccountID:      "acc1",
+		PensionAccountID: "pension1",
+		Priority:         0,
+		Recurrence:       "*-*-25",
+		Enabled:          true,
+		IsGross:          true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(gross), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+		},
+		PensionSegments: []service.PensionSegment{
+			{StartDate: mustParseDate("2025-01-01"), EndDate: &ibbChangeDate, Pension: newFixedValue(pension1)},
+			{StartDate: mustParseDate("2025-07-01"), Pension: newFixedValue(pension2)},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+
+	var netTTs, pensionTTs []service.TransferTemplate
+	for _, tt := range templates {
+		if tt.ToAccountID == "acc1" {
+			netTTs = append(netTTs, tt)
+		} else if tt.ToAccountID == "pension1" {
+			pensionTTs = append(pensionTTs, tt)
+		}
+	}
+
+	if len(netTTs) != 1 {
+		t.Fatalf("expected 1 net TT, got %d", len(netTTs))
+	}
+	if netTTs[0].AmountFixed.Mean() != 35000 {
+		t.Errorf("net amount = %v, want 35000", netTTs[0].AmountFixed.Mean())
+	}
+
+	if len(pensionTTs) != 2 {
+		t.Fatalf("expected 2 pension TTs (split at IBB change), got %d", len(pensionTTs))
+	}
+	if pensionTTs[0].AmountFixed.Mean() != pension1 {
+		t.Errorf("pension[0] = %v, want %v", pensionTTs[0].AmountFixed.Mean(), pension1)
+	}
+	if pensionTTs[0].EndDate == nil || *pensionTTs[0].EndDate != ibbChangeDate {
+		t.Errorf("pension[0] EndDate = %v, want %v", pensionTTs[0].EndDate, ibbChangeDate)
+	}
+	if pensionTTs[1].AmountFixed.Mean() != pension2 {
+		t.Errorf("pension[1] = %v, want %v", pensionTTs[1].AmountFixed.Mean(), pension2)
+	}
+	if pensionTTs[1].EndDate != nil {
+		t.Errorf("pension[1] EndDate should be nil, got %v", pensionTTs[1].EndDate)
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_GrossMultipleAmountsAndIBB(t *testing.T) {
+	// Salary: 40000 from 2025-01-01, 45000 from 2026-01-01
+	// IBB: 76200 from 2025-01-01, 80000 from 2025-07-01
+	// Expected pension segments:
+	//   [2025-01-01, 2025-07-01) -> pension(40000, 76200)
+	//   [2025-07-01, 2026-01-01) -> pension(40000, 80000)
+	//   [2026-01-01, nil)        -> pension(45000, 80000)
+
+	ibb1 := 76200.0
+	ibb2 := 80000.0
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2025-07-01")
+	d3 := mustParseDate("2026-01-01")
+	p1 := swe.CalculateITP1Pension(40000, ibb1)
+	p2 := swe.CalculateITP1Pension(40000, ibb2)
+	p3 := swe.CalculateITP1Pension(45000, ibb2)
+
+	sal := service.Salary{
+		ID:               "sal1",
+		Name:             "Acme Corp",
+		ToAccountID:      "acc1",
+		PensionAccountID: "pension1",
+		Recurrence:       "*-*-25",
+		Enabled:          true,
+		IsGross:          true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(40000), StartDate: d1, Net: newFixedValue(32500)},
+			{ID: "amt2", Amount: newFixedValue(45000), StartDate: d3, Net: newFixedValue(37500)},
+		},
+		PensionSegments: []service.PensionSegment{
+			{StartDate: d1, EndDate: &d2, Pension: newFixedValue(p1)},
+			{StartDate: d2, EndDate: &d3, Pension: newFixedValue(p2)},
+			{StartDate: d3, Pension: newFixedValue(p3)},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+
+	var netTTs, pensionTTs []service.TransferTemplate
+	for _, tt := range templates {
+		if tt.ToAccountID == "acc1" {
+			netTTs = append(netTTs, tt)
+		} else if tt.ToAccountID == "pension1" {
+			pensionTTs = append(pensionTTs, tt)
+		}
+	}
+
+	if len(netTTs) != 2 {
+		t.Fatalf("expected 2 net TTs, got %d", len(netTTs))
+	}
+	if len(pensionTTs) != 3 {
+		t.Fatalf("expected 3 pension TTs, got %d", len(pensionTTs))
+	}
+	if pensionTTs[0].AmountFixed.Mean() != p1 {
+		t.Errorf("pension[0] = %v, want %v", pensionTTs[0].AmountFixed.Mean(), p1)
+	}
+	if pensionTTs[1].AmountFixed.Mean() != p2 {
+		t.Errorf("pension[1] = %v, want %v", pensionTTs[1].AmountFixed.Mean(), p2)
+	}
+	if pensionTTs[2].AmountFixed.Mean() != p3 {
+		t.Errorf("pension[2] = %v, want %v", pensionTTs[2].AmountFixed.Mean(), p3)
+	}
+}
+
 // ---- Salary Transfer Template Generation ----
 
 func TestSalaryGenerateTransferTemplates_SingleAmount(t *testing.T) {
@@ -1132,5 +1342,120 @@ func TestGetBudgetData_IncludesSalaryTemplates(t *testing.T) {
 	}
 	if budget.GrandTotal != 30000 {
 		t.Fatalf("expected grand total 30000, got %f", budget.GrandTotal)
+	}
+}
+
+// ---- SQLite Cache ----
+
+func TestSQLiteCacheGetSetRoundtrip(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	cache := service.NewSQLiteCache(svc.DB())
+
+	_, ok, err := cache.Get(ctx, "missing-key")
+	if err != nil {
+		t.Fatalf("get missing key: %v", err)
+	}
+	if ok {
+		t.Fatal("expected ok=false for missing key")
+	}
+
+	if err := cache.Set(ctx, "test-key", `{"some":"data"}`); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+
+	val, ok, err := cache.Get(ctx, "test-key")
+	if err != nil {
+		t.Fatalf("get after set: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected ok=true after set")
+	}
+	if val != `{"some":"data"}` {
+		t.Fatalf("unexpected value: %s", val)
+	}
+
+	if err := cache.Set(ctx, "test-key", `{"updated":"value"}`); err != nil {
+		t.Fatalf("overwrite: %v", err)
+	}
+
+	val, _, _ = cache.Get(ctx, "test-key")
+	if val != `{"updated":"value"}` {
+		t.Fatalf("expected updated value, got: %s", val)
+	}
+}
+
+// ---- Inkomstbasbelopp CRUD ----
+
+func TestInkomstbasbeloppCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	ibb, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:    76200,
+		ValidFrom: mustParseDate("2025-01-01"),
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if ibb.Amount != 76200 || ibb.ID == "" {
+		t.Fatalf("unexpected: %+v", ibb)
+	}
+
+	got, err := svc.GetInkomstbasbelopp(ctx, ibb.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Amount != 76200 || got.ValidFrom != mustParseDate("2025-01-01") {
+		t.Fatalf("unexpected get: %+v", got)
+	}
+
+	ibb2, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		ID:        ibb.ID,
+		Amount:    80000,
+		ValidFrom: mustParseDate("2025-01-01"),
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if ibb2.Amount != 80000 || ibb2.ID != ibb.ID {
+		t.Fatalf("unexpected update: %+v", ibb2)
+	}
+
+	list, err := svc.ListInkomstbasbelopp(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1, got %d", len(list))
+	}
+
+	if err := svc.DeleteInkomstbasbelopp(ctx, ibb.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	list, _ = svc.ListInkomstbasbelopp(ctx)
+	if len(list) != 0 {
+		t.Fatalf("expected 0 after delete, got %d", len(list))
+	}
+}
+
+func TestInkomstbasbeloppOrdering(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{Amount: 80000, ValidFrom: mustParseDate("2026-01-01")})
+	svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{Amount: 76200, ValidFrom: mustParseDate("2025-01-01")})
+	svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{Amount: 84000, ValidFrom: mustParseDate("2027-01-01")})
+
+	list, err := svc.ListInkomstbasbelopp(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 3 {
+		t.Fatalf("expected 3, got %d", len(list))
+	}
+	if list[0].Amount != 76200 || list[1].Amount != 80000 || list[2].Amount != 84000 {
+		t.Fatalf("unexpected order: %v, %v, %v", list[0].Amount, list[1].Amount, list[2].Amount)
 	}
 }
