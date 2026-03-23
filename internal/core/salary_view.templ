@@ -1,0 +1,237 @@
+package core
+
+import (
+	"strconv"
+)
+
+
+templ PageSalaries(child templ.Component) {
+	@Layout("/salaries", child)
+}
+
+templ SalariesListView(salaries []Salary) {
+	<main class="flex-1 flex flex-col">
+		@Header("Salaries", NewButton("/salaries/new", IconPlus("w-4 h-4"), "New Salary"))
+		<div class="flex-1 p-6 overflow-auto bg-base-100">
+			<div class="flex flex-col gap-4">
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead class="bg-base-200/60">
+									<tr>
+										<th class="font-semibold">Name</th>
+										<th class="font-semibold">Recurrence</th>
+										<th class="font-semibold">Current Amount</th>
+										<th class="font-semibold">Status</th>
+										<th class="font-semibold text-right">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(salaries) == 0 {
+										<tr>
+											<td colspan="5" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													@NoDataImg()
+													<p class="text-lg font-medium">No salaries yet</p>
+													<p>Create your first salary to get started</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, sal := range salaries {
+											<tr class="hover:bg-base-200/50 transition-colors">
+												<td class="font-medium">{ sal.Name }</td>
+												<td><code class="text-sm">{ string(sal.Recurrence) }</code></td>
+												<td>
+													@BalanceBadge(sal.CurrentAmount(), false, "")
+												</td>
+												<td>
+													if sal.Enabled {
+														<span class="badge badge-success badge-sm">Enabled</span>
+													} else {
+														<span class="badge badge-ghost badge-sm">Disabled</span>
+													}
+												</td>
+												<td class="text-right">
+													<div class="row-actions">
+														<a href={ templ.SafeURL("/salaries/" + sal.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+															@IconPencil("w-4 h-4")
+														</a>
+													</div>
+												</td>
+											</tr>
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}
+
+templ PageEditSalary(child templ.Component) {
+	@Layout("/salaries", child)
+}
+
+templ SalaryEditContent(view *SalaryEditView) {
+	<main class="flex-1 flex flex-col">
+		if view.IsEdit() {
+			@Header("Edit Salary", DeleteSalaryButton(view.Salary.ID))
+		} else {
+			@Header("New Salary", BackButton("/salaries"))
+		}
+		@SalaryForm(view)
+	</main>
+}
+
+templ DeleteSalaryButton(id string) {
+	<form method="post" action={ "/salaries/" + id + "/delete?next=" + templ.EscapeString("/salaries") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ SalaryForm(view *SalaryEditView) {
+	<div class="flex-1 p-6 overflow-auto bg-base-100">
+		<div class="max-w-3xl mx-auto">
+			<form action={ "/salaries/?next=" + templ.EscapeString("/salaries") } method="post">
+				<input type="hidden" name="id" value={ view.Salary.ID }/>
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Salary Details</h3>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Name</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="e.g. Acme Corp" name="name" value={ view.Salary.Name }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Recurrence</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="*-*-25" name="recurrence" value={ salaryRecurrenceValue(view.Salary) }/>
+								<div class="text-sm text-base-content/60 mt-1">Cron-style date pattern for payday</div>
+							</div>
+							<div class="form-control">
+								<label class="flex items-center gap-2 cursor-pointer">
+									<input type="checkbox" class="checkbox" name="enabled"
+										if view.Salary.ID == "" || view.Salary.Enabled {
+											checked
+										}
+									/>
+									<span class="label-text font-medium">Enabled</span>
+								</label>
+							</div>
+						</div>
+					</div>
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Transfer Settings</h3>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Target Account</span></label>
+								<select class="select select-bordered w-full" name="to_account_id">
+									<option value="">External</option>
+									for _, acc := range view.Accounts {
+										<option
+											value={ acc.ID }
+											if acc.ID == view.Salary.ToAccountID {
+												selected
+											}
+										>{ acc.Name }</option>
+									}
+								</select>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Priority</span></label>
+								<input type="number" class="input input-bordered w-full" placeholder="0" name="priority" value={ salaryPriorityValue(view.Salary) }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Budget Category</span></label>
+								<select class="select select-bordered w-full" name="budget_category_id">
+									<option value="">None (not in budget)</option>
+									for _, cat := range view.Categories {
+										{{ catSelected := false }}
+										if view.Salary.BudgetCategoryID != nil && *view.Salary.BudgetCategoryID == cat.ID {
+											{{ catSelected = true }}
+										}
+										<option
+											value={ cat.ID }
+											if catSelected {
+												selected
+											}
+										>{ cat.Name }</option>
+									}
+								</select>
+							</div>
+						</div>
+					</div>
+				</div>
+				@SaveButton(view.IsEdit())
+			</form>
+			if view.IsEdit() {
+				<div class="mt-6">
+					for _, amt := range view.Salary.Amounts {
+						<form id={ "delete-salary-amount-form-" + amt.ID } action={ "/salary-amounts/" + amt.ID + "/delete?next=" + templ.EscapeString("/salaries/"+view.Salary.ID+"/edit") } method="post"></form>
+					}
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Salary Amounts</h3>
+							<div class="text-sm text-base-content/60 mb-3">
+								Each amount is effective from its start date until the next amount's start date.
+							</div>
+							<div class="space-y-3">
+								for _, amt := range view.Salary.Amounts {
+									@SalaryAmountForm(view.Salary.ID, amt)
+								}
+								@SalaryAmountForm(view.Salary.ID, SalaryAmount{})
+							</div>
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+}
+
+templ SalaryAmountForm(salaryID string, amt SalaryAmount) {
+	<form method="post" action={ "/salary-amounts/?next=" + templ.EscapeString("/salaries/"+salaryID+"/edit") }>
+		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
+			if amt.ID != "" {
+				<button type="submit" form={ "delete-salary-amount-form-" + amt.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+					@IconX("w-3 h-3")
+				</button>
+			}
+			<input type="hidden" name="id" value={ amt.ID }/>
+			<input type="hidden" name="salary_id" value={ salaryID }/>
+			<div class="flex flex-row gap-2">
+				<div class="form-control flex-1">
+					<label class="label label-text text-xs pb-1">Start Date</label>
+					<input type="text" class="input input-sm w-full" placeholder="2024-01-01" name="start_date" value={ amt.GetStartDateString() }/>
+				</div>
+				<div class="form-control flex-1">
+					<label class="label label-text text-xs pb-1">Net Amount</label>
+					<input type="text" class="input input-sm w-full" placeholder="30000" name="amount" value={ amt.GetAmountString() }/>
+				</div>
+				<div class="flex items-end">
+					@SaveButton(amt.ID != "")
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
+func salaryRecurrenceValue(s Salary) string {
+	if s.ID == "" {
+		return "*-*-25"
+	}
+	return string(s.Recurrence)
+}
+
+func salaryPriorityValue(s Salary) string {
+	if s.ID == "" {
+		return "0"
+	}
+	return strconv.FormatInt(s.Priority, 10)
+}

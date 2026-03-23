@@ -793,3 +793,344 @@ func TestComputeTransfersView_IncludesActiveChildOfInactiveParent(t *testing.T) 
 		t.Errorf("active child template %s not found in TransfersView; parent-child should be a visual grouping only", child.ID)
 	}
 }
+
+// ---- Salary CRUD ----
+
+func TestSalaryCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+
+	sal, err := svc.UpsertSalary(ctx, service.Salary{
+		Name:        "Acme Corp",
+		ToAccountID: acc.ID,
+		Priority:    0,
+		Recurrence:  "*-*-25",
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("create salary: %v", err)
+	}
+	if sal.Name != "Acme Corp" || sal.ID == "" {
+		t.Fatalf("unexpected salary: %+v", sal)
+	}
+
+	got, err := svc.GetSalary(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("get salary: %v", err)
+	}
+	if got.Name != "Acme Corp" || got.ToAccountID != acc.ID {
+		t.Fatalf("unexpected salary: %+v", got)
+	}
+
+	list, err := svc.ListSalaries(ctx)
+	if err != nil {
+		t.Fatalf("list salaries: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 salary, got %d", len(list))
+	}
+
+	if err := svc.DeleteSalary(ctx, sal.ID); err != nil {
+		t.Fatalf("delete salary: %v", err)
+	}
+	list, _ = svc.ListSalaries(ctx)
+	if len(list) != 0 {
+		t.Fatalf("expected 0 salaries after delete, got %d", len(list))
+	}
+}
+
+func TestSalaryAmountCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	sal, _ := svc.UpsertSalary(ctx, service.Salary{
+		Name:    "Acme Corp",
+		Enabled: true,
+	})
+
+	amt, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(30000),
+		StartDate: mustParseDate("2025-01-01"),
+	})
+	if err != nil {
+		t.Fatalf("create salary amount: %v", err)
+	}
+	if amt.Amount.Mean() != 30000 || amt.ID == "" {
+		t.Fatalf("unexpected salary amount: %+v", amt)
+	}
+
+	amounts, err := svc.ListSalaryAmounts(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("list salary amounts: %v", err)
+	}
+	if len(amounts) != 1 {
+		t.Fatalf("expected 1 amount, got %d", len(amounts))
+	}
+
+	if err := svc.DeleteSalaryAmount(ctx, amt.ID); err != nil {
+		t.Fatalf("delete salary amount: %v", err)
+	}
+	amounts, _ = svc.ListSalaryAmounts(ctx, sal.ID)
+	if len(amounts) != 0 {
+		t.Fatalf("expected 0 amounts after delete, got %d", len(amounts))
+	}
+}
+
+func TestSalaryAmountCascadeDelete(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	sal, _ := svc.UpsertSalary(ctx, service.Salary{
+		Name:    "Acme Corp",
+		Enabled: true,
+	})
+	svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(30000),
+		StartDate: mustParseDate("2025-01-01"),
+	})
+
+	if err := svc.DeleteSalary(ctx, sal.ID); err != nil {
+		t.Fatalf("delete salary: %v", err)
+	}
+	amounts, _ := svc.ListSalaryAmounts(ctx, sal.ID)
+	if len(amounts) != 0 {
+		t.Fatalf("expected cascade delete of amounts, got %d", len(amounts))
+	}
+}
+
+// ---- Salary Transfer Template Generation ----
+
+func TestSalaryGenerateTransferTemplates_SingleAmount(t *testing.T) {
+	sal := service.Salary{
+		ID:          "sal1",
+		Name:        "Acme Corp",
+		ToAccountID: "acc1",
+		Priority:    0,
+		Recurrence:  "*-*-25",
+		Enabled:     true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(30000), StartDate: mustParseDate("2025-01-01")},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+	if len(templates) != 1 {
+		t.Fatalf("expected 1 template, got %d", len(templates))
+	}
+
+	tt := templates[0]
+	if tt.ID != "salary:amt1" {
+		t.Errorf("expected ID salary:amt1, got %s", tt.ID)
+	}
+	if tt.Name != "Acme Corp" {
+		t.Errorf("expected name Acme Corp, got %s", tt.Name)
+	}
+	if tt.FromAccountID != "" {
+		t.Errorf("expected empty FromAccountID, got %s", tt.FromAccountID)
+	}
+	if tt.ToAccountID != "acc1" {
+		t.Errorf("expected ToAccountID acc1, got %s", tt.ToAccountID)
+	}
+	if tt.AmountFixed.Mean() != 30000 {
+		t.Errorf("expected amount 30000, got %f", tt.AmountFixed.Mean())
+	}
+	if tt.EndDate != nil {
+		t.Errorf("expected nil EndDate for single amount, got %v", tt.EndDate)
+	}
+	if !tt.Source.IsGenerated() {
+		t.Error("expected Source.IsGenerated() to be true")
+	}
+	if tt.Source.Type != "salary" {
+		t.Errorf("expected source type salary, got %s", tt.Source.Type)
+	}
+	if tt.Source.EntityID != "sal1" {
+		t.Errorf("expected source entity ID sal1, got %s", tt.Source.EntityID)
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_MultipleAmounts(t *testing.T) {
+	sal := service.Salary{
+		ID:          "sal1",
+		Name:        "Acme Corp",
+		ToAccountID: "acc1",
+		Priority:    0,
+		Recurrence:  "*-*-25",
+		Enabled:     true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt2", Amount: newFixedValue(35000), StartDate: mustParseDate("2026-01-01")},
+			{ID: "amt1", Amount: newFixedValue(30000), StartDate: mustParseDate("2025-01-01")},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+	if len(templates) != 2 {
+		t.Fatalf("expected 2 templates, got %d", len(templates))
+	}
+
+	first := templates[0]
+	if first.AmountFixed.Mean() != 30000 {
+		t.Errorf("first template: expected amount 30000, got %f", first.AmountFixed.Mean())
+	}
+	if first.EndDate == nil {
+		t.Fatal("first template: expected non-nil EndDate")
+	}
+	if *first.EndDate != mustParseDate("2026-01-01") {
+		t.Errorf("first template: expected EndDate 2026-01-01, got %v", *first.EndDate)
+	}
+
+	second := templates[1]
+	if second.AmountFixed.Mean() != 35000 {
+		t.Errorf("second template: expected amount 35000, got %f", second.AmountFixed.Mean())
+	}
+	if second.EndDate != nil {
+		t.Errorf("second template: expected nil EndDate, got %v", second.EndDate)
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_DisabledSalary(t *testing.T) {
+	sal := service.Salary{
+		ID:      "sal1",
+		Name:    "Acme Corp",
+		Enabled: false,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(30000), StartDate: mustParseDate("2025-01-01")},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+	if len(templates) != 1 {
+		t.Fatalf("expected 1 template, got %d", len(templates))
+	}
+	if templates[0].Enabled {
+		t.Error("expected template to be disabled when salary is disabled")
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_NoAmounts(t *testing.T) {
+	sal := service.Salary{
+		ID:      "sal1",
+		Name:    "Acme Corp",
+		Enabled: true,
+	}
+
+	templates := sal.GenerateTransferTemplates()
+	if len(templates) != 0 {
+		t.Fatalf("expected 0 templates for salary with no amounts, got %d", len(templates))
+	}
+}
+
+// ---- ListAllTransferTemplates integration ----
+
+func TestListAllTransferTemplates_MergesDBAndSalary(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+
+	svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(1500),
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2025-01-01"),
+		Enabled:       true,
+	})
+
+	sal, _ := svc.UpsertSalary(ctx, service.Salary{
+		Name:        "Acme Corp",
+		ToAccountID: acc.ID,
+		Priority:    0,
+		Recurrence:  "*-*-25",
+		Enabled:     true,
+	})
+	svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(30000),
+		StartDate: mustParseDate("2025-01-01"),
+	})
+
+	all, err := svc.ListAllTransferTemplates(ctx)
+	if err != nil {
+		t.Fatalf("ListAllTransferTemplates: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("expected 2 templates (1 DB + 1 salary), got %d", len(all))
+	}
+
+	var dbCount, salaryCount int
+	for _, tt := range all {
+		if tt.Source.IsGenerated() {
+			salaryCount++
+			if tt.Source.Type != "salary" {
+				t.Errorf("expected source type salary, got %s", tt.Source.Type)
+			}
+		} else {
+			dbCount++
+		}
+	}
+	if dbCount != 1 || salaryCount != 1 {
+		t.Fatalf("expected 1 DB + 1 salary, got %d DB + %d salary", dbCount, salaryCount)
+	}
+}
+
+func TestListAllTransferTemplatesWithChildren_IncludesSalaryTemplates(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	sal, _ := svc.UpsertSalary(ctx, service.Salary{
+		Name:    "Acme Corp",
+		Enabled: true,
+	})
+	svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(30000),
+		StartDate: mustParseDate("2025-01-01"),
+	})
+
+	all, err := svc.ListAllTransferTemplatesWithChildren(ctx)
+	if err != nil {
+		t.Fatalf("ListAllTransferTemplatesWithChildren: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("expected 1 template, got %d", len(all))
+	}
+	if !all[0].Source.IsGenerated() {
+		t.Error("expected salary-generated template")
+	}
+}
+
+func TestGetBudgetData_IncludesSalaryTemplates(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	color := "#00ff00"
+	cat, _ := svc.UpsertCategory(ctx, service.TransferTemplateCategoryInput{Name: "Income", Color: &color})
+	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+
+	sal, _ := svc.UpsertSalary(ctx, service.Salary{
+		Name:             "Acme Corp",
+		ToAccountID:      acc.ID,
+		Priority:         0,
+		Recurrence:       "*-*-25",
+		BudgetCategoryID: &cat.ID,
+		Enabled:          true,
+	})
+	svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(30000),
+		StartDate: mustParseDate("2020-01-01"),
+	})
+
+	budget, err := svc.GetBudgetData(ctx)
+	if err != nil {
+		t.Fatalf("GetBudgetData: %v", err)
+	}
+	if budget.GrandTotal != 30000 {
+		t.Fatalf("expected grand total 30000, got %f", budget.GrandTotal)
+	}
+}

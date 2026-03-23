@@ -32,7 +32,7 @@ type Transfer struct {
 
 func (s *Service) ComputeTransfersView(ctx context.Context, day date.Date, amounts map[string]float64) (*TransfersView, error) {
 	view := &TransfersView{Day: day}
-	allTransferTemplates, err := s.ListTransferTemplates(ctx)
+	allTransferTemplates, err := s.ListAllTransferTemplates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing transfer templates: %w", err)
 	}
@@ -297,7 +297,7 @@ type TransferChartDataEnvelope struct {
 }
 
 func (s *Service) GetTransferChartData(ctx context.Context, groupBy TransferChartGroupBy) (*TransferChartDataEnvelope, error) {
-	transfersTemplates, err := s.ListTransferTemplates(ctx)
+	transfersTemplates, err := s.ListAllTransferTemplates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing transfer templates: %w", err)
 	}

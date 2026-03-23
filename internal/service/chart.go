@@ -86,7 +86,7 @@ func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEven
 	if err != nil {
 		return fmt.Errorf("listing accounts for Prediction: %w", err)
 	}
-	trans, err := s.ListTransferTemplates(ctx)
+	trans, err := s.ListAllTransferTemplates(ctx)
 	if err != nil {
 		return fmt.Errorf("listing transfers for Prediction: %w", err)
 	}

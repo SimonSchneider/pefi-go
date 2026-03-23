@@ -43,7 +43,7 @@ type BudgetView struct {
 func (s *Service) GetBudgetData(ctx context.Context) (*BudgetView, error) {
 	today := date.Today()
 
-	allTemplates, err := s.ListTransferTemplates(ctx)
+	allTemplates, err := s.ListAllTransferTemplates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing transfer templates: %w", err)
 	}
