@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
@@ -12,6 +13,17 @@ import (
 	"github.com/SimonSchneider/pefigo/internal/ui"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
 )
+
+type TransferTemplateSource struct {
+	Type     string // "", "salary" (empty = DB)
+	EntityID string
+	Label    string
+	EditURL  string
+}
+
+func (s TransferTemplateSource) IsGenerated() bool {
+	return s.Type != ""
+}
 
 type TransferTemplate struct {
 	ID            string
@@ -32,6 +44,8 @@ type TransferTemplate struct {
 
 	ParentTemplate *TransferTemplate
 	ChildTemplates []TransferTemplate
+
+	Source TransferTemplateSource
 }
 
 func (t *TransferTemplate) ToFinanceTransferTemplate() finance.TransferTemplate {
@@ -160,6 +174,67 @@ func (s *Service) ListTransferTemplates(ctx context.Context) ([]TransferTemplate
 		parsedTemplates = append(parsedTemplates, template)
 	}
 	return parsedTemplates, nil
+}
+
+func (s *Service) ListAllTransferTemplates(ctx context.Context) ([]TransferTemplate, error) {
+	templates, err := s.ListTransferTemplates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing DB transfer templates: %w", err)
+	}
+	salaryTemplates, err := s.generateSalaryTransferTemplates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("generating salary transfer templates: %w", err)
+	}
+	all := append(templates, salaryTemplates...)
+	sortTransferTemplates(all)
+	return all, nil
+}
+
+func sortTransferTemplates(ts []TransferTemplate) {
+	sort.SliceStable(ts, func(i, j int) bool {
+		ri, rj := string(ts[i].Recurrence), string(ts[j].Recurrence)
+		if ri != rj {
+			return ri < rj
+		}
+		if ts[i].Priority != ts[j].Priority {
+			return ts[i].Priority < ts[j].Priority
+		}
+		if ts[i].Name != ts[j].Name {
+			return ts[i].Name < ts[j].Name
+		}
+		if ts[i].StartDate != ts[j].StartDate {
+			return ts[i].StartDate < ts[j].StartDate
+		}
+		return false
+	})
+}
+
+func (s *Service) ListAllTransferTemplatesWithChildren(ctx context.Context) ([]TransferTemplate, error) {
+	parsedTemplates, err := s.ListAllTransferTemplates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all templates: %w", err)
+	}
+	byId := make(map[string]int)
+	for i := range parsedTemplates {
+		byId[parsedTemplates[i].ID] = i
+	}
+	for i := range parsedTemplates {
+		template := &parsedTemplates[i]
+		if template.ParentTemplateID != nil {
+			parentIndex, ok := byId[*template.ParentTemplateID]
+			if ok {
+				template.ParentTemplate = &parsedTemplates[parentIndex]
+				parsedTemplates[parentIndex].ChildTemplates = append(parsedTemplates[parentIndex].ChildTemplates, *template)
+			}
+		}
+	}
+	result := make([]TransferTemplate, 0, len(parsedTemplates))
+	for _, t := range parsedTemplates {
+		if t.ParentTemplateID == nil {
+			result = append(result, t)
+		}
+	}
+	return result, nil
 }
 
 func (s *Service) ListTransferTemplatesWithChildren(ctx context.Context) ([]TransferTemplate, error) {

@@ -101,6 +101,10 @@ type (
 	BudgetChartItem                  = service.BudgetChartItem
 	SnapshotHistorySeries            = service.SnapshotHistorySeries
 	AccountChartEntry                = service.AccountChartEntry
+	Salary                           = service.Salary
+	SalaryAmount                     = service.SalaryAmount
+	SalaryEditView                   = service.SalaryEditView
+	TransferTemplateSource           = service.TransferTemplateSource
 )
 
 const (

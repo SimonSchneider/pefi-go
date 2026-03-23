@@ -261,6 +261,46 @@ func (c *transferTemplateCategoryInputForm) FromForm(r *http.Request) error {
 	return nil
 }
 
+type salaryInputForm struct {
+	service.Salary
+}
+
+func (s *salaryInputForm) FromForm(r *http.Request) error {
+	s.ID = r.FormValue("id")
+	s.Name = r.FormValue("name")
+	s.ToAccountID = r.FormValue("to_account_id")
+	if err := shttp.Parse(&s.Priority, ui.ParseInt64, r.FormValue("priority"), int64(0)); err != nil {
+		return fmt.Errorf("parsing priority: %w", err)
+	}
+	if err := shttp.Parse(&s.Recurrence, ui.ParseDateCron, r.FormValue("recurrence"), date.Cron("*-*-25")); err != nil {
+		return fmt.Errorf("parsing recurrence: %w", err)
+	}
+	s.Enabled = r.FormValue("enabled") == "on"
+	budgetCategoryID := r.FormValue("budget_category_id")
+	if budgetCategoryID != "" {
+		s.BudgetCategoryID = &budgetCategoryID
+	} else {
+		s.BudgetCategoryID = nil
+	}
+	return nil
+}
+
+type salaryAmountInputForm struct {
+	service.SalaryAmount
+}
+
+func (a *salaryAmountInputForm) FromForm(r *http.Request) error {
+	a.ID = r.FormValue("id")
+	a.SalaryID = r.FormValue("salary_id")
+	if err := shttp.Parse(&a.StartDate, date.ParseDate, r.FormValue("start_date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing start date: %w", err)
+	}
+	if err := shttp.Parse(&a.Amount, ui.ParseUncertainValue, r.FormValue("amount"), uncertain.NewFixed(0)); err != nil {
+		return fmt.Errorf("parsing amount: %w", err)
+	}
+	return nil
+}
+
 type predictionParamsForm struct {
 	service.PredictionParams
 }

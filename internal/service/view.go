@@ -436,7 +436,7 @@ func (s *Service) GetAccountEditPageData(ctx context.Context, accountID string, 
 }
 
 func (s *Service) GetTransferTemplatesPageData(ctx context.Context) (*TransferTemplatesView2, error) {
-	transferTemplates, err := s.ListTransferTemplatesWithChildren(ctx)
+	transferTemplates, err := s.ListAllTransferTemplatesWithChildren(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing transfer templates: %w", err)
 	}

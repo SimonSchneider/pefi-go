@@ -52,6 +52,27 @@ type InvestmentRound struct {
 	Investment     float64
 }
 
+type Salary struct {
+	ID               string
+	Name             string
+	ToAccountID      *string
+	Priority         int64
+	Recurrence       string
+	BudgetCategoryID *string
+	Enabled          bool
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+type SalaryAmount struct {
+	ID        string
+	SalaryID  string
+	Amount    string
+	StartDate int64
+	CreatedAt int64
+	UpdatedAt int64
+}
+
 type ShareChange struct {
 	ID          string
 	AccountID   string

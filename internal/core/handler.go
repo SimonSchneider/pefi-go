@@ -73,6 +73,14 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /startup-share-options/", h.startupShareOptionUpsert())
 	mux.Handle("POST /startup-share-options/{id}/delete", h.startupShareOptionDelete())
 
+	mux.Handle("GET /salaries", h.salariesPage())
+	mux.Handle("GET /salaries/new", h.salaryNewPage())
+	mux.Handle("GET /salaries/{id}/edit", h.salaryEditPage())
+	mux.Handle("POST /salaries/{$}", h.salaryUpsert())
+	mux.Handle("POST /salaries/{id}/delete", h.salaryDelete())
+	mux.Handle("POST /salary-amounts/{$}", h.salaryAmountUpsert())
+	mux.Handle("POST /salary-amounts/{id}/delete", h.salaryAmountDelete())
+
 	mux.Handle("POST /transfers/{$}", h.transferTemplateUpsert())
 	mux.Handle("POST /transfers/{id}/duplicate", h.transferTemplateDuplicate())
 	mux.Handle("POST /transfers/{id}/delete", h.transferTemplateDelete())
@@ -309,6 +317,89 @@ func (h *Handler) startupShareOptionDelete() http.Handler {
 			return fmt.Errorf("deleting startup share option: %w", err)
 		}
 		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", option.AccountID))
+		return nil
+	})
+}
+
+// ---- Salaries ----
+
+func (h *Handler) salariesPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		salaries, err := h.svc.GetSalariesPageData(ctx)
+		if err != nil {
+			return fmt.Errorf("getting salaries page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Salaries", PageSalaries(SalariesListView(salaries))))
+	})
+}
+
+func (h *Handler) salaryNewPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetSalaryNewPageData(ctx)
+		if err != nil {
+			return fmt.Errorf("getting salary new page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Salaries", PageEditSalary(SalaryEditContent(view))))
+	})
+}
+
+func (h *Handler) salaryEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetSalaryEditPageData(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting salary edit page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Salaries", PageEditSalary(SalaryEditContent(view))))
+	})
+}
+
+func (h *Handler) salaryUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp salaryInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		sal, err := h.svc.UpsertSalary(ctx, inp.Salary)
+		if err != nil {
+			return fmt.Errorf("upserting salary: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/salaries/%s/edit", sal.ID))
+		return nil
+	})
+}
+
+func (h *Handler) salaryDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteSalary(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting salary: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/salaries")
+		return nil
+	})
+}
+
+func (h *Handler) salaryAmountUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp salaryAmountInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := h.svc.UpsertSalaryAmount(ctx, inp.SalaryAmount)
+		if err != nil {
+			return fmt.Errorf("upserting salary amount: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/salaries/%s/edit", inp.SalaryID))
+		return nil
+	})
+}
+
+func (h *Handler) salaryAmountDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		amountID := r.PathValue("id")
+		if err := h.svc.DeleteSalaryAmount(ctx, amountID); err != nil {
+			return fmt.Errorf("deleting salary amount: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/salaries")
 		return nil
 	})
 }
