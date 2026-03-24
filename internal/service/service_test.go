@@ -17,6 +17,17 @@ func newFixedValue(v float64) uncertain.Value {
 	return uncertain.NewFixed(v)
 }
 
+func approxEqual(a, b, epsilon float64) bool {
+	if a == 0 && b == 0 {
+		return true
+	}
+	diff := a - b
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff < epsilon
+}
+
 func mustParseDate(s string) date.Date {
 	d, err := date.ParseDate(s)
 	if err != nil {
@@ -1415,6 +1426,249 @@ func TestNetSegments_NoSplitWithoutAdjustmentsOrPBB(t *testing.T) {
 	}
 	if netTTs[0].EndDate != nil {
 		t.Errorf("tt[0] EndDate should be nil, got %v", netTTs[0].EndDate)
+	}
+}
+
+// ---- Partial Parental Leave ----
+
+func TestPartialParentalLeaveCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	sal, err := svc.UpsertSalary(ctx, service.Salary{Name: "Test", Enabled: true, Recurrence: "*-*-25"})
+	if err != nil {
+		t.Fatalf("creating salary: %v", err)
+	}
+
+	ppl, err := svc.UpsertPartialParentalLeave(ctx, service.PartialParentalLeave{
+		SalaryID:               sal.ID,
+		StartDate:              mustParseDate("2025-01-01"),
+		EndDate:                mustParseDate("2026-01-01"),
+		SjukDaysPerYear:        40,
+		LagstaDaysPerYear:      10,
+		SkippedWorkDaysPerYear: 50,
+	})
+	if err != nil {
+		t.Fatalf("creating partial parental leave: %v", err)
+	}
+	if ppl.ID == "" {
+		t.Fatal("expected non-empty ID")
+	}
+	if ppl.SjukDaysPerYear != 40 || ppl.LagstaDaysPerYear != 10 || ppl.SkippedWorkDaysPerYear != 50 {
+		t.Fatalf("unexpected values: %+v", ppl)
+	}
+	if ppl.StartDate != mustParseDate("2025-01-01") || ppl.EndDate != mustParseDate("2026-01-01") {
+		t.Fatalf("unexpected dates: start=%v end=%v", ppl.StartDate, ppl.EndDate)
+	}
+
+	list, err := svc.ListPartialParentalLeaves(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("listing: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1, got %d", len(list))
+	}
+
+	if err := svc.DeletePartialParentalLeave(ctx, ppl.ID); err != nil {
+		t.Fatalf("deleting: %v", err)
+	}
+	list, err = svc.ListPartialParentalLeaves(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("listing after delete: %v", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected 0 after delete, got %d", len(list))
+	}
+}
+
+func TestNetSegments_SplitsAtPartialParentalLeaveChange(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating inkomstbasbelopp: %v", err)
+	}
+
+	// No parental leave initially — just 1 segment
+	netTTs := salaryTTsFromAll(t, svc, sal.ID)
+	if len(netTTs) != 1 {
+		t.Fatalf("expected 1 net TT before parental leave, got %d", len(netTTs))
+	}
+	baseNet := netTTs[0].AmountFixed.Mean()
+
+	// Add partial parental leave from mid-year to end of year
+	if _, err := svc.UpsertPartialParentalLeave(ctx, service.PartialParentalLeave{
+		SalaryID:               sal.ID,
+		StartDate:              mustParseDate("2025-07-01"),
+		EndDate:                mustParseDate("2026-01-01"),
+		SjukDaysPerYear:        40,
+		LagstaDaysPerYear:      10,
+		SkippedWorkDaysPerYear: 50,
+	}); err != nil {
+		t.Fatalf("creating partial parental leave: %v", err)
+	}
+
+	netTTs = salaryTTsFromAll(t, svc, sal.ID)
+	// Should split: [2025-01-01, 2025-07-01) normal, [2025-07-01, 2026-01-01) with deduction, [2026-01-01, ...) normal
+	if len(netTTs) != 3 {
+		t.Fatalf("expected 3 net TTs (before/during/after partial leave), got %d", len(netTTs))
+	}
+	if netTTs[0].StartDate != mustParseDate("2025-01-01") {
+		t.Errorf("tt[0] StartDate = %v, want 2025-01-01", netTTs[0].StartDate)
+	}
+	if netTTs[0].EndDate == nil || *netTTs[0].EndDate != mustParseDate("2025-07-01") {
+		t.Errorf("tt[0] EndDate = %v, want 2025-07-01", netTTs[0].EndDate)
+	}
+	if netTTs[1].StartDate != mustParseDate("2025-07-01") {
+		t.Errorf("tt[1] StartDate = %v, want 2025-07-01", netTTs[1].StartDate)
+	}
+	if netTTs[1].EndDate == nil || *netTTs[1].EndDate != mustParseDate("2026-01-01") {
+		t.Errorf("tt[1] EndDate = %v, want 2026-01-01", netTTs[1].EndDate)
+	}
+	if netTTs[2].StartDate != mustParseDate("2026-01-01") {
+		t.Errorf("tt[2] StartDate = %v, want 2026-01-01", netTTs[2].StartDate)
+	}
+
+	// First segment should be unchanged (no parental leave active)
+	if !approxEqual(netTTs[0].AmountFixed.Mean(), baseNet, 0.01) {
+		t.Errorf("tt[0] net = %v, want ~%v (unchanged)", netTTs[0].AmountFixed.Mean(), baseNet)
+	}
+	// Second segment should be lower due to parental leave deduction
+	if netTTs[1].AmountFixed.Mean() >= netTTs[0].AmountFixed.Mean() {
+		t.Errorf("expected tt[1] (%v) < tt[0] (%v) due to parental leave deduction",
+			netTTs[1].AmountFixed.Mean(), netTTs[0].AmountFixed.Mean())
+	}
+	// Third segment (after leave ends) should return to normal
+	if !approxEqual(netTTs[2].AmountFixed.Mean(), baseNet, 1.0) {
+		t.Errorf("tt[2] net = %v, want ~%v (back to normal)", netTTs[2].AmountFixed.Mean(), baseNet)
+	}
+}
+
+// ---- Full Parental Leave ----
+
+func TestFullParentalLeaveCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	sal, err := svc.UpsertSalary(ctx, service.Salary{Name: "Test", Enabled: true, Recurrence: "*-*-25"})
+	if err != nil {
+		t.Fatalf("creating salary: %v", err)
+	}
+
+	fpl, err := svc.UpsertFullParentalLeave(ctx, service.FullParentalLeave{
+		SalaryID:        sal.ID,
+		StartDate:       mustParseDate("2025-06-01"),
+		EndDate:         mustParseDate("2026-06-01"),
+		SjukDaysPerWeek: 5,
+	})
+	if err != nil {
+		t.Fatalf("creating full parental leave: %v", err)
+	}
+	if fpl.ID == "" {
+		t.Fatal("expected non-empty ID")
+	}
+	if fpl.SjukDaysPerWeek != 5 {
+		t.Fatalf("unexpected sjuk days: %v", fpl.SjukDaysPerWeek)
+	}
+
+	list, err := svc.ListFullParentalLeaves(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("listing: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1, got %d", len(list))
+	}
+
+	if err := svc.DeleteFullParentalLeave(ctx, fpl.ID); err != nil {
+		t.Fatalf("deleting: %v", err)
+	}
+	list, err = svc.ListFullParentalLeaves(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("listing after delete: %v", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected 0 after delete, got %d", len(list))
+	}
+}
+
+func TestNetSegments_FullParentalLeaveOverridesNetSalary(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2026")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating inkomstbasbelopp: %v", err)
+	}
+
+	// Add full parental leave from June 2025 to Jan 2026
+	if _, err := svc.UpsertFullParentalLeave(ctx, service.FullParentalLeave{
+		SalaryID:        sal.ID,
+		StartDate:       mustParseDate("2025-06-01"),
+		EndDate:         mustParseDate("2026-01-01"),
+		SjukDaysPerWeek: 5,
+	}); err != nil {
+		t.Fatalf("creating full parental leave: %v", err)
+	}
+
+	netTTs := salaryTTsFromAll(t, svc, sal.ID)
+	// Should split: [2025-01-01, 2025-06-01) normal, [2025-06-01, 2026-01-01) FK compensation, [2026-01-01, ...) normal
+	if len(netTTs) != 3 {
+		t.Fatalf("expected 3 net TTs (before/during/after leave), got %d", len(netTTs))
+	}
+	if netTTs[0].StartDate != mustParseDate("2025-01-01") {
+		t.Errorf("tt[0] StartDate = %v, want 2025-01-01", netTTs[0].StartDate)
+	}
+	if netTTs[1].StartDate != mustParseDate("2025-06-01") {
+		t.Errorf("tt[1] StartDate = %v, want 2025-06-01", netTTs[1].StartDate)
+	}
+	if netTTs[2].StartDate != mustParseDate("2026-01-01") {
+		t.Errorf("tt[2] StartDate = %v, want 2026-01-01", netTTs[2].StartDate)
+	}
+
+	// During leave, compensation should be lower than normal net salary
+	normalNet := netTTs[0].AmountFixed.Mean()
+	leaveComp := netTTs[1].AmountFixed.Mean()
+	afterNet := netTTs[2].AmountFixed.Mean()
+	if leaveComp >= normalNet {
+		t.Errorf("expected leave compensation (%v) < normal net (%v)", leaveComp, normalNet)
+	}
+	// FK compensation should be positive
+	if leaveComp <= 0 {
+		t.Errorf("expected positive FK compensation, got %v", leaveComp)
+	}
+	// After leave, should return to normal net
+	if !approxEqual(afterNet, normalNet, 1.0) {
+		t.Errorf("expected after-leave net (%v) ~= normal net (%v)", afterNet, normalNet)
 	}
 }
 

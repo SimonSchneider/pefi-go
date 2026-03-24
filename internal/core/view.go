@@ -105,6 +105,8 @@ type (
 	SalaryAmount                     = service.SalaryAmount
 	SalaryAdjustment                 = service.SalaryAdjustment
 	SalaryEditView                   = service.SalaryEditView
+	PartialParentalLeave             = service.PartialParentalLeave
+	FullParentalLeave                = service.FullParentalLeave
 	Inkomstbasbelopp                 = service.Inkomstbasbelopp
 	TransferTemplateSource           = service.TransferTemplateSource
 )

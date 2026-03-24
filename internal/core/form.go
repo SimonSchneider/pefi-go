@@ -331,6 +331,50 @@ func (a *salaryAdjustmentInputForm) FromForm(r *http.Request) error {
 	return nil
 }
 
+type partialParentalLeaveInputForm struct {
+	service.PartialParentalLeave
+}
+
+func (p *partialParentalLeaveInputForm) FromForm(r *http.Request) error {
+	p.ID = r.FormValue("id")
+	p.SalaryID = r.FormValue("salary_id")
+	if err := shttp.Parse(&p.StartDate, date.ParseDate, r.FormValue("start_date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing start_date: %w", err)
+	}
+	if err := shttp.Parse(&p.EndDate, date.ParseDate, r.FormValue("end_date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing end_date: %w", err)
+	}
+	if err := shttp.Parse(&p.SjukDaysPerYear, shttp.ParseFloat, r.FormValue("sjuk_days_per_year"), float64(0)); err != nil {
+		return fmt.Errorf("parsing sjuk_days_per_year: %w", err)
+	}
+	if err := shttp.Parse(&p.LagstaDaysPerYear, shttp.ParseFloat, r.FormValue("lagsta_days_per_year"), float64(0)); err != nil {
+		return fmt.Errorf("parsing lagsta_days_per_year: %w", err)
+	}
+	if err := shttp.Parse(&p.SkippedWorkDaysPerYear, shttp.ParseFloat, r.FormValue("skipped_work_days_per_year"), float64(0)); err != nil {
+		return fmt.Errorf("parsing skipped_work_days_per_year: %w", err)
+	}
+	return nil
+}
+
+type fullParentalLeaveInputForm struct {
+	service.FullParentalLeave
+}
+
+func (f *fullParentalLeaveInputForm) FromForm(r *http.Request) error {
+	f.ID = r.FormValue("id")
+	f.SalaryID = r.FormValue("salary_id")
+	if err := shttp.Parse(&f.StartDate, date.ParseDate, r.FormValue("start_date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing start_date: %w", err)
+	}
+	if err := shttp.Parse(&f.EndDate, date.ParseDate, r.FormValue("end_date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing end_date: %w", err)
+	}
+	if err := shttp.Parse(&f.SjukDaysPerWeek, shttp.ParseFloat, r.FormValue("sjuk_days_per_week"), float64(0)); err != nil {
+		return fmt.Errorf("parsing sjuk_days_per_week: %w", err)
+	}
+	return nil
+}
+
 type predictionParamsForm struct {
 	service.PredictionParams
 }

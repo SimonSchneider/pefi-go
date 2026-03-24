@@ -302,27 +302,67 @@ templ SalaryForm(view *SalaryEditView) {
 						</div>
 					</div>
 				</div>
-				if view.Salary.IsGross {
-					<div class="mt-6">
-						for _, adj := range view.Salary.Adjustments {
-							<form id={ "delete-salary-adj-form-" + adj.ID } action={ "/salary-adjustments/" + adj.ID + "/delete?next=" + templ.EscapeString("/salaries/"+view.Salary.ID+"/edit") } method="post"></form>
-						}
-						<div class="card bg-base-100 shadow-sm border border-base-300">
-							<div class="card-body p-5">
-								<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Salary Adjustments</h3>
-								<div class="text-sm text-base-content/60 mb-3">
-									Vacation pay supplement, sick pay deduction, and VAB deduction. Each row is effective from its valid-from date. Values are per year.
-								</div>
-								<div class="space-y-3">
-									for _, adj := range view.Salary.Adjustments {
-										@SalaryAdjustmentForm(view.Salary.ID, adj)
-									}
-									@SalaryAdjustmentForm(view.Salary.ID, SalaryAdjustment{})
-								</div>
+			if view.Salary.IsGross {
+				<div class="mt-6">
+					for _, adj := range view.Salary.Adjustments {
+						<form id={ "delete-salary-adj-form-" + adj.ID } action={ "/salary-adjustments/" + adj.ID + "/delete?next=" + templ.EscapeString("/salaries/"+view.Salary.ID+"/edit") } method="post"></form>
+					}
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Salary Adjustments</h3>
+							<div class="text-sm text-base-content/60 mb-3">
+								Vacation pay supplement, sick pay deduction, and VAB deduction. Each row is effective from its valid-from date. Values are per year.
+							</div>
+							<div class="space-y-3">
+								for _, adj := range view.Salary.Adjustments {
+									@SalaryAdjustmentForm(view.Salary.ID, adj)
+								}
+								@SalaryAdjustmentForm(view.Salary.ID, SalaryAdjustment{})
 							</div>
 						</div>
 					</div>
-				}
+				</div>
+				<div class="mt-6">
+					for _, ppl := range view.Salary.PartialParentalLeaves {
+						<form id={ "delete-partial-pl-form-" + ppl.ID } action={ "/partial-parental-leaves/" + ppl.ID + "/delete?next=" + templ.EscapeString("/salaries/"+view.Salary.ID+"/edit") } method="post"></form>
+					}
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Partial Parental Leave</h3>
+							<div class="text-sm text-base-content/60 mb-3">
+								Partial föräldraledighet: the parent works most days but takes some parental leave days per year. Salary is lost for skipped work days;
+								Försäkringskassan compensates sjukpenning days at ~80% of SGI and lägstanivå days at 180 kr/day. Values are averaged monthly.
+							</div>
+							<div class="space-y-3">
+								for _, ppl := range view.Salary.PartialParentalLeaves {
+									@PartialParentalLeaveForm(view.Salary.ID, ppl)
+								}
+								@PartialParentalLeaveForm(view.Salary.ID, PartialParentalLeave{})
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="mt-6">
+					for _, fpl := range view.Salary.FullParentalLeaves {
+						<form id={ "delete-full-pl-form-" + fpl.ID } action={ "/full-parental-leaves/" + fpl.ID + "/delete?next=" + templ.EscapeString("/salaries/"+view.Salary.ID+"/edit") } method="post"></form>
+					}
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-5">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Full Parental Leave</h3>
+							<div class="text-sm text-base-content/60 mb-3">
+								Full (100%) föräldraledighet: the parent is on leave between the given dates. No salary is paid by the employer;
+								instead Försäkringskassan pays föräldrapenning. Sjukpenning days per week are at ~80% of SGI; the remaining days are at lägstanivå (180 kr/day).
+							</div>
+							<div class="space-y-3">
+								for _, fpl := range view.Salary.FullParentalLeaves {
+									@FullParentalLeaveForm(view.Salary.ID, fpl)
+								}
+								@FullParentalLeaveForm(view.Salary.ID, FullParentalLeave{})
+							</div>
+						</div>
+					</div>
+				</div>
+			}
 			}
 		</div>
 	</div>
@@ -394,6 +434,76 @@ templ SalaryAdjustmentForm(salaryID string, adj SalaryAdjustment) {
 				</div>
 				<div class="flex items-end">
 					@SaveButton(adj.ID != "")
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
+templ PartialParentalLeaveForm(salaryID string, ppl PartialParentalLeave) {
+	<form method="post" action={ "/partial-parental-leaves/?next=" + templ.EscapeString("/salaries/"+salaryID+"/edit") }>
+		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
+			if ppl.ID != "" {
+				<button type="submit" form={ "delete-partial-pl-form-" + ppl.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+					@IconX("w-3 h-3")
+				</button>
+			}
+			<input type="hidden" name="id" value={ ppl.ID }/>
+			<input type="hidden" name="salary_id" value={ salaryID }/>
+			<div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">Start Date</label>
+					<input type="text" class="input input-sm w-full" placeholder="2024-01-01" name="start_date" value={ ppl.GetStartDateString() }/>
+				</div>
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">End Date</label>
+					<input type="text" class="input input-sm w-full" placeholder="2025-01-01" name="end_date" value={ ppl.GetEndDateString() }/>
+				</div>
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">Sjukpenning Days/Year</label>
+					<input type="text" class="input input-sm w-full" placeholder="40" name="sjuk_days_per_year" value={ formatAdjFloat(ppl.SjukDaysPerYear) }/>
+				</div>
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">Lägstanivå Days/Year</label>
+					<input type="text" class="input input-sm w-full" placeholder="10" name="lagsta_days_per_year" value={ formatAdjFloat(ppl.LagstaDaysPerYear) }/>
+				</div>
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">Skipped Work Days/Year</label>
+					<input type="text" class="input input-sm w-full" placeholder="50" name="skipped_work_days_per_year" value={ formatAdjFloat(ppl.SkippedWorkDaysPerYear) }/>
+				</div>
+				<div class="flex items-end">
+					@SaveButton(ppl.ID != "")
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
+templ FullParentalLeaveForm(salaryID string, fpl FullParentalLeave) {
+	<form method="post" action={ "/full-parental-leaves/?next=" + templ.EscapeString("/salaries/"+salaryID+"/edit") }>
+		<div class="bg-base-100 rounded-lg border border-base-300 p-3 relative">
+			if fpl.ID != "" {
+				<button type="submit" form={ "delete-full-pl-form-" + fpl.ID } class="btn btn-circle btn-xs btn-error absolute -top-2 -right-2 shadow-sm">
+					@IconX("w-3 h-3")
+				</button>
+			}
+			<input type="hidden" name="id" value={ fpl.ID }/>
+			<input type="hidden" name="salary_id" value={ salaryID }/>
+			<div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">Start Date</label>
+					<input type="text" class="input input-sm w-full" placeholder="2025-06-01" name="start_date" value={ fpl.GetStartDateString() }/>
+				</div>
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">End Date</label>
+					<input type="text" class="input input-sm w-full" placeholder="2026-06-01" name="end_date" value={ fpl.GetEndDateString() }/>
+				</div>
+				<div class="form-control">
+					<label class="label label-text text-xs pb-1">Sjukpenning Days/Week</label>
+					<input type="text" class="input input-sm w-full" placeholder="5" name="sjuk_days_per_week" value={ formatAdjFloat(fpl.SjukDaysPerWeek) }/>
+				</div>
+				<div class="flex items-end">
+					@SaveButton(fpl.ID != "")
 				</div>
 			</div>
 		</div>

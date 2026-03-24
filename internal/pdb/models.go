@@ -35,6 +35,16 @@ type ApiCache struct {
 	CreatedAt int64
 }
 
+type FullParentalLeave struct {
+	ID              string
+	SalaryID        string
+	StartDate       int64
+	EndDate         int64
+	SjukDaysPerWeek float64
+	CreatedAt       int64
+	UpdatedAt       int64
+}
+
 type GrowthModel struct {
 	ID               string
 	AccountID        string
@@ -65,6 +75,18 @@ type InvestmentRound struct {
 	UpdatedAt      int64
 	PreMoneyShares float64
 	Investment     float64
+}
+
+type PartialParentalLeave struct {
+	ID                     string
+	SalaryID               string
+	StartDate              int64
+	EndDate                int64
+	SjukDaysPerYear        float64
+	LagstaDaysPerYear      float64
+	SkippedWorkDaysPerYear float64
+	CreatedAt              int64
+	UpdatedAt              int64
 }
 
 type Salary struct {
