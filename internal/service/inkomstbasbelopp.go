@@ -11,16 +11,18 @@ import (
 )
 
 type Inkomstbasbelopp struct {
-	ID        string
-	Amount    float64
-	ValidFrom date.Date
+	ID            string
+	Amount        float64
+	Prisbasbelopp float64
+	ValidFrom     date.Date
 }
 
 func inkomstbasbeloppFromDB(row pdb.Inkomstbasbelopp) Inkomstbasbelopp {
 	return Inkomstbasbelopp{
-		ID:        row.ID,
-		Amount:    row.Amount,
-		ValidFrom: date.Date(row.ValidFrom),
+		ID:            row.ID,
+		Amount:        row.Amount,
+		Prisbasbelopp: row.Prisbasbelopp,
+		ValidFrom:     date.Date(row.ValidFrom),
 	}
 }
 
@@ -50,11 +52,12 @@ func (s *Service) UpsertInkomstbasbelopp(ctx context.Context, inp Inkomstbasbelo
 	}
 	now := time.Now().Unix()
 	row, err := pdb.New(s.db).UpsertInkomstbasbelopp(ctx, pdb.UpsertInkomstbasbeloppParams{
-		ID:        inp.ID,
-		Amount:    inp.Amount,
-		ValidFrom: int64(inp.ValidFrom),
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:            inp.ID,
+		Amount:        inp.Amount,
+		Prisbasbelopp: inp.Prisbasbelopp,
+		ValidFrom:     int64(inp.ValidFrom),
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	})
 	if err != nil {
 		return Inkomstbasbelopp{}, fmt.Errorf("upserting inkomstbasbelopp: %w", err)
@@ -75,6 +78,17 @@ func activeIBBAt(ibbs []Inkomstbasbelopp, d date.Date) float64 {
 	for _, ibb := range ibbs {
 		if ibb.ValidFrom <= d {
 			active = ibb.Amount
+		}
+	}
+	return active
+}
+
+// activePBBAt returns the PBB (prisbasbelopp) value active at a given date.
+func activePBBAt(ibbs []Inkomstbasbelopp, d date.Date) float64 {
+	var active float64
+	for _, ibb := range ibbs {
+		if ibb.ValidFrom <= d {
+			active = ibb.Prisbasbelopp
 		}
 	}
 	return active

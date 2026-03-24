@@ -81,3 +81,41 @@ WHERE id = ?;
 SELECT *
 FROM salary_amount
 ORDER BY salary_id, start_date, id;
+
+-- name: ListSalaryAdjustments :many
+SELECT *
+FROM salary_adjustment
+WHERE salary_id = ?
+ORDER BY valid_from, id;
+
+-- name: UpsertSalaryAdjustment :one
+INSERT INTO salary_adjustment (
+    id,
+    salary_id,
+    valid_from,
+    vacation_days_per_year,
+    sick_days_per_occasion,
+    sick_occasions_per_year,
+    vab_days_per_year,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET salary_id = EXCLUDED.salary_id,
+  valid_from = EXCLUDED.valid_from,
+  vacation_days_per_year = EXCLUDED.vacation_days_per_year,
+  sick_days_per_occasion = EXCLUDED.sick_days_per_occasion,
+  sick_occasions_per_year = EXCLUDED.sick_occasions_per_year,
+  vab_days_per_year = EXCLUDED.vab_days_per_year,
+  updated_at = EXCLUDED.updated_at
+RETURNING *;
+
+-- name: DeleteSalaryAdjustment :exec
+DELETE FROM salary_adjustment
+WHERE id = ?;
+
+-- name: ListAllSalaryAdjustments :many
+SELECT *
+FROM salary_adjustment
+ORDER BY salary_id, valid_from, id;

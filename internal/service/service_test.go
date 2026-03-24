@@ -916,7 +916,10 @@ func TestSalaryGenerateTransferTemplates_GrossSalary(t *testing.T) {
 		Enabled:          true,
 		IsGross:          true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01")},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: mustParseDate("2025-01-01"), Pension: newFixedValue(2500)},
@@ -965,7 +968,10 @@ func TestSalaryGenerateTransferTemplates_GrossNoPensionAccount(t *testing.T) {
 		Enabled:     true,
 		IsGross:     true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01")},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: mustParseDate("2025-01-01"), Pension: newFixedValue(2500)},
@@ -1005,7 +1011,10 @@ func TestSalaryGenerateTransferTemplates_GrossWithIBBChange(t *testing.T) {
 		Enabled:          true,
 		IsGross:          true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(gross), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+			{ID: "amt1", Amount: newFixedValue(gross), StartDate: mustParseDate("2025-01-01")},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: mustParseDate("2025-01-01"), EndDate: &ibbChangeDate, Pension: newFixedValue(pension1)},
@@ -1074,8 +1083,12 @@ func TestSalaryGenerateTransferTemplates_GrossMultipleAmountsAndIBB(t *testing.T
 		Enabled:          true,
 		IsGross:          true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(40000), StartDate: d1, Net: newFixedValue(32500)},
-			{ID: "amt2", Amount: newFixedValue(45000), StartDate: d3, Net: newFixedValue(37500)},
+			{ID: "amt1", Amount: newFixedValue(40000), StartDate: d1},
+			{ID: "amt2", Amount: newFixedValue(45000), StartDate: d3},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: d1, EndDate: &d3, Net: newFixedValue(32500)},
+			{StartDate: d3, Net: newFixedValue(37500)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: d1, EndDate: &d2, Pension: newFixedValue(p1)},
@@ -1109,6 +1122,299 @@ func TestSalaryGenerateTransferTemplates_GrossMultipleAmountsAndIBB(t *testing.T
 	}
 	if pensionTTs[2].AmountFixed.Mean() != p3 {
 		t.Errorf("pension[2] = %v, want %v", pensionTTs[2].AmountFixed.Mean(), p3)
+	}
+}
+
+// ---- Net Segment Splitting (integration via ListAllTransferTemplates) ----
+
+// seedTaxCache pre-populates the SQLite cache with tax rate and table data
+// so the swe client doesn't hit the network.
+func seedTaxCache(t *testing.T, svc *service.Service, kommun, forsamling, year string) {
+	t.Helper()
+	ctx := t.Context()
+	cache := service.NewSQLiteCache(svc.DB())
+
+	taxRateJSON := `[{"kommun":"` + kommun + `","församling":"` + forsamling + `","summa, exkl. kyrkoavgift":"31","summa, inkl. kyrkoavgift":"32","år":"` + year + `"}]`
+	if err := cache.Set(ctx, "tax_rate:"+kommun+":"+forsamling+":"+year, taxRateJSON); err != nil {
+		t.Fatalf("seeding tax rate cache: %v", err)
+	}
+
+	taxTableJSON := `[` +
+		`{"inkomst fr.o.m.":"0","inkomst t.o.m.":"24999","kolumn 1":"0","tabellnr":"31","år":"` + year + `","antal dgr":"30B"},` +
+		`{"inkomst fr.o.m.":"25000","inkomst t.o.m.":"49999","kolumn 1":"7500","tabellnr":"31","år":"` + year + `","antal dgr":"30B"},` +
+		`{"inkomst fr.o.m.":"50000","inkomst t.o.m.":"99999","kolumn 1":"15000","tabellnr":"31","år":"` + year + `","antal dgr":"30B"}` +
+		`]`
+	if err := cache.Set(ctx, "tax_table:31:"+year, taxTableJSON); err != nil {
+		t.Fatalf("seeding tax table cache: %v", err)
+	}
+}
+
+func createGrossSalary(t *testing.T, svc *service.Service, name, kommun, forsamling string) service.Salary {
+	t.Helper()
+	sal, err := svc.UpsertSalary(t.Context(), service.Salary{
+		Name:       name,
+		Kommun:     kommun,
+		Forsamling: forsamling,
+		IsGross:    true,
+		Enabled:    true,
+		Recurrence: "*-*-25",
+	})
+	if err != nil {
+		t.Fatalf("creating salary: %v", err)
+	}
+	return sal
+}
+
+func salaryTTsFromAll(t *testing.T, svc *service.Service, salaryID string) []service.TransferTemplate {
+	t.Helper()
+	all, err := svc.ListAllTransferTemplates(t.Context())
+	if err != nil {
+		t.Fatalf("ListAllTransferTemplates: %v", err)
+	}
+	var result []service.TransferTemplate
+	for _, tt := range all {
+		if tt.Source.EntityID == salaryID && tt.Source.Type == "salary" {
+			result = append(result, tt)
+		}
+	}
+	return result
+}
+
+func TestNetSegments_SplitsAtAdjustmentChange(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating inkomstbasbelopp: %v", err)
+	}
+
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:            sal.ID,
+		ValidFrom:           mustParseDate("2025-01-01"),
+		VacationDaysPerYear: 25,
+	}); err != nil {
+		t.Fatalf("creating adjustment 1: %v", err)
+	}
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:             sal.ID,
+		ValidFrom:            mustParseDate("2025-07-01"),
+		VacationDaysPerYear:  25,
+		SickDaysPerOccasion:  3,
+		SickOccasionsPerYear: 4,
+	}); err != nil {
+		t.Fatalf("creating adjustment 2: %v", err)
+	}
+
+	netTTs := salaryTTsFromAll(t, svc, sal.ID)
+	if len(netTTs) != 2 {
+		t.Fatalf("expected 2 net TTs (split at adjustment change), got %d", len(netTTs))
+	}
+	if netTTs[0].StartDate != mustParseDate("2025-01-01") {
+		t.Errorf("tt[0] StartDate = %v, want 2025-01-01", netTTs[0].StartDate)
+	}
+	if netTTs[0].EndDate == nil || *netTTs[0].EndDate != mustParseDate("2025-07-01") {
+		t.Errorf("tt[0] EndDate = %v, want 2025-07-01", netTTs[0].EndDate)
+	}
+	if netTTs[1].StartDate != mustParseDate("2025-07-01") {
+		t.Errorf("tt[1] StartDate = %v, want 2025-07-01", netTTs[1].StartDate)
+	}
+	if netTTs[1].EndDate != nil {
+		t.Errorf("tt[1] EndDate should be nil, got %v", netTTs[1].EndDate)
+	}
+	// The second segment has sick deductions, so net should be lower
+	if netTTs[1].AmountFixed.Mean() >= netTTs[0].AmountFixed.Mean() {
+		t.Errorf("expected tt[1] (%v) < tt[0] (%v) due to sick deduction",
+			netTTs[1].AmountFixed.Mean(), netTTs[0].AmountFixed.Mean())
+	}
+}
+
+func TestNetSegments_SplitsAtPBBChange(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	// Use 55000 so annual (660k) exceeds both 10*PBB caps, making PBB
+	// differences visible in the sick/VAB deduction calculations.
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(55000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 52500,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating ibb 1: %v", err)
+	}
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-07-01"),
+	}); err != nil {
+		t.Fatalf("creating ibb 2: %v", err)
+	}
+
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:             sal.ID,
+		ValidFrom:            mustParseDate("2025-01-01"),
+		SickDaysPerOccasion:  3,
+		SickOccasionsPerYear: 4,
+		VABDaysPerYear:       10,
+	}); err != nil {
+		t.Fatalf("creating adjustment: %v", err)
+	}
+
+	netTTs := salaryTTsFromAll(t, svc, sal.ID)
+	if len(netTTs) != 2 {
+		t.Fatalf("expected 2 net TTs (split at PBB change), got %d", len(netTTs))
+	}
+	if netTTs[0].StartDate != mustParseDate("2025-01-01") {
+		t.Errorf("tt[0] StartDate = %v, want 2025-01-01", netTTs[0].StartDate)
+	}
+	if netTTs[1].StartDate != mustParseDate("2025-07-01") {
+		t.Errorf("tt[1] StartDate = %v, want 2025-07-01", netTTs[1].StartDate)
+	}
+	// Higher PBB means higher cap → less deduction → higher net
+	if netTTs[1].AmountFixed.Mean() <= netTTs[0].AmountFixed.Mean() {
+		t.Errorf("expected tt[1] (%v) > tt[0] (%v) with higher PBB cap",
+			netTTs[1].AmountFixed.Mean(), netTTs[0].AmountFixed.Mean())
+	}
+}
+
+func TestNetSegments_SplitsAtAllBoundaries(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2026")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating amount 1: %v", err)
+	}
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(45000),
+		StartDate: mustParseDate("2026-01-01"),
+	}); err != nil {
+		t.Fatalf("creating amount 2: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 52500,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating ibb 1: %v", err)
+	}
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-04-01"),
+	}); err != nil {
+		t.Fatalf("creating ibb 2: %v", err)
+	}
+
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:             sal.ID,
+		ValidFrom:            mustParseDate("2025-01-01"),
+		VacationDaysPerYear:  25,
+		SickDaysPerOccasion:  3,
+		SickOccasionsPerYear: 4,
+	}); err != nil {
+		t.Fatalf("creating adjustment 1: %v", err)
+	}
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:             sal.ID,
+		ValidFrom:            mustParseDate("2025-07-01"),
+		VacationDaysPerYear:  25,
+		SickDaysPerOccasion:  3,
+		SickOccasionsPerYear: 6,
+	}); err != nil {
+		t.Fatalf("creating adjustment 2: %v", err)
+	}
+
+	netTTs := salaryTTsFromAll(t, svc, sal.ID)
+
+	wantDates := []date.Date{
+		mustParseDate("2025-01-01"),
+		mustParseDate("2025-04-01"),
+		mustParseDate("2025-07-01"),
+		mustParseDate("2026-01-01"),
+	}
+	if len(netTTs) != len(wantDates) {
+		t.Fatalf("expected %d net TTs (split at amount + PBB + adjustment boundaries), got %d", len(wantDates), len(netTTs))
+	}
+	for i, tt := range netTTs {
+		if tt.StartDate != wantDates[i] {
+			t.Errorf("tt[%d] StartDate = %v, want %v", i, tt.StartDate, wantDates[i])
+		}
+		if i < len(netTTs)-1 {
+			if tt.EndDate == nil || *tt.EndDate != wantDates[i+1] {
+				t.Errorf("tt[%d] EndDate = %v, want %v", i, tt.EndDate, wantDates[i+1])
+			}
+		} else {
+			if tt.EndDate != nil {
+				t.Errorf("tt[%d] EndDate should be nil, got %v", i, tt.EndDate)
+			}
+		}
+	}
+	// Last segment has higher salary (45k vs 40k), so net should be higher
+	if netTTs[3].AmountFixed.Mean() <= netTTs[2].AmountFixed.Mean() {
+		t.Errorf("expected tt[3] (%v) > tt[2] (%v) after salary increase",
+			netTTs[3].AmountFixed.Mean(), netTTs[2].AmountFixed.Mean())
+	}
+}
+
+func TestNetSegments_NoSplitWithoutAdjustmentsOrPBB(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	netTTs := salaryTTsFromAll(t, svc, sal.ID)
+	if len(netTTs) != 1 {
+		t.Fatalf("expected 1 net TT (no adjustments or PBB to split on), got %d", len(netTTs))
+	}
+	if netTTs[0].StartDate != mustParseDate("2025-01-01") {
+		t.Errorf("tt[0] StartDate = %v, want 2025-01-01", netTTs[0].StartDate)
+	}
+	if netTTs[0].EndDate != nil {
+		t.Errorf("tt[0] EndDate should be nil, got %v", netTTs[0].EndDate)
 	}
 }
 

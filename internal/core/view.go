@@ -103,6 +103,7 @@ type (
 	AccountChartEntry                = service.AccountChartEntry
 	Salary                           = service.Salary
 	SalaryAmount                     = service.SalaryAmount
+	SalaryAdjustment                 = service.SalaryAdjustment
 	SalaryEditView                   = service.SalaryEditView
 	Inkomstbasbelopp                 = service.Inkomstbasbelopp
 	TransferTemplateSource           = service.TransferTemplateSource

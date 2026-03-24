@@ -12,13 +12,15 @@ WHERE id = ?;
 INSERT INTO inkomstbasbelopp (
     id,
     amount,
+    prisbasbelopp,
     valid_from,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET amount = EXCLUDED.amount,
+  prisbasbelopp = EXCLUDED.prisbasbelopp,
   valid_from = EXCLUDED.valid_from,
   updated_at = EXCLUDED.updated_at
 RETURNING *;

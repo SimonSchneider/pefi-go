@@ -19,6 +19,16 @@ func (q *Queries) DeleteSalary(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteSalaryAdjustment = `-- name: DeleteSalaryAdjustment :exec
+DELETE FROM salary_adjustment
+WHERE id = ?
+`
+
+func (q *Queries) DeleteSalaryAdjustment(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteSalaryAdjustment, id)
+	return err
+}
+
 const deleteSalaryAmount = `-- name: DeleteSalaryAmount :exec
 DELETE FROM salary_amount
 WHERE id = ?
@@ -75,6 +85,45 @@ func (q *Queries) GetSalaryAmount(ctx context.Context, id string) (SalaryAmount,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listAllSalaryAdjustments = `-- name: ListAllSalaryAdjustments :many
+SELECT id, salary_id, valid_from, vacation_days_per_year, sick_days_per_occasion, sick_occasions_per_year, vab_days_per_year, created_at, updated_at
+FROM salary_adjustment
+ORDER BY salary_id, valid_from, id
+`
+
+func (q *Queries) ListAllSalaryAdjustments(ctx context.Context) ([]SalaryAdjustment, error) {
+	rows, err := q.db.QueryContext(ctx, listAllSalaryAdjustments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SalaryAdjustment
+	for rows.Next() {
+		var i SalaryAdjustment
+		if err := rows.Scan(
+			&i.ID,
+			&i.SalaryID,
+			&i.ValidFrom,
+			&i.VacationDaysPerYear,
+			&i.SickDaysPerOccasion,
+			&i.SickOccasionsPerYear,
+			&i.VabDaysPerYear,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAllSalaryAmounts = `-- name: ListAllSalaryAmounts :many
@@ -143,6 +192,46 @@ func (q *Queries) ListSalaries(ctx context.Context) ([]Salary, error) {
 			&i.Forsamling,
 			&i.ChurchMember,
 			&i.IsGross,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSalaryAdjustments = `-- name: ListSalaryAdjustments :many
+SELECT id, salary_id, valid_from, vacation_days_per_year, sick_days_per_occasion, sick_occasions_per_year, vab_days_per_year, created_at, updated_at
+FROM salary_adjustment
+WHERE salary_id = ?
+ORDER BY valid_from, id
+`
+
+func (q *Queries) ListSalaryAdjustments(ctx context.Context, salaryID string) ([]SalaryAdjustment, error) {
+	rows, err := q.db.QueryContext(ctx, listSalaryAdjustments, salaryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SalaryAdjustment
+	for rows.Next() {
+		var i SalaryAdjustment
+		if err := rows.Scan(
+			&i.ID,
+			&i.SalaryID,
+			&i.ValidFrom,
+			&i.VacationDaysPerYear,
+			&i.SickDaysPerOccasion,
+			&i.SickOccasionsPerYear,
+			&i.VabDaysPerYear,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -278,6 +367,69 @@ func (q *Queries) UpsertSalary(ctx context.Context, arg UpsertSalaryParams) (Sal
 		&i.Forsamling,
 		&i.ChurchMember,
 		&i.IsGross,
+	)
+	return i, err
+}
+
+const upsertSalaryAdjustment = `-- name: UpsertSalaryAdjustment :one
+INSERT INTO salary_adjustment (
+    id,
+    salary_id,
+    valid_from,
+    vacation_days_per_year,
+    sick_days_per_occasion,
+    sick_occasions_per_year,
+    vab_days_per_year,
+    created_at,
+    updated_at
+  )
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+UPDATE
+SET salary_id = EXCLUDED.salary_id,
+  valid_from = EXCLUDED.valid_from,
+  vacation_days_per_year = EXCLUDED.vacation_days_per_year,
+  sick_days_per_occasion = EXCLUDED.sick_days_per_occasion,
+  sick_occasions_per_year = EXCLUDED.sick_occasions_per_year,
+  vab_days_per_year = EXCLUDED.vab_days_per_year,
+  updated_at = EXCLUDED.updated_at
+RETURNING id, salary_id, valid_from, vacation_days_per_year, sick_days_per_occasion, sick_occasions_per_year, vab_days_per_year, created_at, updated_at
+`
+
+type UpsertSalaryAdjustmentParams struct {
+	ID                   string
+	SalaryID             string
+	ValidFrom            int64
+	VacationDaysPerYear  float64
+	SickDaysPerOccasion  float64
+	SickOccasionsPerYear float64
+	VabDaysPerYear       float64
+	CreatedAt            int64
+	UpdatedAt            int64
+}
+
+func (q *Queries) UpsertSalaryAdjustment(ctx context.Context, arg UpsertSalaryAdjustmentParams) (SalaryAdjustment, error) {
+	row := q.db.QueryRowContext(ctx, upsertSalaryAdjustment,
+		arg.ID,
+		arg.SalaryID,
+		arg.ValidFrom,
+		arg.VacationDaysPerYear,
+		arg.SickDaysPerOccasion,
+		arg.SickOccasionsPerYear,
+		arg.VabDaysPerYear,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i SalaryAdjustment
+	err := row.Scan(
+		&i.ID,
+		&i.SalaryID,
+		&i.ValidFrom,
+		&i.VacationDaysPerYear,
+		&i.SickDaysPerOccasion,
+		&i.SickOccasionsPerYear,
+		&i.VabDaysPerYear,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
