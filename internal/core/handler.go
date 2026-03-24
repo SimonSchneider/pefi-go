@@ -359,10 +359,16 @@ func (h *Handler) salaryNewPage() http.Handler {
 
 func (h *Handler) salaryEditPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		view, err := h.svc.GetSalaryEditPageData(ctx, r.PathValue("id"))
+		id := r.PathValue("id")
+		view, err := h.svc.GetSalaryEditPageData(ctx, id)
 		if err != nil {
 			return fmt.Errorf("getting salary edit page data: %w", err)
 		}
+		breakdowns, err := h.svc.ComputeSalaryBreakdowns(ctx, id)
+		if err != nil {
+			return fmt.Errorf("computing salary breakdowns: %w", err)
+		}
+		view.Breakdowns = breakdowns
 		return NewView(ctx, w, r).Render(Page("Salaries", PageEditSalary(SalaryEditContent(view))))
 	})
 }

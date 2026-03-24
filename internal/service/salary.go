@@ -573,6 +573,7 @@ type SalaryEditView struct {
 	Salary     Salary
 	Accounts   []Account
 	Categories []TransferTemplateCategory
+	Breakdowns []NetSalarySegmentBreakdown
 }
 
 func (v SalaryEditView) IsEdit() bool {
@@ -831,6 +832,142 @@ func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Ink
 			StartDate: d,
 			EndDate:   endDate,
 			Net:       net,
+		})
+	}
+	return segments, nil
+}
+
+type NetSalarySegmentBreakdown struct {
+	StartDate date.Date
+	EndDate   *date.Date
+	Breakdown swe.SalaryBreakdown
+}
+
+// ComputeSalaryBreakdowns returns an itemized breakdown for each net salary
+// segment of the given gross salary. Returns nil for non-gross salaries.
+func (s *Service) ComputeSalaryBreakdowns(ctx context.Context, salaryID string) ([]NetSalarySegmentBreakdown, error) {
+	sal, err := s.GetSalary(ctx, salaryID)
+	if err != nil {
+		return nil, fmt.Errorf("getting salary: %w", err)
+	}
+	if !sal.IsGross || sal.Kommun == "" || sal.Forsamling == "" || len(sal.Amounts) == 0 {
+		return nil, nil
+	}
+
+	ibbs, err := s.ListInkomstbasbelopp(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
+	}
+
+	return s.computeBreakdownSegments(ctx, sal, ibbs)
+}
+
+func (s *Service) computeBreakdownSegments(ctx context.Context, sal Salary, ibbs []Inkomstbasbelopp) ([]NetSalarySegmentBreakdown, error) {
+	sorted := make([]SalaryAmount, len(sal.Amounts))
+	copy(sorted, sal.Amounts)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].StartDate < sorted[j].StartDate
+	})
+
+	dateSet := make(map[date.Date]struct{})
+	for _, amt := range sorted {
+		dateSet[amt.StartDate] = struct{}{}
+	}
+	for _, adj := range sal.Adjustments {
+		if adj.ValidFrom >= sorted[0].StartDate {
+			dateSet[adj.ValidFrom] = struct{}{}
+		}
+	}
+	for _, ppl := range sal.PartialParentalLeaves {
+		if ppl.StartDate >= sorted[0].StartDate {
+			dateSet[ppl.StartDate] = struct{}{}
+		}
+		if ppl.EndDate >= sorted[0].StartDate {
+			dateSet[ppl.EndDate] = struct{}{}
+		}
+	}
+	for _, fpl := range sal.FullParentalLeaves {
+		if fpl.StartDate >= sorted[0].StartDate {
+			dateSet[fpl.StartDate] = struct{}{}
+		}
+		if fpl.EndDate >= sorted[0].StartDate {
+			dateSet[fpl.EndDate] = struct{}{}
+		}
+	}
+	for _, ibb := range ibbs {
+		if ibb.ValidFrom >= sorted[0].StartDate {
+			dateSet[ibb.ValidFrom] = struct{}{}
+		}
+	}
+
+	dates := make([]date.Date, 0, len(dateSet))
+	for d := range dateSet {
+		dates = append(dates, d)
+	}
+	sort.Slice(dates, func(i, j int) bool { return dates[i] < dates[j] })
+
+	var segments []NetSalarySegmentBreakdown
+	for i, d := range dates {
+		grossAmount := activeSalaryAmountAt(sorted, d)
+		if grossAmount == nil {
+			continue
+		}
+		grossMean := grossAmount.Mean()
+
+		fpl := activeFullParentalLeaveAt(sal.FullParentalLeaves, d)
+		pbb := activePBBAt(ibbs, d)
+
+		var bd swe.SalaryBreakdown
+		if fpl != nil {
+			bd = swe.CalculateFullParentalLeaveBreakdown(grossMean, fpl.SjukDaysPerWeek, pbb)
+		} else {
+			adj := activeSalaryAdjustmentAt(sal.Adjustments, d)
+			adjParams := swe.SalaryAdjustmentParams{
+				YearlyVacationDays:   adj.VacationDaysPerYear,
+				SickDaysPerOccasion:  adj.SickDaysPerOccasion,
+				SickOccasionsPerYear: adj.SickOccasionsPerYear,
+				VABDaysPerYear:       adj.VABDaysPerYear,
+				Prisbasbelopp:        pbb,
+			}
+			ppl := activePartialParentalLeaveAt(sal.PartialParentalLeaves, d)
+			var pplSjuk, pplLagsta, pplSkipped float64
+			if ppl != nil {
+				pplSjuk = ppl.SjukDaysPerYear
+				pplLagsta = ppl.LagstaDaysPerYear
+				pplSkipped = ppl.SkippedWorkDaysPerYear
+			}
+
+			year := strings.SplitN(d.String(), "-", 2)[0]
+			calculator, err := s.sweClient.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
+				Kommun:       sal.Kommun,
+				Forsamling:   sal.Forsamling,
+				Year:         year,
+				ChurchMember: sal.ChurchMember,
+				Column:       1,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("creating net salary calculator: %w", err)
+			}
+			taxFunc := func(adjustedGross float64) (float64, error) {
+				res, err := calculator(adjustedGross)
+				if err != nil {
+					return 0, err
+				}
+				return res.Tax, nil
+			}
+			bd = swe.CalculateSalaryBreakdown(grossMean, adjParams, pplSjuk, pplLagsta, pplSkipped, pbb, taxFunc)
+		}
+
+		var endDate *date.Date
+		if i+1 < len(dates) {
+			ed := dates[i+1]
+			endDate = &ed
+		}
+
+		segments = append(segments, NetSalarySegmentBreakdown{
+			StartDate: d,
+			EndDate:   endDate,
+			Breakdown: bd,
 		})
 	}
 	return segments, nil

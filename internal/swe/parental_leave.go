@@ -26,17 +26,13 @@ func CalculatePartialParentalLeaveDeduction(monthlyGross, sjukDaysPerYear, lagst
 
 // CalculateFullParentalLeaveCompensation returns the monthly compensation
 // received during full (100%) parental leave. No salary is paid by the
-// employer; instead Försäkringskassan pays föräldrapenning for 7 calendar
-// days per week. sjukDaysPerWeek of those are at sjukpenningnivå (~80% of
-// SGI); the remaining days are at lägstanivå (180 kr/day).
+// employer; instead Försäkringskassan pays föräldrapenning at
+// sjukpenningnivå (~80% of SGI) for sjukDaysPerWeek days per week.
 func CalculateFullParentalLeaveCompensation(monthlyGross, sjukDaysPerWeek, prisbasbelopp float64) float64 {
 	annualSalary := monthlyGross * 12
 	sgi := math.Min(annualSalary*0.97, 10*prisbasbelopp)
 	sjukDailyRate := sgi * 0.80 / 365
 
 	sjukDaysPerYear := sjukDaysPerWeek / 7 * 365
-	lagstaDaysPerYear := (7 - sjukDaysPerWeek) / 7 * 365
-
-	annualComp := sjukDaysPerYear*sjukDailyRate + lagstaDaysPerYear*LagstaNivaPerDay
-	return annualComp / 12
+	return sjukDaysPerYear * sjukDailyRate / 12
 }

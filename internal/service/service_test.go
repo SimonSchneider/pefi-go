@@ -2000,6 +2000,215 @@ func TestInkomstbasbeloppCRUD(t *testing.T) {
 	}
 }
 
+func TestComputeSalaryBreakdowns_StandardSalary(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating inkomstbasbelopp: %v", err)
+	}
+
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:            sal.ID,
+		ValidFrom:           mustParseDate("2025-01-01"),
+		VacationDaysPerYear: 25,
+	}); err != nil {
+		t.Fatalf("creating adjustment: %v", err)
+	}
+
+	breakdowns, err := svc.ComputeSalaryBreakdowns(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("ComputeSalaryBreakdowns: %v", err)
+	}
+	if len(breakdowns) != 1 {
+		t.Fatalf("expected 1 breakdown segment, got %d", len(breakdowns))
+	}
+
+	bd := breakdowns[0]
+	if bd.StartDate != mustParseDate("2025-01-01") {
+		t.Errorf("StartDate = %v, want 2025-01-01", bd.StartDate)
+	}
+	if bd.EndDate != nil {
+		t.Errorf("EndDate = %v, want nil", bd.EndDate)
+	}
+	if bd.Breakdown.GrossMonthly != 40000 {
+		t.Errorf("GrossMonthly = %v, want 40000", bd.Breakdown.GrossMonthly)
+	}
+	wantVacation := swe.CalculateVacationPaySupplement(40000, 25)
+	if !approxEqual(bd.Breakdown.VacationSupplement, wantVacation, 0.01) {
+		t.Errorf("VacationSupplement = %v, want %v", bd.Breakdown.VacationSupplement, wantVacation)
+	}
+	if bd.Breakdown.IsFullParentalLeave {
+		t.Error("expected IsFullParentalLeave=false")
+	}
+	if bd.Breakdown.Tax <= 0 {
+		t.Errorf("Tax = %v, want positive", bd.Breakdown.Tax)
+	}
+	if bd.Breakdown.NetMonthly <= 0 {
+		t.Errorf("NetMonthly = %v, want positive", bd.Breakdown.NetMonthly)
+	}
+	if !approxEqual(bd.Breakdown.NetMonthly, bd.Breakdown.AdjustedGross-bd.Breakdown.Tax, 0.01) {
+		t.Errorf("NetMonthly(%v) != AdjustedGross(%v) - Tax(%v)",
+			bd.Breakdown.NetMonthly, bd.Breakdown.AdjustedGross, bd.Breakdown.Tax)
+	}
+}
+
+func TestComputeSalaryBreakdowns_SplitsAtAdjustmentChange(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating inkomstbasbelopp: %v", err)
+	}
+
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:            sal.ID,
+		ValidFrom:           mustParseDate("2025-01-01"),
+		VacationDaysPerYear: 25,
+	}); err != nil {
+		t.Fatalf("creating adjustment 1: %v", err)
+	}
+	if _, err := svc.UpsertSalaryAdjustment(ctx, service.SalaryAdjustment{
+		SalaryID:             sal.ID,
+		ValidFrom:            mustParseDate("2025-07-01"),
+		VacationDaysPerYear:  25,
+		SickDaysPerOccasion:  3,
+		SickOccasionsPerYear: 4,
+	}); err != nil {
+		t.Fatalf("creating adjustment 2: %v", err)
+	}
+
+	breakdowns, err := svc.ComputeSalaryBreakdowns(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("ComputeSalaryBreakdowns: %v", err)
+	}
+	if len(breakdowns) != 2 {
+		t.Fatalf("expected 2 breakdown segments, got %d", len(breakdowns))
+	}
+	if breakdowns[0].Breakdown.SickPayDeduction != 0 {
+		t.Errorf("segment 0 SickPayDeduction = %v, want 0", breakdowns[0].Breakdown.SickPayDeduction)
+	}
+	if breakdowns[1].Breakdown.SickPayDeduction <= 0 {
+		t.Errorf("segment 1 SickPayDeduction = %v, want positive", breakdowns[1].Breakdown.SickPayDeduction)
+	}
+	if breakdowns[1].Breakdown.NetMonthly >= breakdowns[0].Breakdown.NetMonthly {
+		t.Errorf("segment 1 net (%v) should be < segment 0 net (%v)",
+			breakdowns[1].Breakdown.NetMonthly, breakdowns[0].Breakdown.NetMonthly)
+	}
+}
+
+func TestComputeSalaryBreakdowns_FullParentalLeave(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2025")
+	seedTaxCache(t, svc, "STOCKHOLM", "TEST", "2026")
+
+	sal := createGrossSalary(t, svc, "Test Salary", "STOCKHOLM", "TEST")
+
+	if _, err := svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(40000),
+		StartDate: mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating salary amount: %v", err)
+	}
+
+	if _, err := svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{
+		Amount:        76200,
+		Prisbasbelopp: 57300,
+		ValidFrom:     mustParseDate("2025-01-01"),
+	}); err != nil {
+		t.Fatalf("creating inkomstbasbelopp: %v", err)
+	}
+
+	if _, err := svc.UpsertFullParentalLeave(ctx, service.FullParentalLeave{
+		SalaryID:        sal.ID,
+		StartDate:       mustParseDate("2025-06-01"),
+		EndDate:         mustParseDate("2026-01-01"),
+		SjukDaysPerWeek: 5,
+	}); err != nil {
+		t.Fatalf("creating full parental leave: %v", err)
+	}
+
+	breakdowns, err := svc.ComputeSalaryBreakdowns(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("ComputeSalaryBreakdowns: %v", err)
+	}
+	if len(breakdowns) != 3 {
+		t.Fatalf("expected 3 breakdown segments, got %d", len(breakdowns))
+	}
+
+	if breakdowns[0].Breakdown.IsFullParentalLeave {
+		t.Error("segment 0 should not be full parental leave")
+	}
+	if !breakdowns[1].Breakdown.IsFullParentalLeave {
+		t.Error("segment 1 should be full parental leave")
+	}
+	if breakdowns[1].Breakdown.FKSjukCompensation <= 0 {
+		t.Errorf("segment 1 FKSjukCompensation = %v, want positive", breakdowns[1].Breakdown.FKSjukCompensation)
+	}
+	if breakdowns[1].Breakdown.FKSjukCompensation != breakdowns[1].Breakdown.NetMonthly {
+		t.Errorf("segment 1: FKSjukCompensation(%v) should equal NetMonthly(%v)",
+			breakdowns[1].Breakdown.FKSjukCompensation, breakdowns[1].Breakdown.NetMonthly)
+	}
+	if breakdowns[2].Breakdown.IsFullParentalLeave {
+		t.Error("segment 2 should not be full parental leave (back to normal)")
+	}
+}
+
+func TestComputeSalaryBreakdowns_NonGrossSalaryReturnsNil(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	sal, err := svc.UpsertSalary(ctx, service.Salary{
+		Name:       "Net Salary",
+		IsGross:    false,
+		Enabled:    true,
+		Recurrence: "*-*-25",
+	})
+	if err != nil {
+		t.Fatalf("creating salary: %v", err)
+	}
+
+	breakdowns, err := svc.ComputeSalaryBreakdowns(ctx, sal.ID)
+	if err != nil {
+		t.Fatalf("ComputeSalaryBreakdowns: %v", err)
+	}
+	if breakdowns != nil {
+		t.Errorf("expected nil for non-gross salary, got %d segments", len(breakdowns))
+	}
+}
+
 func TestInkomstbasbeloppOrdering(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()

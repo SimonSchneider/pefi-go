@@ -121,7 +121,7 @@ func TestCalculateFullParentalLeaveCompensation(t *testing.T) {
 		wantMonthlyApprox float64
 	}{
 		{
-			name:            "all sjukpenning days (7/week), below SGI cap",
+			name:            "7 sjuk days/week, below SGI cap",
 			monthlyGross:    40000,
 			sjukDaysPerWeek: 7,
 			prisbasbelopp:   pbb,
@@ -129,34 +129,31 @@ func TestCalculateFullParentalLeaveCompensation(t *testing.T) {
 				annual := 40000.0 * 12
 				sgi := annual * 0.97
 				sjukDaily := sgi * 0.80 / 365
-				return 365 * sjukDaily / 12
+				return 7 * 365 / 7 * sjukDaily / 12
 			}(),
 		},
 		{
-			name:            "all lagsta days (0 sjuk/week)",
+			name:            "0 sjuk days/week returns zero",
 			monthlyGross:    40000,
 			sjukDaysPerWeek: 0,
 			prisbasbelopp:   pbb,
-			wantMonthlyApprox: func() float64 {
-				return 365 * 180.0 / 12
-			}(),
+			wantMonthlyApprox: 0,
 		},
 		{
-			name:            "mix of sjuk and lagsta (5 sjuk, 2 lagsta per week)",
+			name:            "4 sjuk days/week, only sjukpenning paid",
 			monthlyGross:    40000,
-			sjukDaysPerWeek: 5,
+			sjukDaysPerWeek: 4,
 			prisbasbelopp:   pbb,
 			wantMonthlyApprox: func() float64 {
 				annual := 40000.0 * 12
 				sgi := annual * 0.97
 				sjukDaily := sgi * 0.80 / 365
-				sjukDays := 5.0 / 7 * 365
-				lagstaDays := 2.0 / 7 * 365
-				return (sjukDays*sjukDaily + lagstaDays*180.0) / 12
+				sjukDays := 4.0 / 7 * 365
+				return sjukDays * sjukDaily / 12
 			}(),
 		},
 		{
-			name:            "above SGI cap, all sjuk days",
+			name:            "above SGI cap, 7 sjuk days",
 			monthlyGross:    55000,
 			sjukDaysPerWeek: 7,
 			prisbasbelopp:   pbb,
@@ -167,16 +164,15 @@ func TestCalculateFullParentalLeaveCompensation(t *testing.T) {
 			}(),
 		},
 		{
-			name:            "above SGI cap, mix of sjuk and lagsta",
+			name:            "above SGI cap, 4 sjuk days",
 			monthlyGross:    55000,
-			sjukDaysPerWeek: 5,
+			sjukDaysPerWeek: 4,
 			prisbasbelopp:   pbb,
 			wantMonthlyApprox: func() float64 {
 				sgi := 10 * pbb
 				sjukDaily := sgi * 0.80 / 365
-				sjukDays := 5.0 / 7 * 365
-				lagstaDays := 2.0 / 7 * 365
-				return (sjukDays*sjukDaily + lagstaDays*180.0) / 12
+				sjukDays := 4.0 / 7 * 365
+				return sjukDays * sjukDaily / 12
 			}(),
 		},
 	}
