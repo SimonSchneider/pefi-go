@@ -40,8 +40,10 @@ type Salary struct {
 	Forsamling       string
 	ChurchMember     bool
 	IsGross          bool
-	Amounts          []SalaryAmount
-	Adjustments      []SalaryAdjustment
+	Amounts              []SalaryAmount
+	Adjustments          []SalaryAdjustment
+	PartialParentalLeaves []PartialParentalLeave
+	FullParentalLeaves   []FullParentalLeave
 	// NetSegments is populated by the service layer when IsGross is true.
 	// Segments are split at the union of salary-amount, adjustment, and PBB change dates.
 	NetSegments []NetSalarySegment
@@ -65,6 +67,24 @@ type SalaryAdjustment struct {
 	SickDaysPerOccasion  float64
 	SickOccasionsPerYear float64
 	VABDaysPerYear       float64
+}
+
+type PartialParentalLeave struct {
+	ID                     string
+	SalaryID               string
+	StartDate              date.Date
+	EndDate                date.Date
+	SjukDaysPerYear        float64
+	LagstaDaysPerYear      float64
+	SkippedWorkDaysPerYear float64
+}
+
+type FullParentalLeave struct {
+	ID              string
+	SalaryID        string
+	StartDate       date.Date
+	EndDate         date.Date
+	SjukDaysPerWeek float64
 }
 
 func (s Salary) GenerateTransferTemplates() []TransferTemplate {
@@ -234,6 +254,16 @@ func (s *Service) GetSalary(ctx context.Context, id string) (Salary, error) {
 		return Salary{}, fmt.Errorf("listing salary adjustments: %w", err)
 	}
 	result.Adjustments = adjustments
+	partialPLs, err := s.ListPartialParentalLeaves(ctx, id)
+	if err != nil {
+		return Salary{}, fmt.Errorf("listing partial parental leaves: %w", err)
+	}
+	result.PartialParentalLeaves = partialPLs
+	fullPLs, err := s.ListFullParentalLeaves(ctx, id)
+	if err != nil {
+		return Salary{}, fmt.Errorf("listing full parental leaves: %w", err)
+	}
+	result.FullParentalLeaves = fullPLs
 	return result, nil
 }
 
@@ -339,6 +369,154 @@ func (s *Service) ListSalaryAdjustments(ctx context.Context, salaryID string) ([
 func (s *Service) DeleteSalaryAdjustment(ctx context.Context, id string) error {
 	if err := pdb.New(s.db).DeleteSalaryAdjustment(ctx, id); err != nil {
 		return fmt.Errorf("deleting salary adjustment: %w", err)
+	}
+	return nil
+}
+
+func partialParentalLeaveFromDB(a pdb.PartialParentalLeave) PartialParentalLeave {
+	return PartialParentalLeave{
+		ID:                     a.ID,
+		SalaryID:               a.SalaryID,
+		StartDate:              date.Date(a.StartDate),
+		EndDate:                date.Date(a.EndDate),
+		SjukDaysPerYear:        a.SjukDaysPerYear,
+		LagstaDaysPerYear:      a.LagstaDaysPerYear,
+		SkippedWorkDaysPerYear: a.SkippedWorkDaysPerYear,
+	}
+}
+
+func (s *Service) UpsertPartialParentalLeave(ctx context.Context, inp PartialParentalLeave) (PartialParentalLeave, error) {
+	if inp.ID == "" {
+		inp.ID = sid.MustNewString(32)
+	}
+	now := time.Now().Unix()
+	a, err := pdb.New(s.db).UpsertPartialParentalLeave(ctx, pdb.UpsertPartialParentalLeaveParams{
+		ID:                     inp.ID,
+		SalaryID:               inp.SalaryID,
+		StartDate:              int64(inp.StartDate),
+		EndDate:                int64(inp.EndDate),
+		SjukDaysPerYear:        inp.SjukDaysPerYear,
+		LagstaDaysPerYear:      inp.LagstaDaysPerYear,
+		SkippedWorkDaysPerYear: inp.SkippedWorkDaysPerYear,
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	})
+	if err != nil {
+		return PartialParentalLeave{}, fmt.Errorf("upserting partial parental leave: %w", err)
+	}
+	return partialParentalLeaveFromDB(a), nil
+}
+
+func (s *Service) ListPartialParentalLeaves(ctx context.Context, salaryID string) ([]PartialParentalLeave, error) {
+	rows, err := pdb.New(s.db).ListPartialParentalLeaves(ctx, salaryID)
+	if err != nil {
+		return nil, fmt.Errorf("listing partial parental leaves: %w", err)
+	}
+	result := make([]PartialParentalLeave, len(rows))
+	for i, r := range rows {
+		result[i] = partialParentalLeaveFromDB(r)
+	}
+	return result, nil
+}
+
+func (s *Service) DeletePartialParentalLeave(ctx context.Context, id string) error {
+	if err := pdb.New(s.db).DeletePartialParentalLeave(ctx, id); err != nil {
+		return fmt.Errorf("deleting partial parental leave: %w", err)
+	}
+	return nil
+}
+
+func fullParentalLeaveFromDB(a pdb.FullParentalLeave) FullParentalLeave {
+	return FullParentalLeave{
+		ID:              a.ID,
+		SalaryID:        a.SalaryID,
+		StartDate:       date.Date(a.StartDate),
+		EndDate:         date.Date(a.EndDate),
+		SjukDaysPerWeek: a.SjukDaysPerWeek,
+	}
+}
+
+func (s *Service) UpsertFullParentalLeave(ctx context.Context, inp FullParentalLeave) (FullParentalLeave, error) {
+	if inp.ID == "" {
+		inp.ID = sid.MustNewString(32)
+	}
+	now := time.Now().Unix()
+	a, err := pdb.New(s.db).UpsertFullParentalLeave(ctx, pdb.UpsertFullParentalLeaveParams{
+		ID:              inp.ID,
+		SalaryID:        inp.SalaryID,
+		StartDate:       int64(inp.StartDate),
+		EndDate:         int64(inp.EndDate),
+		SjukDaysPerWeek: inp.SjukDaysPerWeek,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	})
+	if err != nil {
+		return FullParentalLeave{}, fmt.Errorf("upserting full parental leave: %w", err)
+	}
+	return fullParentalLeaveFromDB(a), nil
+}
+
+func (s *Service) ListFullParentalLeaves(ctx context.Context, salaryID string) ([]FullParentalLeave, error) {
+	rows, err := pdb.New(s.db).ListFullParentalLeaves(ctx, salaryID)
+	if err != nil {
+		return nil, fmt.Errorf("listing full parental leaves: %w", err)
+	}
+	result := make([]FullParentalLeave, len(rows))
+	for i, r := range rows {
+		result[i] = fullParentalLeaveFromDB(r)
+	}
+	return result, nil
+}
+
+func (s *Service) DeleteFullParentalLeave(ctx context.Context, id string) error {
+	if err := pdb.New(s.db).DeleteFullParentalLeave(ctx, id); err != nil {
+		return fmt.Errorf("deleting full parental leave: %w", err)
+	}
+	return nil
+}
+
+func (ppl PartialParentalLeave) GetStartDateString() string {
+	if ppl.ID == "" {
+		return ""
+	}
+	return ppl.StartDate.String()
+}
+
+func (ppl PartialParentalLeave) GetEndDateString() string {
+	if ppl.ID == "" {
+		return ""
+	}
+	return ppl.EndDate.String()
+}
+
+func (fpl FullParentalLeave) GetStartDateString() string {
+	if fpl.ID == "" {
+		return ""
+	}
+	return fpl.StartDate.String()
+}
+
+func (fpl FullParentalLeave) GetEndDateString() string {
+	if fpl.ID == "" {
+		return ""
+	}
+	return fpl.EndDate.String()
+}
+
+func activePartialParentalLeaveAt(leaves []PartialParentalLeave, d date.Date) *PartialParentalLeave {
+	for i := range leaves {
+		if leaves[i].StartDate <= d && d < leaves[i].EndDate {
+			return &leaves[i]
+		}
+	}
+	return nil
+}
+
+func activeFullParentalLeaveAt(leaves []FullParentalLeave, d date.Date) *FullParentalLeave {
+	for i := range leaves {
+		if leaves[i].StartDate <= d && d < leaves[i].EndDate {
+			return &leaves[i]
+		}
 	}
 	return nil
 }
@@ -486,6 +664,24 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		adjustmentsBySalary[a.SalaryID] = append(adjustmentsBySalary[a.SalaryID], salaryAdjustmentFromDB(a))
 	}
 
+	allPartialPLs, err := pdb.New(s.db).ListAllPartialParentalLeaves(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing partial parental leaves: %w", err)
+	}
+	partialPLsBySalary := make(map[string][]PartialParentalLeave)
+	for _, a := range allPartialPLs {
+		partialPLsBySalary[a.SalaryID] = append(partialPLsBySalary[a.SalaryID], partialParentalLeaveFromDB(a))
+	}
+
+	allFullPLs, err := pdb.New(s.db).ListAllFullParentalLeaves(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing full parental leaves: %w", err)
+	}
+	fullPLsBySalary := make(map[string][]FullParentalLeave)
+	for _, a := range allFullPLs {
+		fullPLsBySalary[a.SalaryID] = append(fullPLsBySalary[a.SalaryID], fullParentalLeaveFromDB(a))
+	}
+
 	ibbs, err := s.ListInkomstbasbelopp(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
@@ -496,6 +692,8 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		salary := salaryFromDB(sal)
 		salary.Amounts = amountsBySalary[salary.ID]
 		salary.Adjustments = adjustmentsBySalary[salary.ID]
+		salary.PartialParentalLeaves = partialPLsBySalary[salary.ID]
+		salary.FullParentalLeaves = fullPLsBySalary[salary.ID]
 
 		if salary.IsGross && salary.Kommun != "" && salary.Forsamling != "" {
 			netSegs, err := s.computeNetSegments(ctx, salary, ibbs)
@@ -535,6 +733,22 @@ func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Ink
 			dateSet[adj.ValidFrom] = struct{}{}
 		}
 	}
+	for _, ppl := range sal.PartialParentalLeaves {
+		if ppl.StartDate >= sorted[0].StartDate {
+			dateSet[ppl.StartDate] = struct{}{}
+		}
+		if ppl.EndDate >= sorted[0].StartDate {
+			dateSet[ppl.EndDate] = struct{}{}
+		}
+	}
+	for _, fpl := range sal.FullParentalLeaves {
+		if fpl.StartDate >= sorted[0].StartDate {
+			dateSet[fpl.StartDate] = struct{}{}
+		}
+		if fpl.EndDate >= sorted[0].StartDate {
+			dateSet[fpl.EndDate] = struct{}{}
+		}
+	}
 	for _, ibb := range ibbs {
 		if ibb.ValidFrom >= sorted[0].StartDate {
 			dateSet[ibb.ValidFrom] = struct{}{}
@@ -568,6 +782,8 @@ func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Ink
 
 		adj := activeSalaryAdjustmentAt(sal.Adjustments, d)
 		pbb := activePBBAt(ibbs, d)
+		ppl := activePartialParentalLeaveAt(sal.PartialParentalLeaves, d)
+		fpl := activeFullParentalLeaveAt(sal.FullParentalLeaves, d)
 
 		gross := *grossAmount
 		calc := calculator
@@ -578,15 +794,32 @@ func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Ink
 			VABDaysPerYear:       adj.VABDaysPerYear,
 			Prisbasbelopp:        pbb,
 		}
+		fplActive := fpl
+		pbbVal := pbb
+		var pplSjuk, pplLagsta, pplSkipped float64
+		if ppl != nil {
+			pplSjuk = ppl.SjukDaysPerYear
+			pplLagsta = ppl.LagstaDaysPerYear
+			pplSkipped = ppl.SkippedWorkDaysPerYear
+		}
 
-		net := uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
-			adjusted := swe.AdjustGrossSalary(gross.Sample(cfg), adjParams)
-			res, err := calc(adjusted)
-			if err != nil {
-				return adjusted
-			}
-			return res.NetMonthly
-		})
+		var net uncertain.Value
+		if fplActive != nil {
+			net = uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+				return swe.CalculateFullParentalLeaveCompensation(gross.Sample(cfg), fplActive.SjukDaysPerWeek, pbbVal)
+			})
+		} else {
+			net = uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+				sampled := gross.Sample(cfg)
+				adjusted := swe.AdjustGrossSalary(sampled, adjParams)
+				adjusted -= swe.CalculatePartialParentalLeaveDeduction(sampled, pplSjuk, pplLagsta, pplSkipped, pbbVal)
+				res, err := calc(adjusted)
+				if err != nil {
+					return adjusted
+				}
+				return res.NetMonthly
+			})
+		}
 
 		var endDate *date.Date
 		if i+1 < len(dates) {

@@ -84,6 +84,10 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /salary-amounts/{id}/delete", h.salaryAmountDelete())
 	mux.Handle("POST /salary-adjustments/{$}", h.salaryAdjustmentUpsert())
 	mux.Handle("POST /salary-adjustments/{id}/delete", h.salaryAdjustmentDelete())
+	mux.Handle("POST /partial-parental-leaves/{$}", h.partialParentalLeaveUpsert())
+	mux.Handle("POST /partial-parental-leaves/{id}/delete", h.partialParentalLeaveDelete())
+	mux.Handle("POST /full-parental-leaves/{$}", h.fullParentalLeaveUpsert())
+	mux.Handle("POST /full-parental-leaves/{id}/delete", h.fullParentalLeaveDelete())
 
 	mux.Handle("GET /settings/inkomstbasbelopp", h.inkomstbasbeloppListPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
@@ -434,6 +438,56 @@ func (h *Handler) salaryAdjustmentDelete() http.Handler {
 		adjustmentID := r.PathValue("id")
 		if err := h.svc.DeleteSalaryAdjustment(ctx, adjustmentID); err != nil {
 			return fmt.Errorf("deleting salary adjustment: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/salaries")
+		return nil
+	})
+}
+
+func (h *Handler) partialParentalLeaveUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp partialParentalLeaveInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := h.svc.UpsertPartialParentalLeave(ctx, inp.PartialParentalLeave)
+		if err != nil {
+			return fmt.Errorf("upserting partial parental leave: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/salaries/%s/edit", inp.SalaryID))
+		return nil
+	})
+}
+
+func (h *Handler) partialParentalLeaveDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeletePartialParentalLeave(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting partial parental leave: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/salaries")
+		return nil
+	})
+}
+
+func (h *Handler) fullParentalLeaveUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp fullParentalLeaveInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := h.svc.UpsertFullParentalLeave(ctx, inp.FullParentalLeave)
+		if err != nil {
+			return fmt.Errorf("upserting full parental leave: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/salaries/%s/edit", inp.SalaryID))
+		return nil
+	})
+}
+
+func (h *Handler) fullParentalLeaveDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteFullParentalLeave(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting full parental leave: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/salaries")
 		return nil
