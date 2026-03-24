@@ -1125,6 +1125,397 @@ func TestSalaryGenerateTransferTemplates_GrossMultipleAmountsAndIBB(t *testing.T
 	}
 }
 
+// ---- BuildNetSegments (date-union splitting logic) ----
+
+// stubNetCalculator returns a calculator that applies adjustments and returns
+// a fixed net value = AdjustGrossSalary(gross.Mean(), params).
+// This lets us test the splitting logic without a real tax API.
+func stubNetCalculator(gross uncertain.Value, adjParams swe.SalaryAdjustmentParams, _ date.Date) (uncertain.Value, error) {
+	adjusted := swe.AdjustGrossSalary(gross.Mean(), adjParams)
+	return uncertain.NewFixed(adjusted), nil
+}
+
+func TestBuildNetSegments_SplitsAtAdjustmentChange(t *testing.T) {
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2025-07-01")
+	pbb := 57300.0
+
+	sal := service.Salary{
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: d1},
+		},
+		Adjustments: []service.SalaryAdjustment{
+			{ValidFrom: d1, VacationDaysPerYear: 25},
+			{ValidFrom: d2, VacationDaysPerYear: 30, SickDaysPerOccasion: 3, SickOccasionsPerYear: 4},
+		},
+	}
+	ibbs := []service.Inkomstbasbelopp{
+		{ValidFrom: d1, Prisbasbelopp: pbb},
+	}
+
+	segments, err := service.BuildNetSegments(sal, ibbs, stubNetCalculator)
+	if err != nil {
+		t.Fatalf("BuildNetSegments: %v", err)
+	}
+
+	if len(segments) != 2 {
+		t.Fatalf("expected 2 segments (split at adjustment change), got %d", len(segments))
+	}
+
+	if segments[0].StartDate != d1 {
+		t.Errorf("seg[0] StartDate = %v, want %v", segments[0].StartDate, d1)
+	}
+	if segments[0].EndDate == nil || *segments[0].EndDate != d2 {
+		t.Errorf("seg[0] EndDate = %v, want %v", segments[0].EndDate, d2)
+	}
+	if segments[1].StartDate != d2 {
+		t.Errorf("seg[1] StartDate = %v, want %v", segments[1].StartDate, d2)
+	}
+	if segments[1].EndDate != nil {
+		t.Errorf("seg[1] EndDate should be nil, got %v", segments[1].EndDate)
+	}
+
+	// With different adjustments, the net values should differ
+	if segments[0].Net.Mean() == segments[1].Net.Mean() {
+		t.Errorf("expected different net values for different adjustments, both = %v", segments[0].Net.Mean())
+	}
+}
+
+func TestBuildNetSegments_SplitsAtPBBChange(t *testing.T) {
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2025-07-01")
+
+	sal := service.Salary{
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(55000), StartDate: d1},
+		},
+		Adjustments: []service.SalaryAdjustment{
+			{ValidFrom: d1, SickDaysPerOccasion: 3, SickOccasionsPerYear: 4, VABDaysPerYear: 10},
+		},
+	}
+	ibbs := []service.Inkomstbasbelopp{
+		{ValidFrom: d1, Prisbasbelopp: 52500},
+		{ValidFrom: d2, Prisbasbelopp: 57300},
+	}
+
+	segments, err := service.BuildNetSegments(sal, ibbs, stubNetCalculator)
+	if err != nil {
+		t.Fatalf("BuildNetSegments: %v", err)
+	}
+
+	if len(segments) != 2 {
+		t.Fatalf("expected 2 segments (split at PBB change), got %d", len(segments))
+	}
+	if segments[0].StartDate != d1 {
+		t.Errorf("seg[0] StartDate = %v, want %v", segments[0].StartDate, d1)
+	}
+	if segments[1].StartDate != d2 {
+		t.Errorf("seg[1] StartDate = %v, want %v", segments[1].StartDate, d2)
+	}
+
+	// PBB affects sick/VAB caps, so net should differ
+	if segments[0].Net.Mean() == segments[1].Net.Mean() {
+		t.Errorf("expected different net values for different PBB, both = %v", segments[0].Net.Mean())
+	}
+}
+
+func TestBuildNetSegments_SplitsAtAllBoundaries(t *testing.T) {
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2025-04-01") // PBB change
+	d3 := mustParseDate("2025-07-01") // adjustment change
+	d4 := mustParseDate("2026-01-01") // salary amount change
+
+	sal := service.Salary{
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: d1},
+			{ID: "amt2", Amount: newFixedValue(55000), StartDate: d4},
+		},
+		Adjustments: []service.SalaryAdjustment{
+			{ValidFrom: d1, VacationDaysPerYear: 25, SickDaysPerOccasion: 3, SickOccasionsPerYear: 4},
+			{ValidFrom: d3, VacationDaysPerYear: 25, SickDaysPerOccasion: 3, SickOccasionsPerYear: 6},
+		},
+	}
+	ibbs := []service.Inkomstbasbelopp{
+		{ValidFrom: d1, Prisbasbelopp: 52500},
+		{ValidFrom: d2, Prisbasbelopp: 57300},
+	}
+
+	segments, err := service.BuildNetSegments(sal, ibbs, stubNetCalculator)
+	if err != nil {
+		t.Fatalf("BuildNetSegments: %v", err)
+	}
+
+	if len(segments) != 4 {
+		t.Fatalf("expected 4 segments (amount + PBB + adjustment + amount changes), got %d", len(segments))
+	}
+
+	wantDates := []date.Date{d1, d2, d3, d4}
+	for i, seg := range segments {
+		if seg.StartDate != wantDates[i] {
+			t.Errorf("seg[%d] StartDate = %v, want %v", i, seg.StartDate, wantDates[i])
+		}
+		if i < len(segments)-1 {
+			if seg.EndDate == nil || *seg.EndDate != wantDates[i+1] {
+				t.Errorf("seg[%d] EndDate = %v, want %v", i, seg.EndDate, wantDates[i+1])
+			}
+		} else {
+			if seg.EndDate != nil {
+				t.Errorf("seg[%d] EndDate should be nil, got %v", i, seg.EndDate)
+			}
+		}
+	}
+
+	// Salary amount changes at d4 (50k -> 55k), so seg[3] should have higher net
+	if segments[3].Net.Mean() <= segments[2].Net.Mean() {
+		t.Errorf("expected seg[3] (%v) > seg[2] (%v) after salary increase", segments[3].Net.Mean(), segments[2].Net.Mean())
+	}
+}
+
+func TestBuildNetSegments_IgnoresDatesBeforeFirstAmount(t *testing.T) {
+	d1 := mustParseDate("2025-06-01")
+	dBefore := mustParseDate("2025-01-01")
+
+	sal := service.Salary{
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: d1},
+		},
+		Adjustments: []service.SalaryAdjustment{
+			{ValidFrom: dBefore, VacationDaysPerYear: 25},
+		},
+	}
+	ibbs := []service.Inkomstbasbelopp{
+		{ValidFrom: dBefore, Prisbasbelopp: 57300},
+	}
+
+	segments, err := service.BuildNetSegments(sal, ibbs, stubNetCalculator)
+	if err != nil {
+		t.Fatalf("BuildNetSegments: %v", err)
+	}
+
+	if len(segments) != 1 {
+		t.Fatalf("expected 1 segment (dates before first amount ignored), got %d", len(segments))
+	}
+	if segments[0].StartDate != d1 {
+		t.Errorf("seg[0] StartDate = %v, want %v", segments[0].StartDate, d1)
+	}
+}
+
+func TestBuildNetSegments_EmptyAmounts(t *testing.T) {
+	sal := service.Salary{}
+	segments, err := service.BuildNetSegments(sal, nil, stubNetCalculator)
+	if err != nil {
+		t.Fatalf("BuildNetSegments: %v", err)
+	}
+	if segments != nil {
+		t.Fatalf("expected nil segments for empty amounts, got %d", len(segments))
+	}
+}
+
+func TestBuildNetSegments_NoAdjustmentsOrPBB(t *testing.T) {
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2026-01-01")
+
+	sal := service.Salary{
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(40000), StartDate: d1},
+			{ID: "amt2", Amount: newFixedValue(45000), StartDate: d2},
+		},
+	}
+
+	segments, err := service.BuildNetSegments(sal, nil, stubNetCalculator)
+	if err != nil {
+		t.Fatalf("BuildNetSegments: %v", err)
+	}
+
+	if len(segments) != 2 {
+		t.Fatalf("expected 2 segments (one per salary amount), got %d", len(segments))
+	}
+	if segments[0].StartDate != d1 {
+		t.Errorf("seg[0] StartDate = %v, want %v", segments[0].StartDate, d1)
+	}
+	if segments[1].StartDate != d2 {
+		t.Errorf("seg[1] StartDate = %v, want %v", segments[1].StartDate, d2)
+	}
+	// Without adjustments, net should equal gross
+	if segments[0].Net.Mean() != 40000 {
+		t.Errorf("seg[0] Net = %v, want 40000 (no adjustments)", segments[0].Net.Mean())
+	}
+	if segments[1].Net.Mean() != 45000 {
+		t.Errorf("seg[1] Net = %v, want 45000 (no adjustments)", segments[1].Net.Mean())
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_GrossNetSegmentsSplitAtAdjustmentChange(t *testing.T) {
+	// One salary amount, but adjustment changes mid-year.
+	// Net segments should produce 2 net TTs with different amounts.
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2025-07-01")
+
+	sal := service.Salary{
+		ID:               "sal1",
+		Name:             "Test",
+		ToAccountID:      "acc1",
+		PensionAccountID: "pension1",
+		Recurrence:       "*-*-25",
+		Enabled:          true,
+		IsGross:          true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: d1},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: d1, EndDate: &d2, Net: newFixedValue(36000)},
+			{StartDate: d2, Net: newFixedValue(35000)},
+		},
+		PensionSegments: []service.PensionSegment{
+			{StartDate: d1, Pension: newFixedValue(2500)},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+
+	var netTTs []service.TransferTemplate
+	for _, tt := range templates {
+		if tt.ToAccountID == "acc1" {
+			netTTs = append(netTTs, tt)
+		}
+	}
+
+	if len(netTTs) != 2 {
+		t.Fatalf("expected 2 net TTs (split at adjustment change), got %d", len(netTTs))
+	}
+	if netTTs[0].StartDate != d1 {
+		t.Errorf("net[0] StartDate = %v, want %v", netTTs[0].StartDate, d1)
+	}
+	if netTTs[0].EndDate == nil || *netTTs[0].EndDate != d2 {
+		t.Errorf("net[0] EndDate = %v, want %v", netTTs[0].EndDate, d2)
+	}
+	if netTTs[0].AmountFixed.Mean() != 36000 {
+		t.Errorf("net[0] amount = %v, want 36000", netTTs[0].AmountFixed.Mean())
+	}
+	if netTTs[1].StartDate != d2 {
+		t.Errorf("net[1] StartDate = %v, want %v", netTTs[1].StartDate, d2)
+	}
+	if netTTs[1].EndDate != nil {
+		t.Errorf("net[1] EndDate should be nil, got %v", netTTs[1].EndDate)
+	}
+	if netTTs[1].AmountFixed.Mean() != 35000 {
+		t.Errorf("net[1] amount = %v, want 35000", netTTs[1].AmountFixed.Mean())
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_GrossNetSegmentsSplitAtPBBChange(t *testing.T) {
+	// One salary amount, one adjustment, but PBB changes mid-year.
+	// This affects sick/VAB caps, producing 2 net TTs.
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2025-07-01")
+
+	sal := service.Salary{
+		ID:          "sal1",
+		Name:        "Test",
+		ToAccountID: "acc1",
+		Recurrence:  "*-*-25",
+		Enabled:     true,
+		IsGross:     true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: d1},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: d1, EndDate: &d2, Net: newFixedValue(35500)},
+			{StartDate: d2, Net: newFixedValue(35200)},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+
+	if len(templates) != 2 {
+		t.Fatalf("expected 2 templates (2 net segments, no pension), got %d", len(templates))
+	}
+	if templates[0].AmountFixed.Mean() != 35500 {
+		t.Errorf("net[0] = %v, want 35500", templates[0].AmountFixed.Mean())
+	}
+	if templates[0].EndDate == nil || *templates[0].EndDate != d2 {
+		t.Errorf("net[0] EndDate = %v, want %v", templates[0].EndDate, d2)
+	}
+	if templates[1].AmountFixed.Mean() != 35200 {
+		t.Errorf("net[1] = %v, want 35200", templates[1].AmountFixed.Mean())
+	}
+	if templates[1].EndDate != nil {
+		t.Errorf("net[1] EndDate should be nil, got %v", templates[1].EndDate)
+	}
+}
+
+func TestSalaryGenerateTransferTemplates_GrossNetSegmentsSplitAtMultipleBoundaries(t *testing.T) {
+	// Two salary amounts + adjustment change + PBB change at different dates.
+	// Should produce 4 net TTs at the union of all change dates.
+	d1 := mustParseDate("2025-01-01")
+	d2 := mustParseDate("2025-04-01") // PBB changes
+	d3 := mustParseDate("2025-07-01") // adjustment changes
+	d4 := mustParseDate("2026-01-01") // salary amount changes
+
+	sal := service.Salary{
+		ID:               "sal1",
+		Name:             "Test",
+		ToAccountID:      "acc1",
+		PensionAccountID: "pension1",
+		Recurrence:       "*-*-25",
+		Enabled:          true,
+		IsGross:          true,
+		Amounts: []service.SalaryAmount{
+			{ID: "amt1", Amount: newFixedValue(40000), StartDate: d1},
+			{ID: "amt2", Amount: newFixedValue(45000), StartDate: d4},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: d1, EndDate: &d2, Net: newFixedValue(30000)},
+			{StartDate: d2, EndDate: &d3, Net: newFixedValue(30100)},
+			{StartDate: d3, EndDate: &d4, Net: newFixedValue(29800)},
+			{StartDate: d4, Net: newFixedValue(33500)},
+		},
+		PensionSegments: []service.PensionSegment{
+			{StartDate: d1, Pension: newFixedValue(2000)},
+		},
+	}
+
+	templates := sal.GenerateTransferTemplates()
+
+	var netTTs, pensionTTs []service.TransferTemplate
+	for _, tt := range templates {
+		if tt.ToAccountID == "acc1" {
+			netTTs = append(netTTs, tt)
+		} else if tt.ToAccountID == "pension1" {
+			pensionTTs = append(pensionTTs, tt)
+		}
+	}
+
+	if len(netTTs) != 4 {
+		t.Fatalf("expected 4 net TTs (split at PBB, adjustment, and salary changes), got %d", len(netTTs))
+	}
+	if netTTs[0].StartDate != d1 {
+		t.Errorf("net[0] StartDate = %v, want %v", netTTs[0].StartDate, d1)
+	}
+	if netTTs[0].AmountFixed.Mean() != 30000 {
+		t.Errorf("net[0] = %v, want 30000", netTTs[0].AmountFixed.Mean())
+	}
+	if netTTs[1].StartDate != d2 {
+		t.Errorf("net[1] StartDate = %v, want %v", netTTs[1].StartDate, d2)
+	}
+	if netTTs[2].StartDate != d3 {
+		t.Errorf("net[2] StartDate = %v, want %v", netTTs[2].StartDate, d3)
+	}
+	if netTTs[3].StartDate != d4 {
+		t.Errorf("net[3] StartDate = %v, want %v", netTTs[3].StartDate, d4)
+	}
+	if netTTs[3].EndDate != nil {
+		t.Errorf("net[3] EndDate should be nil, got %v", netTTs[3].EndDate)
+	}
+	if netTTs[3].AmountFixed.Mean() != 33500 {
+		t.Errorf("net[3] = %v, want 33500", netTTs[3].AmountFixed.Mean())
+	}
+
+	if len(pensionTTs) != 1 {
+		t.Fatalf("expected 1 pension TT, got %d", len(pensionTTs))
+	}
+}
+
 // ---- Salary Transfer Template Generation ----
 
 func TestSalaryGenerateTransferTemplates_SingleAmount(t *testing.T) {

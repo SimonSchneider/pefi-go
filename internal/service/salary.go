@@ -511,11 +511,42 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 	return templates, nil
 }
 
-// computeNetSegments builds net salary segments split at the union of
-// salary-amount, adjustment, and PBB change-point dates. Each segment's Net
-// is a mapped uncertain.Value that derives net salary from the gross amount
-// via salary adjustments and tax computation.
+// NetCalculatorFunc computes a net uncertain.Value from the gross amount,
+// active adjustment params, and the segment date (for tax year resolution).
+type NetCalculatorFunc func(gross uncertain.Value, adjParams swe.SalaryAdjustmentParams, segmentDate date.Date) (uncertain.Value, error)
+
+// computeNetSegments builds net salary segments using the swe client for tax lookups.
 func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Inkomstbasbelopp) ([]NetSalarySegment, error) {
+	return BuildNetSegments(sal, ibbs, func(gross uncertain.Value, adjParams swe.SalaryAdjustmentParams, segmentDate date.Date) (uncertain.Value, error) {
+		year := strings.SplitN(segmentDate.String(), "-", 2)[0]
+		calculator, err := s.sweClient.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
+			Kommun:       sal.Kommun,
+			Forsamling:   sal.Forsamling,
+			Year:         year,
+			ChurchMember: sal.ChurchMember,
+			Column:       1,
+		})
+		if err != nil {
+			return uncertain.Value{}, err
+		}
+		calc := calculator
+		grossVal := gross
+		params := adjParams
+		return uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+			adjusted := swe.AdjustGrossSalary(grossVal.Sample(cfg), params)
+			res, err := calc(adjusted)
+			if err != nil {
+				return adjusted
+			}
+			return res.NetMonthly
+		}), nil
+	})
+}
+
+// BuildNetSegments builds net salary segments split at the union of
+// salary-amount, adjustment, and PBB change-point dates. The calcNet
+// callback computes the net value for each segment.
+func BuildNetSegments(sal Salary, ibbs []Inkomstbasbelopp, calcNet NetCalculatorFunc) ([]NetSalarySegment, error) {
 	if len(sal.Amounts) == 0 {
 		return nil, nil
 	}
@@ -554,23 +585,9 @@ func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Ink
 			continue
 		}
 
-		year := strings.SplitN(d.String(), "-", 2)[0]
-		calculator, err := s.sweClient.NetSalaryCalculator(ctx, swe.GrossSalaryInput{
-			Kommun:       sal.Kommun,
-			Forsamling:   sal.Forsamling,
-			Year:         year,
-			ChurchMember: sal.ChurchMember,
-			Column:       1,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("creating net salary calculator: %w", err)
-		}
-
 		adj := activeSalaryAdjustmentAt(sal.Adjustments, d)
 		pbb := activePBBAt(ibbs, d)
 
-		gross := *grossAmount
-		calc := calculator
 		adjParams := swe.SalaryAdjustmentParams{
 			YearlyVacationDays:   adj.VacationDaysPerYear,
 			SickDaysPerOccasion:  adj.SickDaysPerOccasion,
@@ -579,14 +596,10 @@ func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Ink
 			Prisbasbelopp:        pbb,
 		}
 
-		net := uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
-			adjusted := swe.AdjustGrossSalary(gross.Sample(cfg), adjParams)
-			res, err := calc(adjusted)
-			if err != nil {
-				return adjusted
-			}
-			return res.NetMonthly
-		})
+		net, err := calcNet(*grossAmount, adjParams, d)
+		if err != nil {
+			return nil, fmt.Errorf("computing net for segment at %s: %w", d.String(), err)
+		}
 
 		var endDate *date.Date
 		if i+1 < len(dates) {
