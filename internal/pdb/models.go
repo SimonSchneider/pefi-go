@@ -48,11 +48,12 @@ type GrowthModel struct {
 }
 
 type Inkomstbasbelopp struct {
-	ID        string
-	Amount    float64
-	ValidFrom int64
-	CreatedAt int64
-	UpdatedAt int64
+	ID            string
+	Amount        float64
+	ValidFrom     int64
+	CreatedAt     int64
+	UpdatedAt     int64
+	Prisbasbelopp float64
 }
 
 type InvestmentRound struct {
@@ -81,6 +82,18 @@ type Salary struct {
 	Forsamling       string
 	ChurchMember     bool
 	IsGross          bool
+}
+
+type SalaryAdjustment struct {
+	ID                   string
+	SalaryID             string
+	ValidFrom            int64
+	VacationDaysPerYear  float64
+	SickDaysPerOccasion  float64
+	SickOccasionsPerYear float64
+	VabDaysPerYear       float64
+	CreatedAt            int64
+	UpdatedAt            int64
 }
 
 type SalaryAmount struct {

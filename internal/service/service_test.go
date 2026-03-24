@@ -916,7 +916,10 @@ func TestSalaryGenerateTransferTemplates_GrossSalary(t *testing.T) {
 		Enabled:          true,
 		IsGross:          true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01")},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: mustParseDate("2025-01-01"), Pension: newFixedValue(2500)},
@@ -965,7 +968,10 @@ func TestSalaryGenerateTransferTemplates_GrossNoPensionAccount(t *testing.T) {
 		Enabled:     true,
 		IsGross:     true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+			{ID: "amt1", Amount: newFixedValue(50000), StartDate: mustParseDate("2025-01-01")},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: mustParseDate("2025-01-01"), Pension: newFixedValue(2500)},
@@ -1005,7 +1011,10 @@ func TestSalaryGenerateTransferTemplates_GrossWithIBBChange(t *testing.T) {
 		Enabled:          true,
 		IsGross:          true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(gross), StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
+			{ID: "amt1", Amount: newFixedValue(gross), StartDate: mustParseDate("2025-01-01")},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: mustParseDate("2025-01-01"), Net: newFixedValue(35000)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: mustParseDate("2025-01-01"), EndDate: &ibbChangeDate, Pension: newFixedValue(pension1)},
@@ -1074,8 +1083,12 @@ func TestSalaryGenerateTransferTemplates_GrossMultipleAmountsAndIBB(t *testing.T
 		Enabled:          true,
 		IsGross:          true,
 		Amounts: []service.SalaryAmount{
-			{ID: "amt1", Amount: newFixedValue(40000), StartDate: d1, Net: newFixedValue(32500)},
-			{ID: "amt2", Amount: newFixedValue(45000), StartDate: d3, Net: newFixedValue(37500)},
+			{ID: "amt1", Amount: newFixedValue(40000), StartDate: d1},
+			{ID: "amt2", Amount: newFixedValue(45000), StartDate: d3},
+		},
+		NetSegments: []service.NetSalarySegment{
+			{StartDate: d1, EndDate: &d3, Net: newFixedValue(32500)},
+			{StartDate: d3, Net: newFixedValue(37500)},
 		},
 		PensionSegments: []service.PensionSegment{
 			{StartDate: d1, EndDate: &d2, Pension: newFixedValue(p1)},

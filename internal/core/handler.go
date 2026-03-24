@@ -82,6 +82,8 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /salaries/{id}/delete", h.salaryDelete())
 	mux.Handle("POST /salary-amounts/{$}", h.salaryAmountUpsert())
 	mux.Handle("POST /salary-amounts/{id}/delete", h.salaryAmountDelete())
+	mux.Handle("POST /salary-adjustments/{$}", h.salaryAdjustmentUpsert())
+	mux.Handle("POST /salary-adjustments/{id}/delete", h.salaryAdjustmentDelete())
 
 	mux.Handle("GET /settings/inkomstbasbelopp", h.inkomstbasbeloppListPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
@@ -406,6 +408,32 @@ func (h *Handler) salaryAmountDelete() http.Handler {
 		amountID := r.PathValue("id")
 		if err := h.svc.DeleteSalaryAmount(ctx, amountID); err != nil {
 			return fmt.Errorf("deleting salary amount: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/salaries")
+		return nil
+	})
+}
+
+func (h *Handler) salaryAdjustmentUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp salaryAdjustmentInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := h.svc.UpsertSalaryAdjustment(ctx, inp.SalaryAdjustment)
+		if err != nil {
+			return fmt.Errorf("upserting salary adjustment: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/salaries/%s/edit", inp.SalaryID))
+		return nil
+	})
+}
+
+func (h *Handler) salaryAdjustmentDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		adjustmentID := r.PathValue("id")
+		if err := h.svc.DeleteSalaryAdjustment(ctx, adjustmentID); err != nil {
+			return fmt.Errorf("deleting salary adjustment: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/salaries")
 		return nil

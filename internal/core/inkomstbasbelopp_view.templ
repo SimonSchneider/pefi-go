@@ -21,14 +21,15 @@ templ inkomstbasbeloppListContent(ibbs []Inkomstbasbelopp) {
 								<thead class="bg-base-200/60">
 									<tr>
 										<th class="font-semibold">Valid From</th>
-										<th class="font-semibold text-right">Amount</th>
+										<th class="font-semibold text-right">IBB</th>
+										<th class="font-semibold text-right">PBB</th>
 										<th class="font-semibold text-right sticky">Actions</th>
 									</tr>
 								</thead>
 								<tbody>
 									if len(ibbs) == 0 {
 										<tr>
-											<td colspan="3" class="text-center py-8 text-base-content/70">
+											<td colspan="4" class="text-center py-8 text-base-content/70">
 												<div class="flex flex-col items-center gap-2">
 													@NoDataImg()
 													<p class="text-lg font-medium">No inkomstbasbelopp configured</p>
@@ -41,6 +42,7 @@ templ inkomstbasbeloppListContent(ibbs []Inkomstbasbelopp) {
 											<tr class="hover:bg-base-200/50 transition-colors">
 												<td class="font-medium">{ ibb.ValidFrom.String() }</td>
 												<td class="text-right">{ ui.FormatWithThousands(ibb.Amount) }</td>
+												<td class="text-right">{ ui.FormatWithThousands(ibb.Prisbasbelopp) }</td>
 												<td class="text-right">
 													<div class="row-actions">
 														<a href={ templ.SafeURL("/settings/inkomstbasbelopp/" + ibb.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
@@ -77,15 +79,19 @@ templ inkomstbasbeloppEditContent(ibb Inkomstbasbelopp, isEdit bool) {
 				<form action={ "/settings/inkomstbasbelopp/?next=" + templ.EscapeString("/settings/inkomstbasbelopp") } method="post">
 					<div class="card bg-base-100 shadow-sm border border-base-300">
 						<div class="card-body">
-							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Inkomstbasbelopp Details</h3>
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Basbelopp Details</h3>
 							<input type="hidden" name="id" value={ ibb.ID }/>
 							<div class="form-control">
 								<label class="label"><span class="label-text font-medium">Valid From</span></label>
 								<input type="text" class="input input-bordered w-full" placeholder="2025-01-01" name="valid_from" value={ ibb.ValidFrom.String() }/>
 							</div>
 							<div class="form-control">
-								<label class="label"><span class="label-text font-medium">Amount</span></label>
+								<label class="label"><span class="label-text font-medium">Inkomstbasbelopp (IBB)</span></label>
 								<input type="text" class="input input-bordered w-full" placeholder="76200" name="amount" value={ fmt.Sprintf("%.0f", ibb.Amount) }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Prisbasbelopp (PBB)</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="57300" name="prisbasbelopp" value={ fmt.Sprintf("%.0f", ibb.Prisbasbelopp) }/>
 							</div>
 							@SaveButton(isEdit)
 						</div>

@@ -306,6 +306,31 @@ func (a *salaryAmountInputForm) FromForm(r *http.Request) error {
 	return nil
 }
 
+type salaryAdjustmentInputForm struct {
+	service.SalaryAdjustment
+}
+
+func (a *salaryAdjustmentInputForm) FromForm(r *http.Request) error {
+	a.ID = r.FormValue("id")
+	a.SalaryID = r.FormValue("salary_id")
+	if err := shttp.Parse(&a.ValidFrom, date.ParseDate, r.FormValue("valid_from"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing valid_from: %w", err)
+	}
+	if err := shttp.Parse(&a.VacationDaysPerYear, shttp.ParseFloat, r.FormValue("vacation_days_per_year"), float64(0)); err != nil {
+		return fmt.Errorf("parsing vacation_days_per_year: %w", err)
+	}
+	if err := shttp.Parse(&a.SickDaysPerOccasion, shttp.ParseFloat, r.FormValue("sick_days_per_occasion"), float64(0)); err != nil {
+		return fmt.Errorf("parsing sick_days_per_occasion: %w", err)
+	}
+	if err := shttp.Parse(&a.SickOccasionsPerYear, shttp.ParseFloat, r.FormValue("sick_occasions_per_year"), float64(0)); err != nil {
+		return fmt.Errorf("parsing sick_occasions_per_year: %w", err)
+	}
+	if err := shttp.Parse(&a.VABDaysPerYear, shttp.ParseFloat, r.FormValue("vab_days_per_year"), float64(0)); err != nil {
+		return fmt.Errorf("parsing vab_days_per_year: %w", err)
+	}
+	return nil
+}
+
 type predictionParamsForm struct {
 	service.PredictionParams
 }
@@ -352,6 +377,9 @@ func (f *inkomstbasbeloppInputForm) FromForm(r *http.Request) error {
 	f.ID = r.FormValue("id")
 	if err := shttp.Parse(&f.Amount, ui.ParseAmount, r.FormValue("amount"), float64(0)); err != nil {
 		return fmt.Errorf("parsing amount: %w", err)
+	}
+	if err := shttp.Parse(&f.Prisbasbelopp, ui.ParseAmount, r.FormValue("prisbasbelopp"), float64(0)); err != nil {
+		return fmt.Errorf("parsing prisbasbelopp: %w", err)
 	}
 	if err := shttp.Parse(&f.ValidFrom, date.ParseDate, r.FormValue("valid_from"), date.Date(0)); err != nil {
 		return fmt.Errorf("parsing valid_from: %w", err)

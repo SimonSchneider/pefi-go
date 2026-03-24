@@ -20,7 +20,7 @@ func (q *Queries) DeleteInkomstbasbelopp(ctx context.Context, id string) error {
 }
 
 const getInkomstbasbelopp = `-- name: GetInkomstbasbelopp :one
-SELECT id, amount, valid_from, created_at, updated_at
+SELECT id, amount, valid_from, created_at, updated_at, prisbasbelopp
 FROM inkomstbasbelopp
 WHERE id = ?
 `
@@ -34,12 +34,13 @@ func (q *Queries) GetInkomstbasbelopp(ctx context.Context, id string) (Inkomstba
 		&i.ValidFrom,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Prisbasbelopp,
 	)
 	return i, err
 }
 
 const listInkomstbasbelopp = `-- name: ListInkomstbasbelopp :many
-SELECT id, amount, valid_from, created_at, updated_at
+SELECT id, amount, valid_from, created_at, updated_at, prisbasbelopp
 FROM inkomstbasbelopp
 ORDER BY valid_from, id
 `
@@ -59,6 +60,7 @@ func (q *Queries) ListInkomstbasbelopp(ctx context.Context) ([]Inkomstbasbelopp,
 			&i.ValidFrom,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Prisbasbelopp,
 		); err != nil {
 			return nil, err
 		}
@@ -77,30 +79,34 @@ const upsertInkomstbasbelopp = `-- name: UpsertInkomstbasbelopp :one
 INSERT INTO inkomstbasbelopp (
     id,
     amount,
+    prisbasbelopp,
     valid_from,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET amount = EXCLUDED.amount,
+  prisbasbelopp = EXCLUDED.prisbasbelopp,
   valid_from = EXCLUDED.valid_from,
   updated_at = EXCLUDED.updated_at
-RETURNING id, amount, valid_from, created_at, updated_at
+RETURNING id, amount, valid_from, created_at, updated_at, prisbasbelopp
 `
 
 type UpsertInkomstbasbeloppParams struct {
-	ID        string
-	Amount    float64
-	ValidFrom int64
-	CreatedAt int64
-	UpdatedAt int64
+	ID            string
+	Amount        float64
+	Prisbasbelopp float64
+	ValidFrom     int64
+	CreatedAt     int64
+	UpdatedAt     int64
 }
 
 func (q *Queries) UpsertInkomstbasbelopp(ctx context.Context, arg UpsertInkomstbasbeloppParams) (Inkomstbasbelopp, error) {
 	row := q.db.QueryRowContext(ctx, upsertInkomstbasbelopp,
 		arg.ID,
 		arg.Amount,
+		arg.Prisbasbelopp,
 		arg.ValidFrom,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -112,6 +118,7 @@ func (q *Queries) UpsertInkomstbasbelopp(ctx context.Context, arg UpsertInkomstb
 		&i.ValidFrom,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Prisbasbelopp,
 	)
 	return i, err
 }
