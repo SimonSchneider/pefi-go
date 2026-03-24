@@ -104,7 +104,6 @@ type (
 	Salary                           = service.Salary
 	SalaryAmount                     = service.SalaryAmount
 	SalaryAdjustment                 = service.SalaryAdjustment
-	NetSalarySegment                 = service.NetSalarySegment
 	SalaryEditView                   = service.SalaryEditView
 	Inkomstbasbelopp                 = service.Inkomstbasbelopp
 	TransferTemplateSource           = service.TransferTemplateSource
