@@ -16,7 +16,7 @@ templ PageEditTransferTemplate(view *TransferTemplateEditView) {
 }
 
 templ EditTransferTemplateContent(view *TransferTemplateEditView) {
-	<main class="flex-1 flex flex-col">
+	<main class="flex-1 flex flex-col min-h-0">
 		if view.IsEdit() {
 			@Header("Edit Transfer Template", DeleteTransferTemplateButton(view.TransferTemplate.ID))
 		} else {
@@ -380,7 +380,7 @@ templ NewTransferTemplateButton() {
 }
 
 templ TransferTemplatesContent(view *TransferTemplatesView2) {
-	<main class="flex-1 flex flex-col">
+	<main class="flex-1 flex flex-col min-h-0">
 		@Header("Transfer Templates", NewTransferTemplateButton())
 		<div class="flex-1 p-6 overflow-auto bg-base-100">
 			<div class="flex flex-col gap-4">

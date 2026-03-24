@@ -150,7 +150,7 @@ templ Header(title string, btns ...templ.Component) {
 }
 
 templ Layout(page string, child templ.Component) {
-	<div class="drawer lg:drawer-open">
+	<div class="drawer lg:drawer-open" style="height:100vh;overflow:hidden">
 		<input id="sidebar-drawer" type="checkbox" class="drawer-toggle"/>
 		<script>
 			// Immediately set sidebar state before any rendering occurs.
@@ -168,7 +168,7 @@ templ Layout(page string, child templ.Component) {
 				});
 			})();
 		</script>
-		<div class="drawer-content flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+		<div class="drawer-content flex flex-col min-w-0 overflow-hidden" style="max-height:100vh">
 			@child
 		</div>
 		<div class="drawer-side is-drawer-close:overflow-visible z-40">

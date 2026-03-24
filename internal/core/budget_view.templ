@@ -10,7 +10,7 @@ templ PageBudget(view *BudgetView) {
 }
 
 templ BudgetContent(view *BudgetView) {
-	<main class="flex-1 flex flex-col">
+	<main class="flex-1 flex flex-col min-h-0">
 		@Header("Monthly Budget")
 		<div class="flex-1 p-6 overflow-auto bg-base-100">
 			<script src="/static/public/echarts.min.js"></script>

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/SimonSchneider/pefigo/internal/service"
+	"github.com/SimonSchneider/pefigo/internal/swe"
 	"github.com/a-h/templ"
 )
 
@@ -109,6 +110,8 @@ type (
 	FullParentalLeave                = service.FullParentalLeave
 	Inkomstbasbelopp                 = service.Inkomstbasbelopp
 	TransferTemplateSource           = service.TransferTemplateSource
+	NetSalarySegmentBreakdown        = service.NetSalarySegmentBreakdown
+	SalaryBreakdown                  = swe.SalaryBreakdown
 )
 
 const (
