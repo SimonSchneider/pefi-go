@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type GrossSalaryInput struct {
@@ -25,32 +26,29 @@ type NetSalaryResult struct {
 	NetMonthly   float64
 }
 
-const maxYearFallback = 5
-
 func (c *Client) NetSalaryCalculator(ctx context.Context, input GrossSalaryInput) (func(grossMonthly float64) (*NetSalaryResult, error), error) {
 	year, err := strconv.Atoi(input.Year)
 	if err != nil {
 		return nil, fmt.Errorf("parsing year %q: %w", input.Year, err)
 	}
 
+	effectiveYear := min(year, time.Now().Year())
+
 	var tableNumber int
 	var taxLookup func(float64) (float64, error)
-	var lastErr error
 
-	for attempts := 0; attempts <= maxYearFallback; attempts++ {
-		tryYear := strconv.Itoa(year - attempts)
-		tableNumber, lastErr = c.GetTaxTableNumber(ctx, input.Kommun, input.Forsamling, tryYear, input.ChurchMember)
-		if lastErr != nil {
-			continue
+	tryYear := strconv.Itoa(effectiveYear)
+	tableNumber, err = c.GetTaxTableNumber(ctx, input.Kommun, input.Forsamling, tryYear, input.ChurchMember)
+	if err != nil {
+		tryYear = strconv.Itoa(effectiveYear - 1)
+		tableNumber, err = c.GetTaxTableNumber(ctx, input.Kommun, input.Forsamling, tryYear, input.ChurchMember)
+		if err != nil {
+			return nil, fmt.Errorf("no tax data available for %d or %d: %w", effectiveYear, effectiveYear-1, err)
 		}
-		taxLookup, lastErr = c.NewTaxLookup(ctx, tableNumber, tryYear, input.Column)
-		if lastErr != nil {
-			continue
-		}
-		break
 	}
-	if lastErr != nil {
-		return nil, fmt.Errorf("no tax data available for %s or previous %d years: %w", input.Year, maxYearFallback, lastErr)
+	taxLookup, err = c.NewTaxLookup(ctx, tableNumber, tryYear, input.Column)
+	if err != nil {
+		return nil, fmt.Errorf("fetching tax table %d for %s: %w", tableNumber, tryYear, err)
 	}
 
 	return func(grossMonthly float64) (*NetSalaryResult, error) {
