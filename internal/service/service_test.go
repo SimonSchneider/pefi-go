@@ -2228,3 +2228,540 @@ func TestInkomstbasbeloppOrdering(t *testing.T) {
 		t.Fatalf("unexpected order: %v, %v, %v", list[0].Amount, list[1].Amount, list[2].Amount)
 	}
 }
+
+// ---- Bill Account CRUD ----
+
+func TestBillAccountCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+
+	ba, err := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name:          "Monthly Bills",
+		FromAccountID: acc.ID,
+		Recurrence:    "*-*-01",
+		Priority:      1,
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create bill account: %v", err)
+	}
+	if ba.Name != "Monthly Bills" || ba.ID == "" || ba.FromAccountID != acc.ID {
+		t.Fatalf("unexpected bill account: %+v", ba)
+	}
+
+	got, err := svc.GetBillAccount(ctx, ba.ID)
+	if err != nil {
+		t.Fatalf("get bill account: %v", err)
+	}
+	if got.Name != "Monthly Bills" {
+		t.Fatalf("expected Monthly Bills, got %s", got.Name)
+	}
+
+	ba2, err := svc.UpsertBillAccount(ctx, service.BillAccount{
+		ID:         ba.ID,
+		Name:       "Updated Bills",
+		Recurrence: "*-*-15",
+		Enabled:    true,
+	})
+	if err != nil {
+		t.Fatalf("update bill account: %v", err)
+	}
+	if ba2.Name != "Updated Bills" || ba2.ID != ba.ID {
+		t.Fatalf("unexpected updated bill account: %+v", ba2)
+	}
+
+	list, err := svc.ListBillAccounts(ctx)
+	if err != nil {
+		t.Fatalf("list bill accounts: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 bill account, got %d", len(list))
+	}
+
+	if err := svc.DeleteBillAccount(ctx, ba.ID); err != nil {
+		t.Fatalf("delete bill account: %v", err)
+	}
+	list, _ = svc.ListBillAccounts(ctx)
+	if len(list) != 0 {
+		t.Fatalf("expected 0 bill accounts after delete, got %d", len(list))
+	}
+}
+
+// ---- Bill CRUD ----
+
+func TestBillCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	ba, _ := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name:       "Monthly",
+		Recurrence: "*-*-01",
+		Enabled:    true,
+	})
+
+	color := "#ff0000"
+	cat, _ := svc.UpsertCategory(ctx, service.TransferTemplateCategoryInput{Name: "Housing", Color: &color})
+
+	bill, err := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID:    ba.ID,
+		Name:             "Netflix",
+		BudgetCategoryID: &cat.ID,
+		Enabled:          true,
+		Notes:            "Family plan",
+		URL:              "https://netflix.com/account",
+	})
+	if err != nil {
+		t.Fatalf("create bill: %v", err)
+	}
+	if bill.Name != "Netflix" || bill.ID == "" || bill.BillAccountID != ba.ID {
+		t.Fatalf("unexpected bill: %+v", bill)
+	}
+
+	got, err := svc.GetBill(ctx, bill.ID)
+	if err != nil {
+		t.Fatalf("get bill: %v", err)
+	}
+	if got.Name != "Netflix" || got.Notes != "Family plan" || got.URL != "https://netflix.com/account" {
+		t.Fatalf("unexpected bill: %+v", got)
+	}
+
+	list, err := svc.ListBills(ctx, ba.ID)
+	if err != nil {
+		t.Fatalf("list bills: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 bill, got %d", len(list))
+	}
+
+	if err := svc.DeleteBill(ctx, bill.ID); err != nil {
+		t.Fatalf("delete bill: %v", err)
+	}
+	list, _ = svc.ListBills(ctx, ba.ID)
+	if len(list) != 0 {
+		t.Fatalf("expected 0 bills after delete, got %d", len(list))
+	}
+}
+
+// ---- Bill Amount CRUD ----
+
+func TestBillAmountCRUD(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	ba, _ := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name:       "Monthly",
+		Recurrence: "*-*-01",
+		Enabled:    true,
+	})
+	bill, _ := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       true,
+	})
+
+	endDate := mustParseDate("2026-01-01")
+	amt, err := svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID:    bill.ID,
+		Amount:    newFixedValue(149),
+		StartDate: mustParseDate("2025-01-01"),
+		EndDate:   &endDate,
+	})
+	if err != nil {
+		t.Fatalf("create bill amount: %v", err)
+	}
+	if amt.Amount.Mean() != 149 || amt.ID == "" {
+		t.Fatalf("unexpected bill amount: %+v", amt)
+	}
+	if amt.EndDate == nil || *amt.EndDate != endDate {
+		t.Fatalf("expected end date %v, got %v", endDate, amt.EndDate)
+	}
+
+	amounts, err := svc.ListBillAmounts(ctx, bill.ID)
+	if err != nil {
+		t.Fatalf("list bill amounts: %v", err)
+	}
+	if len(amounts) != 1 {
+		t.Fatalf("expected 1 amount, got %d", len(amounts))
+	}
+
+	if err := svc.DeleteBillAmount(ctx, amt.ID); err != nil {
+		t.Fatalf("delete bill amount: %v", err)
+	}
+	amounts, _ = svc.ListBillAmounts(ctx, bill.ID)
+	if len(amounts) != 0 {
+		t.Fatalf("expected 0 amounts after delete, got %d", len(amounts))
+	}
+}
+
+// ---- Bill Cascade Delete ----
+
+func TestBillCascadeDelete(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	ba, _ := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name:       "Monthly",
+		Recurrence: "*-*-01",
+		Enabled:    true,
+	})
+	bill, _ := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       true,
+	})
+	svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID:    bill.ID,
+		Amount:    newFixedValue(149),
+		StartDate: mustParseDate("2025-01-01"),
+	})
+
+	t.Run("deleting bill cascades to amounts", func(t *testing.T) {
+		bill2, _ := svc.UpsertBill(ctx, service.Bill{
+			BillAccountID: ba.ID,
+			Name:          "Spotify",
+			Enabled:       true,
+		})
+		svc.UpsertBillAmount(ctx, service.BillAmount{
+			BillID:    bill2.ID,
+			Amount:    newFixedValue(99),
+			StartDate: mustParseDate("2025-01-01"),
+		})
+		if err := svc.DeleteBill(ctx, bill2.ID); err != nil {
+			t.Fatalf("delete bill: %v", err)
+		}
+		amounts, _ := svc.ListBillAmounts(ctx, bill2.ID)
+		if len(amounts) != 0 {
+			t.Fatalf("expected cascade delete of amounts, got %d", len(amounts))
+		}
+	})
+
+	t.Run("deleting bill account cascades to bills and amounts", func(t *testing.T) {
+		if err := svc.DeleteBillAccount(ctx, ba.ID); err != nil {
+			t.Fatalf("delete bill account: %v", err)
+		}
+		bills, _ := svc.ListBills(ctx, ba.ID)
+		if len(bills) != 0 {
+			t.Fatalf("expected cascade delete of bills, got %d", len(bills))
+		}
+		amounts, _ := svc.ListBillAmounts(ctx, bill.ID)
+		if len(amounts) != 0 {
+			t.Fatalf("expected cascade delete of amounts, got %d", len(amounts))
+		}
+	})
+}
+
+// ---- Bill Transfer Template Generation ----
+
+func TestBillGenerateTransferTemplates_SingleAmount(t *testing.T) {
+	ba := service.BillAccount{
+		ID:            "ba1",
+		Name:          "Monthly Bills",
+		FromAccountID: "acc1",
+		Recurrence:    "*-*-01",
+		Priority:      1,
+		Enabled:       true,
+	}
+	catID := "cat1"
+	bill := service.Bill{
+		ID:               "bill1",
+		BillAccountID:    ba.ID,
+		Name:             "Netflix",
+		BudgetCategoryID: &catID,
+		Enabled:          true,
+		Amounts: []service.BillAmount{
+			{ID: "amt1", BillID: "bill1", Amount: newFixedValue(149), StartDate: mustParseDate("2025-01-01")},
+		},
+	}
+
+	templates := bill.GenerateTransferTemplates(ba)
+	if len(templates) != 1 {
+		t.Fatalf("expected 1 template, got %d", len(templates))
+	}
+
+	tt := templates[0]
+	if tt.Name != "Netflix" {
+		t.Errorf("expected name Netflix, got %s", tt.Name)
+	}
+	if tt.FromAccountID != "acc1" {
+		t.Errorf("expected FromAccountID acc1, got %s", tt.FromAccountID)
+	}
+	if tt.ToAccountID != "" {
+		t.Errorf("expected empty ToAccountID, got %s", tt.ToAccountID)
+	}
+	if tt.AmountFixed.Mean() != 149 {
+		t.Errorf("expected amount 149, got %f", tt.AmountFixed.Mean())
+	}
+	if tt.AmountType != "fixed" {
+		t.Errorf("expected amount type fixed, got %s", tt.AmountType)
+	}
+	if string(tt.Recurrence) != "*-*-01" {
+		t.Errorf("expected recurrence *-*-01, got %s", tt.Recurrence)
+	}
+	if tt.Priority != 1 {
+		t.Errorf("expected priority 1, got %d", tt.Priority)
+	}
+	if tt.EndDate != nil {
+		t.Errorf("expected nil EndDate for single amount, got %v", tt.EndDate)
+	}
+	if tt.BudgetCategoryID == nil || *tt.BudgetCategoryID != "cat1" {
+		t.Errorf("expected budget category cat1, got %v", tt.BudgetCategoryID)
+	}
+	if !tt.Source.IsGenerated() {
+		t.Error("expected Source.IsGenerated() to be true")
+	}
+	if tt.Source.Type != "bill" {
+		t.Errorf("expected source type bill, got %s", tt.Source.Type)
+	}
+	if tt.Source.EntityID != "bill1" {
+		t.Errorf("expected source entity ID bill1, got %s", tt.Source.EntityID)
+	}
+}
+
+func TestBillGenerateTransferTemplates_MultipleAmounts(t *testing.T) {
+	ba := service.BillAccount{
+		ID:            "ba1",
+		FromAccountID: "acc1",
+		Recurrence:    "*-*-01",
+		Priority:      1,
+		Enabled:       true,
+	}
+	bill := service.Bill{
+		ID:            "bill1",
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       true,
+		Amounts: []service.BillAmount{
+			{ID: "amt2", BillID: "bill1", Amount: newFixedValue(179), StartDate: mustParseDate("2026-01-01")},
+			{ID: "amt1", BillID: "bill1", Amount: newFixedValue(149), StartDate: mustParseDate("2025-01-01")},
+		},
+	}
+
+	templates := bill.GenerateTransferTemplates(ba)
+	if len(templates) != 2 {
+		t.Fatalf("expected 2 templates, got %d", len(templates))
+	}
+
+	first := templates[0]
+	if first.AmountFixed.Mean() != 149 {
+		t.Errorf("first template: expected amount 149, got %f", first.AmountFixed.Mean())
+	}
+	if first.EndDate == nil {
+		t.Fatal("first template: expected non-nil EndDate")
+	}
+	if *first.EndDate != mustParseDate("2026-01-01") {
+		t.Errorf("first template: expected EndDate 2026-01-01, got %v", *first.EndDate)
+	}
+
+	second := templates[1]
+	if second.AmountFixed.Mean() != 179 {
+		t.Errorf("second template: expected amount 179, got %f", second.AmountFixed.Mean())
+	}
+	if second.EndDate != nil {
+		t.Errorf("second template: expected nil EndDate, got %v", second.EndDate)
+	}
+}
+
+func TestBillGenerateTransferTemplates_AmountWithEndDate(t *testing.T) {
+	ba := service.BillAccount{
+		ID:            "ba1",
+		FromAccountID: "acc1",
+		Recurrence:    "*-*-01",
+		Priority:      1,
+		Enabled:       true,
+	}
+	endDate := mustParseDate("2025-12-31")
+	bill := service.Bill{
+		ID:            "bill1",
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       true,
+		Amounts: []service.BillAmount{
+			{ID: "amt1", BillID: "bill1", Amount: newFixedValue(149), StartDate: mustParseDate("2025-01-01"), EndDate: &endDate},
+		},
+	}
+
+	templates := bill.GenerateTransferTemplates(ba)
+	if len(templates) != 1 {
+		t.Fatalf("expected 1 template, got %d", len(templates))
+	}
+	if templates[0].EndDate == nil || *templates[0].EndDate != endDate {
+		t.Errorf("expected EndDate %v, got %v", endDate, templates[0].EndDate)
+	}
+}
+
+func TestBillGenerateTransferTemplates_MultipleAmountsWithEndDate(t *testing.T) {
+	ba := service.BillAccount{
+		ID:            "ba1",
+		FromAccountID: "acc1",
+		Recurrence:    "*-*-01",
+		Priority:      1,
+		Enabled:       true,
+	}
+	endDate := mustParseDate("2025-06-01")
+	bill := service.Bill{
+		ID:            "bill1",
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       true,
+		Amounts: []service.BillAmount{
+			{ID: "amt1", BillID: "bill1", Amount: newFixedValue(149), StartDate: mustParseDate("2025-01-01"), EndDate: &endDate},
+			{ID: "amt2", BillID: "bill1", Amount: newFixedValue(179), StartDate: mustParseDate("2026-01-01")},
+		},
+	}
+
+	templates := bill.GenerateTransferTemplates(ba)
+	if len(templates) != 2 {
+		t.Fatalf("expected 2 templates, got %d", len(templates))
+	}
+	// First amount: explicit EndDate is earlier than next amount's StartDate, so use it
+	if templates[0].EndDate == nil || *templates[0].EndDate != endDate {
+		t.Errorf("first: expected EndDate %v, got %v", endDate, templates[0].EndDate)
+	}
+	// Second amount: no EndDate, open-ended
+	if templates[1].EndDate != nil {
+		t.Errorf("second: expected nil EndDate, got %v", templates[1].EndDate)
+	}
+}
+
+func TestBillGenerateTransferTemplates_DisabledBill(t *testing.T) {
+	ba := service.BillAccount{
+		ID:       "ba1",
+		Enabled:  true,
+		Recurrence: "*-*-01",
+	}
+	bill := service.Bill{
+		ID:            "bill1",
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       false,
+		Amounts: []service.BillAmount{
+			{ID: "amt1", BillID: "bill1", Amount: newFixedValue(149), StartDate: mustParseDate("2025-01-01")},
+		},
+	}
+
+	templates := bill.GenerateTransferTemplates(ba)
+	if len(templates) != 1 {
+		t.Fatalf("expected 1 template, got %d", len(templates))
+	}
+	if templates[0].Enabled {
+		t.Error("expected template to be disabled when bill is disabled")
+	}
+}
+
+func TestBillGenerateTransferTemplates_DisabledBillAccount(t *testing.T) {
+	ba := service.BillAccount{
+		ID:       "ba1",
+		Enabled:  false,
+		Recurrence: "*-*-01",
+	}
+	bill := service.Bill{
+		ID:            "bill1",
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       true,
+		Amounts: []service.BillAmount{
+			{ID: "amt1", BillID: "bill1", Amount: newFixedValue(149), StartDate: mustParseDate("2025-01-01")},
+		},
+	}
+
+	templates := bill.GenerateTransferTemplates(ba)
+	if len(templates) != 1 {
+		t.Fatalf("expected 1 template, got %d", len(templates))
+	}
+	if templates[0].Enabled {
+		t.Error("expected template to be disabled when bill account is disabled")
+	}
+}
+
+func TestBillGenerateTransferTemplates_NoAmounts(t *testing.T) {
+	ba := service.BillAccount{ID: "ba1", Enabled: true, Recurrence: "*-*-01"}
+	bill := service.Bill{ID: "bill1", BillAccountID: ba.ID, Name: "Netflix", Enabled: true}
+
+	templates := bill.GenerateTransferTemplates(ba)
+	if len(templates) != 0 {
+		t.Fatalf("expected 0 templates for bill with no amounts, got %d", len(templates))
+	}
+}
+
+// ---- ListAllTransferTemplates with Bills ----
+
+func TestListAllTransferTemplates_MergesDBSalaryAndBills(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+
+	// DB transfer template
+	svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(1500),
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2025-01-01"),
+		Enabled:       true,
+	})
+
+	// Salary-generated template
+	sal, _ := svc.UpsertSalary(ctx, service.Salary{
+		Name:        "Acme Corp",
+		ToAccountID: acc.ID,
+		Priority:    0,
+		Recurrence:  "*-*-25",
+		Enabled:     true,
+	})
+	svc.UpsertSalaryAmount(ctx, service.SalaryAmount{
+		SalaryID:  sal.ID,
+		Amount:    newFixedValue(30000),
+		StartDate: mustParseDate("2025-01-01"),
+	})
+
+	// Bill-generated template
+	ba, _ := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name:          "Monthly Bills",
+		FromAccountID: acc.ID,
+		Recurrence:    "*-*-01",
+		Priority:      2,
+		Enabled:       true,
+	})
+	bill, _ := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID: ba.ID,
+		Name:          "Netflix",
+		Enabled:       true,
+	})
+	svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID:    bill.ID,
+		Amount:    newFixedValue(149),
+		StartDate: mustParseDate("2025-01-01"),
+	})
+
+	all, err := svc.ListAllTransferTemplates(ctx)
+	if err != nil {
+		t.Fatalf("ListAllTransferTemplates: %v", err)
+	}
+
+	var dbCount, salaryCount, billCount int
+	for _, tt := range all {
+		switch tt.Source.Type {
+		case "":
+			dbCount++
+		case "salary":
+			salaryCount++
+		case "bill":
+			billCount++
+		default:
+			t.Errorf("unexpected source type: %s", tt.Source.Type)
+		}
+	}
+	if dbCount != 1 {
+		t.Errorf("expected 1 DB template, got %d", dbCount)
+	}
+	if salaryCount != 1 {
+		t.Errorf("expected 1 salary template, got %d", salaryCount)
+	}
+	if billCount != 1 {
+		t.Errorf("expected 1 bill template, got %d", billCount)
+	}
+}

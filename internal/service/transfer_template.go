@@ -185,7 +185,12 @@ func (s *Service) ListAllTransferTemplates(ctx context.Context) ([]TransferTempl
 	if err != nil {
 		return nil, fmt.Errorf("generating salary transfer templates: %w", err)
 	}
+	billTemplates, err := s.generateBillTransferTemplates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("generating bill transfer templates: %w", err)
+	}
 	all := append(templates, salaryTemplates...)
+	all = append(all, billTemplates...)
 	sortTransferTemplates(all)
 	return all, nil
 }

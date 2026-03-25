@@ -112,6 +112,11 @@ type (
 	TransferTemplateSource           = service.TransferTemplateSource
 	NetSalarySegmentBreakdown        = service.NetSalarySegmentBreakdown
 	SalaryBreakdown                  = swe.SalaryBreakdown
+	BillAccount                      = service.BillAccount
+	Bill                             = service.Bill
+	BillAmount                       = service.BillAmount
+	BillAccountEditView              = service.BillAccountEditView
+	BillEditView                     = service.BillEditView
 )
 
 const (
