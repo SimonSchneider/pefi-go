@@ -2395,6 +2395,76 @@ func TestBillAmountCRUD(t *testing.T) {
 	}
 }
 
+// ---- BillsPageData ----
+
+func TestBillAccountsPageDataIncludesCategories(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	color := "#ff0000"
+	cat, _ := svc.UpsertCategory(ctx, service.TransferTemplateCategoryInput{Name: "Entertainment", Color: &color})
+
+	ba, _ := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name:       "Monthly",
+		Recurrence: "*-*-01",
+		Enabled:    true,
+	})
+	svc.UpsertBill(ctx, service.Bill{
+		BillAccountID:    ba.ID,
+		Name:             "Netflix",
+		BudgetCategoryID: &cat.ID,
+		Enabled:          true,
+	})
+
+	pageData, err := svc.GetBillAccountsPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetBillAccountsPageData: %v", err)
+	}
+	if len(pageData.Categories) == 0 {
+		t.Fatal("expected categories map to be populated")
+	}
+	gotCat, ok := pageData.Categories[cat.ID]
+	if !ok {
+		t.Fatalf("expected category %s in map", cat.ID)
+	}
+	if gotCat.Name != "Entertainment" {
+		t.Errorf("expected category name Entertainment, got %s", gotCat.Name)
+	}
+
+	bill := pageData.BillAccounts[0].Bills[0]
+	resolved := pageData.GetBudgetCategory(bill.BudgetCategoryID)
+	if resolved == nil {
+		t.Fatal("expected GetBudgetCategory to resolve the bill's category")
+	}
+	if resolved.Name != "Entertainment" {
+		t.Errorf("expected resolved category Entertainment, got %s", resolved.Name)
+	}
+}
+
+func TestSortBillsByAmountDescending(t *testing.T) {
+	bills := []service.Bill{
+		{ID: "b1", Name: "Small", Amounts: []service.BillAmount{
+			{ID: "a1", BillID: "b1", Amount: newFixedValue(50), StartDate: mustParseDate("2020-01-01")},
+		}},
+		{ID: "b2", Name: "Large", Amounts: []service.BillAmount{
+			{ID: "a2", BillID: "b2", Amount: newFixedValue(500), StartDate: mustParseDate("2020-01-01")},
+		}},
+		{ID: "b3", Name: "Medium", Amounts: []service.BillAmount{
+			{ID: "a3", BillID: "b3", Amount: newFixedValue(200), StartDate: mustParseDate("2020-01-01")},
+		}},
+		{ID: "b4", Name: "Zero"},
+	}
+
+	service.SortBillsByAmount(bills)
+
+	expected := []string{"Large", "Medium", "Small", "Zero"}
+	for i, name := range expected {
+		if bills[i].Name != name {
+			t.Errorf("bills[%d].Name = %q, want %q", i, bills[i].Name, name)
+		}
+	}
+}
+
 // ---- Bill Cascade Delete ----
 
 func TestBillCascadeDelete(t *testing.T) {
@@ -2673,6 +2743,80 @@ func TestBillGenerateTransferTemplates_DisabledBillAccount(t *testing.T) {
 	if templates[0].Enabled {
 		t.Error("expected template to be disabled when bill account is disabled")
 	}
+}
+
+func TestBillYearlyAmount(t *testing.T) {
+	t.Run("monthly period amount", func(t *testing.T) {
+		bill := service.Bill{
+			ID: "bill1", BillAccountID: "ba1", Name: "Netflix", Enabled: true,
+			Amounts: []service.BillAmount{
+				{ID: "amt1", BillID: "bill1", Amount: newFixedValue(100), Period: "monthly", StartDate: mustParseDate("2020-01-01")},
+			},
+		}
+		if got := bill.CurrentAmount(); !approxEqual(got, 100, 0.01) {
+			t.Errorf("CurrentAmount() = %v, want 100", got)
+		}
+		if got := bill.YearlyAmount(); !approxEqual(got, 1200, 0.01) {
+			t.Errorf("YearlyAmount() = %v, want 1200", got)
+		}
+	})
+
+	t.Run("yearly period amount", func(t *testing.T) {
+		bill := service.Bill{
+			ID: "bill2", BillAccountID: "ba1", Name: "Insurance", Enabled: true,
+			Amounts: []service.BillAmount{
+				{ID: "amt2", BillID: "bill2", Amount: newFixedValue(1200), Period: "yearly", StartDate: mustParseDate("2020-01-01")},
+			},
+		}
+		if got := bill.YearlyAmount(); !approxEqual(got, 1200, 0.01) {
+			t.Errorf("YearlyAmount() = %v, want 1200", got)
+		}
+		if got := bill.CurrentAmount(); !approxEqual(got, 100, 0.01) {
+			t.Errorf("CurrentAmount() (monthly) = %v, want 100", got)
+		}
+	})
+
+	t.Run("yearly period with uncertain value", func(t *testing.T) {
+		bill := service.Bill{
+			ID: "bill3", Name: "Uniform",
+			Amounts: []service.BillAmount{
+				{ID: "amt3", BillID: "bill3", Amount: uncertain.NewUniform(1080, 1320), Period: "yearly", StartDate: mustParseDate("2020-01-01")},
+			},
+		}
+		yearlyMean := bill.YearlyAmountValue().Mean()
+		if !approxEqual(yearlyMean, 1200, 50) {
+			t.Errorf("YearlyAmountValue().Mean() = %v, want ~1200", yearlyMean)
+		}
+		monthlyMean := bill.MonthlyAmountValue().Mean()
+		if !approxEqual(monthlyMean, 100, 5) {
+			t.Errorf("MonthlyAmountValue().Mean() = %v, want ~100", monthlyMean)
+		}
+	})
+
+	t.Run("default period is monthly", func(t *testing.T) {
+		bill := service.Bill{
+			ID: "bill4", Name: "NoPeriod",
+			Amounts: []service.BillAmount{
+				{ID: "amt4", BillID: "bill4", Amount: newFixedValue(100), StartDate: mustParseDate("2020-01-01")},
+			},
+		}
+		if got := bill.CurrentAmount(); !approxEqual(got, 100, 0.01) {
+			t.Errorf("CurrentAmount() = %v, want 100", got)
+		}
+		if got := bill.YearlyAmount(); !approxEqual(got, 1200, 0.01) {
+			t.Errorf("YearlyAmount() = %v, want 1200", got)
+		}
+	})
+
+	t.Run("empty bill", func(t *testing.T) {
+		bill := service.Bill{ID: "bill5", Name: "Empty"}
+		if got := bill.YearlyAmount(); got != 0 {
+			t.Errorf("YearlyAmount() for empty bill = %v, want 0", got)
+		}
+		if got := bill.CurrentAmount(); got != 0 {
+			t.Errorf("CurrentAmount() for empty bill = %v, want 0", got)
+		}
+	})
 }
 
 func TestBillGenerateTransferTemplates_NoAmounts(t *testing.T) {

@@ -491,6 +491,11 @@ func (a *billAmountInputForm) FromForm(r *http.Request) error {
 	if err := shttp.Parse(&a.Amount, ui.ParseUncertainValue, r.FormValue("amount"), uncertain.NewFixed(0)); err != nil {
 		return fmt.Errorf("parsing amount: %w", err)
 	}
+	if r.FormValue("amount_period") == "yearly" {
+		a.Period = "yearly"
+	} else {
+		a.Period = "monthly"
+	}
 	return nil
 }
 

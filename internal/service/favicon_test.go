@@ -37,6 +37,32 @@ func TestExtractDomain(t *testing.T) {
 	}
 }
 
+func TestExtractCompanyName(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{name: "https with path", url: "https://netflix.com/account", want: "Netflix"},
+		{name: "app subdomain", url: "https://app.spotify.com/premium", want: "Spotify"},
+		{name: "www+app subdomain", url: "https://www.app.spotify.com", want: "Spotify"},
+		{name: "www subdomain", url: "https://www.hbo.com/shows", want: "Hbo"},
+		{name: "bare domain", url: "https://hbo.com/shows", want: "Hbo"},
+		{name: "empty string", url: "", want: ""},
+		{name: "no scheme", url: "netflix.com", want: ""},
+		{name: "single segment domain", url: "https://localhost/path", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := service.ExtractCompanyName(tt.url)
+			if got != tt.want {
+				t.Errorf("ExtractCompanyName(%q) = %q, want %q", tt.url, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFaviconCacheRoundtrip(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()

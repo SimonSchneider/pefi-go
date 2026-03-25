@@ -516,11 +516,11 @@ func (h *Handler) fullParentalLeaveDelete() http.Handler {
 
 func (h *Handler) billsPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		billAccounts, err := h.svc.GetBillAccountsPageData(ctx)
+		pageData, err := h.svc.GetBillAccountsPageData(ctx)
 		if err != nil {
 			return fmt.Errorf("getting bills page data: %w", err)
 		}
-		return NewView(ctx, w, r).Render(Page("Bills", PageBills(BillsListView(billAccounts))))
+		return NewView(ctx, w, r).Render(Page("Bills", PageBills(BillsListView(pageData))))
 	})
 }
 
