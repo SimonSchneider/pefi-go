@@ -35,6 +35,39 @@ type ApiCache struct {
 	CreatedAt int64
 }
 
+type Bill struct {
+	ID               string
+	BillAccountID    string
+	Name             string
+	BudgetCategoryID *string
+	Enabled          bool
+	Notes            string
+	Url              string
+	CreatedAt        int64
+	UpdatedAt        int64
+}
+
+type BillAccount struct {
+	ID            string
+	Name          string
+	FromAccountID *string
+	Recurrence    string
+	Priority      int64
+	Enabled       bool
+	CreatedAt     int64
+	UpdatedAt     int64
+}
+
+type BillAmount struct {
+	ID        string
+	BillID    string
+	Amount    string
+	StartDate int64
+	EndDate   *int64
+	CreatedAt int64
+	UpdatedAt int64
+}
+
 type FullParentalLeave struct {
 	ID              string
 	SalaryID        string

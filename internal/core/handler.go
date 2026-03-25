@@ -89,6 +89,17 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /full-parental-leaves/{$}", h.fullParentalLeaveUpsert())
 	mux.Handle("POST /full-parental-leaves/{id}/delete", h.fullParentalLeaveDelete())
 
+	mux.Handle("GET /bills", h.billsPage())
+	mux.Handle("GET /bills/new", h.billAccountNewPage())
+	mux.Handle("GET /bills/{id}/edit", h.billAccountEditPage())
+	mux.Handle("POST /bills/{$}", h.billAccountUpsert())
+	mux.Handle("POST /bills/{id}/delete", h.billAccountDelete())
+	mux.Handle("GET /bill-items/{id}/edit", h.billEditPage())
+	mux.Handle("POST /bill-items/{$}", h.billUpsert())
+	mux.Handle("POST /bill-items/{id}/delete", h.billDelete())
+	mux.Handle("POST /bill-amounts/{$}", h.billAmountUpsert())
+	mux.Handle("POST /bill-amounts/{id}/delete", h.billAmountDelete())
+
 	mux.Handle("GET /settings/inkomstbasbelopp", h.inkomstbasbeloppListPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/{id}/edit", h.inkomstbasbeloppEditPage())
@@ -496,6 +507,127 @@ func (h *Handler) fullParentalLeaveDelete() http.Handler {
 			return fmt.Errorf("deleting full parental leave: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/salaries")
+		return nil
+	})
+}
+
+// ---- Bills ----
+
+func (h *Handler) billsPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		billAccounts, err := h.svc.GetBillAccountsPageData(ctx)
+		if err != nil {
+			return fmt.Errorf("getting bills page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Bills", PageBills(BillsListView(billAccounts))))
+	})
+}
+
+func (h *Handler) billAccountNewPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetBillAccountNewPageData(ctx)
+		if err != nil {
+			return fmt.Errorf("getting bill account new page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Bills", PageEditBillAccount(BillAccountEditContent(view))))
+	})
+}
+
+func (h *Handler) billAccountEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetBillAccountEditPageData(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting bill account edit page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Bills", PageEditBillAccount(BillAccountEditContent(view))))
+	})
+}
+
+func (h *Handler) billAccountUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp billAccountInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		ba, err := h.svc.UpsertBillAccount(ctx, inp.BillAccount)
+		if err != nil {
+			return fmt.Errorf("upserting bill account: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/bills/%s/edit", ba.ID))
+		return nil
+	})
+}
+
+func (h *Handler) billAccountDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteBillAccount(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting bill account: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/bills")
+		return nil
+	})
+}
+
+func (h *Handler) billEditPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		view, err := h.svc.GetBillEditPageData(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting bill edit page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Bills", PageEditBill(BillEditContent(view))))
+	})
+}
+
+func (h *Handler) billUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp billInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		bill, err := h.svc.UpsertBill(ctx, inp.Bill)
+		if err != nil {
+			return fmt.Errorf("upserting bill: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/bill-items/%s/edit", bill.ID))
+		return nil
+	})
+}
+
+func (h *Handler) billDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		bill, err := h.svc.GetBill(ctx, r.PathValue("id"))
+		if err != nil {
+			return fmt.Errorf("getting bill: %w", err)
+		}
+		if err := h.svc.DeleteBill(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting bill: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/bills/%s/edit", bill.BillAccountID))
+		return nil
+	})
+}
+
+func (h *Handler) billAmountUpsert() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		var inp billAmountInputForm
+		if err := srvu.Decode(r, &inp, false); err != nil {
+			return fmt.Errorf("decoding input: %w", err)
+		}
+		_, err := h.svc.UpsertBillAmount(ctx, inp.BillAmount)
+		if err != nil {
+			return fmt.Errorf("upserting bill amount: %w", err)
+		}
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/bill-items/%s/edit", inp.BillID))
+		return nil
+	})
+}
+
+func (h *Handler) billAmountDelete() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := h.svc.DeleteBillAmount(ctx, r.PathValue("id")); err != nil {
+			return fmt.Errorf("deleting bill amount: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/bills")
 		return nil
 	})
 }

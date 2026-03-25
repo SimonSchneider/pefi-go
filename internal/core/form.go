@@ -431,6 +431,69 @@ func (f *inkomstbasbeloppInputForm) FromForm(r *http.Request) error {
 	return nil
 }
 
+type billAccountInputForm struct {
+	service.BillAccount
+}
+
+func (b *billAccountInputForm) FromForm(r *http.Request) error {
+	b.ID = r.FormValue("id")
+	b.Name = r.FormValue("name")
+	b.FromAccountID = r.FormValue("from_account_id")
+	if err := shttp.Parse(&b.Priority, ui.ParseInt64, r.FormValue("priority"), int64(0)); err != nil {
+		return fmt.Errorf("parsing priority: %w", err)
+	}
+	if err := shttp.Parse(&b.Recurrence, ui.ParseDateCron, r.FormValue("recurrence"), date.Cron("*-*-01")); err != nil {
+		return fmt.Errorf("parsing recurrence: %w", err)
+	}
+	b.Enabled = r.FormValue("enabled") == "on"
+	return nil
+}
+
+type billInputForm struct {
+	service.Bill
+}
+
+func (b *billInputForm) FromForm(r *http.Request) error {
+	b.ID = r.FormValue("id")
+	b.BillAccountID = r.FormValue("bill_account_id")
+	b.Name = r.FormValue("name")
+	b.Enabled = r.FormValue("enabled") == "on"
+	b.Notes = r.FormValue("notes")
+	b.URL = r.FormValue("url")
+	budgetCategoryID := r.FormValue("budget_category_id")
+	if budgetCategoryID != "" {
+		b.BudgetCategoryID = &budgetCategoryID
+	} else {
+		b.BudgetCategoryID = nil
+	}
+	return nil
+}
+
+type billAmountInputForm struct {
+	service.BillAmount
+}
+
+func (a *billAmountInputForm) FromForm(r *http.Request) error {
+	a.ID = r.FormValue("id")
+	a.BillID = r.FormValue("bill_id")
+	if err := shttp.Parse(&a.StartDate, date.ParseDate, r.FormValue("start_date"), date.Date(0)); err != nil {
+		return fmt.Errorf("parsing start date: %w", err)
+	}
+	if endDateStr := r.FormValue("end_date"); endDateStr != "" {
+		var endDate date.Date
+		if err := shttp.Parse(&endDate, date.ParseDate, endDateStr, date.Date(0)); err != nil {
+			return fmt.Errorf("parsing end date: %w", err)
+		}
+		a.EndDate = &endDate
+	} else {
+		a.EndDate = nil
+	}
+	if err := shttp.Parse(&a.Amount, ui.ParseUncertainValue, r.FormValue("amount"), uncertain.NewFixed(0)); err != nil {
+		return fmt.Errorf("parsing amount: %w", err)
+	}
+	return nil
+}
+
 func extractExcludedTypeIDs(r *http.Request) []string {
 	if err := r.ParseForm(); err != nil {
 		return nil
