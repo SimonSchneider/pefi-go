@@ -72,10 +72,15 @@ templ billsTable(bills []Bill) {
 					for _, bill := range bills {
 						<tr class="hover:bg-base-200/50 transition-colors">
 							<td class="font-medium">
-								{ bill.Name }
-								if bill.URL != "" {
-									<a href={ templ.SafeURL(bill.URL) } target="_blank" class="ml-1 text-xs link link-primary">link</a>
-								}
+								<div class="flex items-center gap-2">
+									if billFaviconURL(bill) != "" {
+										<img src={ billFaviconURL(bill) } alt="" width="20" height="20" class="w-5 h-5 rounded-sm shrink-0" loading="lazy"/>
+									}
+									<span>{ bill.Name }</span>
+									if bill.URL != "" {
+										<a href={ templ.SafeURL(bill.URL) } target="_blank" class="text-xs link link-primary">link</a>
+									}
+								</div>
 							</td>
 							<td>
 								@BalanceBadge(bill.CurrentAmount(), false, "")
@@ -258,7 +263,12 @@ templ BillEditContent(view *BillEditView) {
 								</div>
 								<div class="form-control">
 									<label class="label label-text text-xs pb-1">URL</label>
-									<input type="text" class="input input-sm w-full" placeholder="https://..." name="url" value={ view.Bill.URL }/>
+									<div class="flex items-center gap-2">
+										if billFaviconURL(view.Bill) != "" {
+											<img src={ billFaviconURL(view.Bill) } alt="" width="24" height="24" class="w-6 h-6 rounded-sm shrink-0"/>
+										}
+										<input type="text" class="input input-sm w-full" placeholder="https://..." name="url" value={ view.Bill.URL }/>
+									</div>
 								</div>
 								<div class="form-control col-span-2 lg:col-span-3">
 									<label class="label label-text text-xs pb-1">Notes</label>

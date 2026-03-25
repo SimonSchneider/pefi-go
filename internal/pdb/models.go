@@ -68,6 +68,13 @@ type BillAmount struct {
 	UpdatedAt int64
 }
 
+type FaviconCache struct {
+	Domain      string
+	IconData    []byte
+	ContentType string
+	CreatedAt   int64
+}
+
 type FullParentalLeave struct {
 	ID              string
 	SalaryID        string

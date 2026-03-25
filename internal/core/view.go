@@ -135,3 +135,11 @@ const (
 	GroupByAccount     TransferChartGroupBy = service.GroupByAccount
 	GroupByAccountType TransferChartGroupBy = service.GroupByAccountType
 )
+
+func billFaviconURL(bill Bill) string {
+	domain := service.ExtractDomain(bill.URL)
+	if domain == "" {
+		return ""
+	}
+	return "/favicons/" + domain
+}

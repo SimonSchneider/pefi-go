@@ -99,6 +99,7 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /bill-items/{id}/delete", h.billDelete())
 	mux.Handle("POST /bill-amounts/{$}", h.billAmountUpsert())
 	mux.Handle("POST /bill-amounts/{id}/delete", h.billAmountDelete())
+	mux.Handle("GET /favicons/{domain}", h.faviconHandler())
 
 	mux.Handle("GET /settings/inkomstbasbelopp", h.inkomstbasbeloppListPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
@@ -628,6 +629,20 @@ func (h *Handler) billAmountDelete() http.Handler {
 			return fmt.Errorf("deleting bill amount: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/bills")
+		return nil
+	})
+}
+
+func (h *Handler) faviconHandler() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		domain := r.PathValue("domain")
+		data, contentType, err := h.svc.GetOrFetchFavicon(ctx, domain)
+		if err != nil {
+			return fmt.Errorf("getting favicon for %s: %w", domain, err)
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=604800")
+		w.Write(data)
 		return nil
 	})
 }
