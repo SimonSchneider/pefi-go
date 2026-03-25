@@ -115,6 +115,7 @@ type (
 	BillAccount                      = service.BillAccount
 	Bill                             = service.Bill
 	BillAmount                       = service.BillAmount
+	BillsPageData                    = service.BillsPageData
 	BillAccountEditView              = service.BillAccountEditView
 	BillEditView                     = service.BillEditView
 )
@@ -142,4 +143,8 @@ func billFaviconURL(bill Bill) string {
 		return ""
 	}
 	return "/favicons/" + domain
+}
+
+func billCompanyName(bill Bill) string {
+	return service.ExtractCompanyName(bill.URL)
 }

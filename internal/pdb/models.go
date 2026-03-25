@@ -66,6 +66,7 @@ type BillAmount struct {
 	EndDate   *int64
 	CreatedAt int64
 	UpdatedAt int64
+	Period    string
 }
 
 type FaviconCache struct {

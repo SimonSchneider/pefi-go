@@ -38,11 +38,32 @@ type BillAmount struct {
 	ID        string
 	BillID    string
 	Amount    uncertain.Value
+	Period    string // "monthly" or "yearly"
 	StartDate date.Date
 	EndDate   *date.Date
 }
 
-func (b Bill) CurrentAmount() float64 {
+func (ba BillAmount) MonthlyAmountValue() uncertain.Value {
+	if ba.Period == "yearly" {
+		v := ba.Amount
+		return uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+			return v.Sample(cfg) / 12
+		})
+	}
+	return ba.Amount
+}
+
+func (ba BillAmount) YearlyAmountValue() uncertain.Value {
+	if ba.Period == "yearly" {
+		return ba.Amount
+	}
+	v := ba.Amount
+	return uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+		return v.Sample(cfg) * 12
+	})
+}
+
+func (b Bill) currentBillAmount() *BillAmount {
 	today := date.Today()
 	var current *BillAmount
 	for i := range b.Amounts {
@@ -55,10 +76,45 @@ func (b Bill) CurrentAmount() float64 {
 			}
 		}
 	}
-	if current == nil {
-		return 0
+	return current
+}
+
+func (b Bill) CurrentPeriod() string {
+	amt := b.currentBillAmount()
+	if amt == nil || amt.Period == "" {
+		return "monthly"
 	}
-	return current.Amount.Mean()
+	return amt.Period
+}
+
+func (b Bill) MonthlyAmountValue() uncertain.Value {
+	amt := b.currentBillAmount()
+	if amt == nil {
+		return uncertain.NewFixed(0)
+	}
+	return amt.MonthlyAmountValue()
+}
+
+func (b Bill) CurrentAmount() float64 {
+	return b.MonthlyAmountValue().Mean()
+}
+
+func (b Bill) YearlyAmountValue() uncertain.Value {
+	amt := b.currentBillAmount()
+	if amt == nil {
+		return uncertain.NewFixed(0)
+	}
+	return amt.YearlyAmountValue()
+}
+
+func (b Bill) YearlyAmount() float64 {
+	return b.YearlyAmountValue().Mean()
+}
+
+func SortBillsByAmount(bills []Bill) {
+	sort.SliceStable(bills, func(i, j int) bool {
+		return bills[i].CurrentAmount() > bills[j].CurrentAmount()
+	})
 }
 
 func (ba BillAmount) GetStartDateString() string {
@@ -117,7 +173,7 @@ func (b Bill) GenerateTransferTemplates(ba BillAccount) []TransferTemplate {
 			FromAccountID:    ba.FromAccountID,
 			ToAccountID:      "",
 			AmountType:       "fixed",
-			AmountFixed:      amt.Amount,
+			AmountFixed:      amt.MonthlyAmountValue(),
 			Priority:         ba.Priority,
 			Recurrence:       ba.Recurrence,
 			StartDate:        amt.StartDate,
@@ -164,10 +220,15 @@ func billAmountFromDB(a pdb.BillAmount) (BillAmount, error) {
 		d := date.Date(*a.EndDate)
 		endDate = &d
 	}
+	period := a.Period
+	if period == "" {
+		period = "monthly"
+	}
 	return BillAmount{
 		ID:        a.ID,
 		BillID:    a.BillID,
 		Amount:    amount,
+		Period:    period,
 		StartDate: date.Date(a.StartDate),
 		EndDate:   endDate,
 	}, nil
@@ -284,10 +345,15 @@ func (s *Service) UpsertBillAmount(ctx context.Context, inp BillAmount) (BillAmo
 		endDate = &d
 	}
 	now := time.Now().Unix()
+	period := inp.Period
+	if period == "" {
+		period = "monthly"
+	}
 	a, err := pdb.New(s.db).UpsertBillAmount(ctx, pdb.UpsertBillAmountParams{
 		ID:        inp.ID,
 		BillID:    inp.BillID,
 		Amount:    encoded,
+		Period:    period,
 		StartDate: int64(inp.StartDate),
 		EndDate:   endDate,
 		CreatedAt: now,
@@ -322,6 +388,22 @@ func (s *Service) DeleteBillAmount(ctx context.Context, id string) error {
 	return nil
 }
 
+type BillsPageData struct {
+	BillAccounts []BillAccount
+	Categories   map[string]TransferTemplateCategory
+}
+
+func (v *BillsPageData) GetBudgetCategory(id *string) *TransferTemplateCategory {
+	if id == nil {
+		return nil
+	}
+	cat, ok := v.Categories[*id]
+	if !ok {
+		return nil
+	}
+	return &cat
+}
+
 type BillAccountEditView struct {
 	BillAccount BillAccount
 	Accounts    []Account
@@ -332,17 +414,24 @@ func (v BillAccountEditView) IsEdit() bool {
 	return v.BillAccount.ID != ""
 }
 
+func (v *BillAccountEditView) BillsPageView() *BillsPageData {
+	return &BillsPageData{
+		Categories: KeyBy(v.Categories, func(c TransferTemplateCategory) string { return c.ID }),
+	}
+}
+
 type BillEditView struct {
-	Bill           Bill
-	BillAccount    BillAccount
-	Categories     []TransferTemplateCategory
+	Bill         Bill
+	BillAccount  BillAccount
+	BillAccounts []BillAccount
+	Categories   []TransferTemplateCategory
 }
 
 func (v BillEditView) IsEdit() bool {
 	return v.Bill.ID != ""
 }
 
-func (s *Service) GetBillAccountsPageData(ctx context.Context) ([]BillAccount, error) {
+func (s *Service) GetBillAccountsPageData(ctx context.Context) (*BillsPageData, error) {
 	accounts, err := s.ListBillAccounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing bill accounts: %w", err)
@@ -354,6 +443,10 @@ func (s *Service) GetBillAccountsPageData(ctx context.Context) ([]BillAccount, e
 	allAmounts, err := pdb.New(s.db).ListAllBillAmounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing all bill amounts: %w", err)
+	}
+	categories, err := s.ListCategories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing categories: %w", err)
 	}
 	amountsByBill := make(map[string][]BillAmount)
 	for _, a := range allAmounts {
@@ -371,8 +464,12 @@ func (s *Service) GetBillAccountsPageData(ctx context.Context) ([]BillAccount, e
 	}
 	for i := range accounts {
 		accounts[i].Bills = billsByAccount[accounts[i].ID]
+		SortBillsByAmount(accounts[i].Bills)
 	}
-	return accounts, nil
+	return &BillsPageData{
+		BillAccounts: accounts,
+		Categories:   KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
+	}, nil
 }
 
 func (s *Service) GetBillAccountNewPageData(ctx context.Context) (*BillAccountEditView, error) {
@@ -444,14 +541,19 @@ func (s *Service) GetBillEditPageData(ctx context.Context, billID string) (*Bill
 	if err != nil {
 		return nil, fmt.Errorf("getting bill account: %w", err)
 	}
+	billAccounts, err := s.ListBillAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing bill accounts: %w", err)
+	}
 	categories, err := s.ListCategories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
 	return &BillEditView{
-		Bill:        bill,
-		BillAccount: ba,
-		Categories:  categories,
+		Bill:         bill,
+		BillAccount:  ba,
+		BillAccounts: billAccounts,
+		Categories:   categories,
 	}, nil
 }
 

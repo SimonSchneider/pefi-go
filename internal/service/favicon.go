@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/SimonSchneider/pefigo/internal/pdb"
@@ -22,6 +23,22 @@ func ExtractDomain(rawURL string) string {
 		return ""
 	}
 	return u.Hostname()
+}
+
+func ExtractCompanyName(rawURL string) string {
+	domain := ExtractDomain(rawURL)
+	if domain == "" {
+		return ""
+	}
+	parts := strings.Split(domain, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	name := parts[len(parts)-2]
+	if len(name) == 0 {
+		return ""
+	}
+	return strings.ToUpper(name[:1]) + name[1:]
 }
 
 func (s *Service) GetCachedFavicon(ctx context.Context, domain string) ([]byte, string, error) {
