@@ -32,6 +32,14 @@ type Bill struct {
 	Notes            string
 	URL              string
 	Amounts          []BillAmount
+
+	defaultCurrency string
+	getRate         func(from, to string) float64
+}
+
+func (b *Bill) SetCurrencyConverter(defaultCurrency string, getRate func(from, to string) float64) {
+	b.defaultCurrency = defaultCurrency
+	b.getRate = getRate
 }
 
 type BillAmount struct {
@@ -39,6 +47,7 @@ type BillAmount struct {
 	BillID    string
 	Amount    uncertain.Value
 	Period    string // "monthly" or "yearly"
+	Currency  string // ISO 4217 code; empty means default currency
 	StartDate date.Date
 	EndDate   *date.Date
 }
@@ -60,6 +69,32 @@ func (ba BillAmount) YearlyAmountValue() uncertain.Value {
 	v := ba.Amount
 	return uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
 		return v.Sample(cfg) * 12
+	})
+}
+
+func (ba BillAmount) needsConversion(defaultCurrency string) bool {
+	return ba.Currency != "" && ba.Currency != defaultCurrency
+}
+
+func (ba BillAmount) ConvertedMonthlyAmountValue(defaultCurrency string, getRate func(from, to string) float64) uncertain.Value {
+	monthly := ba.MonthlyAmountValue()
+	if !ba.needsConversion(defaultCurrency) {
+		return monthly
+	}
+	rate := getRate(ba.Currency, defaultCurrency)
+	return uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+		return monthly.Sample(cfg) * rate
+	})
+}
+
+func (ba BillAmount) ConvertedYearlyAmountValue(defaultCurrency string, getRate func(from, to string) float64) uncertain.Value {
+	yearly := ba.YearlyAmountValue()
+	if !ba.needsConversion(defaultCurrency) {
+		return yearly
+	}
+	rate := getRate(ba.Currency, defaultCurrency)
+	return uncertain.NewMapped(func(cfg *uncertain.Config) float64 {
+		return yearly.Sample(cfg) * rate
 	})
 }
 
@@ -92,6 +127,9 @@ func (b Bill) MonthlyAmountValue() uncertain.Value {
 	if amt == nil {
 		return uncertain.NewFixed(0)
 	}
+	if b.getRate != nil {
+		return amt.ConvertedMonthlyAmountValue(b.defaultCurrency, b.getRate)
+	}
 	return amt.MonthlyAmountValue()
 }
 
@@ -103,6 +141,9 @@ func (b Bill) YearlyAmountValue() uncertain.Value {
 	amt := b.currentBillAmount()
 	if amt == nil {
 		return uncertain.NewFixed(0)
+	}
+	if b.getRate != nil {
+		return amt.ConvertedYearlyAmountValue(b.defaultCurrency, b.getRate)
 	}
 	return amt.YearlyAmountValue()
 }
@@ -167,13 +208,17 @@ func (b Bill) GenerateTransferTemplates(ba BillAccount) []TransferTemplate {
 				endDate = &nextStart
 			}
 		}
+		monthlyAmt := amt.MonthlyAmountValue()
+		if b.getRate != nil {
+			monthlyAmt = amt.ConvertedMonthlyAmountValue(b.defaultCurrency, b.getRate)
+		}
 		templates = append(templates, TransferTemplate{
 			ID:               fmt.Sprintf("bill:%s:%d", b.ID, i),
 			Name:             b.Name,
 			FromAccountID:    ba.FromAccountID,
 			ToAccountID:      "",
 			AmountType:       "fixed",
-			AmountFixed:      amt.MonthlyAmountValue(),
+			AmountFixed:      monthlyAmt,
 			Priority:         ba.Priority,
 			Recurrence:       ba.Recurrence,
 			StartDate:        amt.StartDate,
@@ -229,9 +274,27 @@ func billAmountFromDB(a pdb.BillAmount) (BillAmount, error) {
 		BillID:    a.BillID,
 		Amount:    amount,
 		Period:    period,
+		Currency:  a.Currency,
 		StartDate: date.Date(a.StartDate),
 		EndDate:   endDate,
 	}, nil
+}
+
+func (s *Service) applyCurrencyConverter(ctx context.Context, bills []Bill) {
+	defaultCurrency, err := s.GetDefaultCurrency(ctx)
+	if err != nil || s.currencyClient == nil {
+		return
+	}
+	getRate := func(from, to string) float64 {
+		rate, err := s.currencyClient.GetRate(ctx, from, to)
+		if err != nil {
+			return 1
+		}
+		return rate
+	}
+	for i := range bills {
+		bills[i].SetCurrencyConverter(defaultCurrency, getRate)
+	}
 }
 
 func (s *Service) UpsertBillAccount(ctx context.Context, inp BillAccount) (BillAccount, error) {
@@ -354,6 +417,7 @@ func (s *Service) UpsertBillAmount(ctx context.Context, inp BillAmount) (BillAmo
 		BillID:    inp.BillID,
 		Amount:    encoded,
 		Period:    period,
+		Currency:  inp.Currency,
 		StartDate: int64(inp.StartDate),
 		EndDate:   endDate,
 		CreatedAt: now,
@@ -464,6 +528,7 @@ func (s *Service) GetBillAccountsPageData(ctx context.Context) (*BillsPageData, 
 	}
 	for i := range accounts {
 		accounts[i].Bills = billsByAccount[accounts[i].ID]
+		s.applyCurrencyConverter(ctx, accounts[i].Bills)
 		SortBillsByAmount(accounts[i].Bills)
 	}
 	return &BillsPageData{
@@ -511,6 +576,7 @@ func (s *Service) GetBillAccountEditPageData(ctx context.Context, id string) (*B
 	for i := range bills {
 		bills[i].Amounts = amountsByBill[bills[i].ID]
 	}
+	s.applyCurrencyConverter(ctx, bills)
 	ba.Bills = bills
 	accs, err := s.ListAccounts(ctx)
 	if err != nil {
@@ -537,6 +603,7 @@ func (s *Service) GetBillEditPageData(ctx context.Context, billID string) (*Bill
 		return nil, fmt.Errorf("listing bill amounts: %w", err)
 	}
 	bill.Amounts = amounts
+	s.applyCurrencyConverter(ctx, []Bill{bill})
 	ba, err := s.GetBillAccount(ctx, bill.BillAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("getting bill account: %w", err)
@@ -585,6 +652,11 @@ func (s *Service) generateBillTransferTemplates(ctx context.Context) ([]Transfer
 		bill := billFromDB(b)
 		bill.Amounts = amountsByBill[b.ID]
 		billsByAccount[b.BillAccountID] = append(billsByAccount[b.BillAccountID], bill)
+	}
+
+	for accountID, bills := range billsByAccount {
+		s.applyCurrencyConverter(ctx, bills)
+		billsByAccount[accountID] = bills
 	}
 
 	var templates []TransferTemplate

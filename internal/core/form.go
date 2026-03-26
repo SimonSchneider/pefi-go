@@ -496,6 +496,7 @@ func (a *billAmountInputForm) FromForm(r *http.Request) error {
 	} else {
 		a.Period = "monthly"
 	}
+	a.Currency = r.FormValue("amount_currency")
 	return nil
 }
 

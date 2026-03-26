@@ -35,6 +35,11 @@ type ApiCache struct {
 	CreatedAt int64
 }
 
+type AppSetting struct {
+	Key   string
+	Value string
+}
+
 type Bill struct {
 	ID               string
 	BillAccountID    string
@@ -67,6 +72,7 @@ type BillAmount struct {
 	CreatedAt int64
 	UpdatedAt int64
 	Period    string
+	Currency  string
 }
 
 type FaviconCache struct {

@@ -8,20 +8,37 @@ import (
 
 	"github.com/SimonSchneider/goslu/config"
 	"github.com/SimonSchneider/goslu/migrate"
+	"github.com/SimonSchneider/pefigo/internal/currency"
 	"github.com/SimonSchneider/pefigo/internal/swe"
 )
 
 type Service struct {
-	db     *sql.DB
-	sweClient *swe.Client
+	db             *sql.DB
+	sweClient      *swe.Client
+	currencyClient *currency.Client
 }
 
-func New(db *sql.DB) *Service {
-	cache := NewSQLiteCache(db)
-	return &Service{
-		db:        db,
-		sweClient: swe.NewClient(cache),
+type ServiceOption func(*Service)
+
+func WithCurrencyOptions(opts ...currency.ClientOption) ServiceOption {
+	return func(s *Service) {
+		ttlCache := NewTTLSQLiteCache(s.db)
+		s.currencyClient = currency.NewClient(ttlCache, opts...)
 	}
+}
+
+func New(db *sql.DB, opts ...ServiceOption) *Service {
+	cache := NewSQLiteCache(db)
+	ttlCache := NewTTLSQLiteCache(db)
+	s := &Service{
+		db:             db,
+		sweClient:      swe.NewClient(cache),
+		currencyClient: currency.NewClient(ttlCache),
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 func (s *Service) SweClient() *swe.Client {

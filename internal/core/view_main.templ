@@ -85,10 +85,11 @@ templ SidebarContent(page string) {
 				NavItem("/budget", IconCashBanknote("w-5 h-5"), "Budget", page),
 				NavItem("/transfers", IconTransfer("w-5 h-5"), "Transfer Calculator", page),
 			)
-			@NavGroup("Settings",
-				NavItem("/categories", IconTag("w-5 h-5"), "Categories", page),
-				NavItem("/settings/inkomstbasbelopp", IconCoin("w-5 h-5"), "Inkomstbasbelopp", page),
-			)
+		@NavGroup("Settings",
+			NavItem("/categories", IconTag("w-5 h-5"), "Categories", page),
+			NavItem("/settings/currency", IconCoin("w-5 h-5"), "Currency", page),
+			NavItem("/settings/inkomstbasbelopp", IconCoin("w-5 h-5"), "Inkomstbasbelopp", page),
+		)
 				@NavGroup("Forecasting",
 					NavItem("/transfers/chart", IconChartSankey("w-5 h-5"), "Cashflows", page),
 					NavItem("/special-dates", IconCalendar("w-5 h-5"), "Special Dates", page),

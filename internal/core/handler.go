@@ -11,6 +11,7 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
+	"github.com/SimonSchneider/pefigo/internal/currency"
 	"github.com/SimonSchneider/pefigo/internal/service"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 )
@@ -100,6 +101,9 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /bill-amounts/{$}", h.billAmountUpsert())
 	mux.Handle("POST /bill-amounts/{id}/delete", h.billAmountDelete())
 	mux.Handle("GET /favicons/{domain}", h.faviconHandler())
+
+	mux.Handle("GET /settings/currency", h.currencySettingsPage())
+	mux.Handle("POST /settings/currency", h.currencySettingsSave())
 
 	mux.Handle("GET /settings/inkomstbasbelopp", h.inkomstbasbeloppListPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
@@ -1099,6 +1103,33 @@ func (h *Handler) inkomstbasbeloppDelete() http.Handler {
 			return fmt.Errorf("deleting inkomstbasbelopp: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/settings/inkomstbasbelopp")
+		return nil
+	})
+}
+
+func (h *Handler) currencySettingsPage() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		cur, err := h.svc.GetDefaultCurrency(ctx)
+		if err != nil {
+			return fmt.Errorf("getting default currency: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Currency Settings", CurrencySettingsPage(cur, currency.SupportedCurrencies())))
+	})
+}
+
+func (h *Handler) currencySettingsSave() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := r.ParseForm(); err != nil {
+			return fmt.Errorf("parsing form: %w", err)
+		}
+		code := r.FormValue("currency")
+		if code == "" {
+			return fmt.Errorf("currency code is required")
+		}
+		if err := h.svc.SetDefaultCurrency(ctx, code); err != nil {
+			return fmt.Errorf("setting default currency: %w", err)
+		}
+		shttp.RedirectToNext(w, r, "/settings/currency")
 		return nil
 	})
 }

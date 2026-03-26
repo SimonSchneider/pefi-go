@@ -32,6 +32,24 @@ func (q *Queries) GetCacheEntry(ctx context.Context, cacheKey string) (string, e
 	return value, err
 }
 
+const getCacheEntryIfFresh = `-- name: GetCacheEntryIfFresh :one
+SELECT value
+FROM api_cache
+WHERE cache_key = ? AND created_at >= ?
+`
+
+type GetCacheEntryIfFreshParams struct {
+	CacheKey  string
+	CreatedAt int64
+}
+
+func (q *Queries) GetCacheEntryIfFresh(ctx context.Context, arg GetCacheEntryIfFreshParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getCacheEntryIfFresh, arg.CacheKey, arg.CreatedAt)
+	var value string
+	err := row.Scan(&value)
+	return value, err
+}
+
 const upsertCacheEntry = `-- name: UpsertCacheEntry :exec
 INSERT INTO api_cache (cache_key, value, created_at)
 VALUES (?, ?, ?)

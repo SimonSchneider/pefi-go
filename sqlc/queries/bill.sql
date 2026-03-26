@@ -93,16 +93,18 @@ INSERT INTO bill_amount (
     bill_id,
     amount,
     period,
+    currency,
     start_date,
     end_date,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET bill_id = EXCLUDED.bill_id,
   amount = EXCLUDED.amount,
   period = EXCLUDED.period,
+  currency = EXCLUDED.currency,
   start_date = EXCLUDED.start_date,
   end_date = EXCLUDED.end_date,
   updated_at = EXCLUDED.updated_at

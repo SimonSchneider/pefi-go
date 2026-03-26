@@ -36,3 +36,35 @@ func (c *SQLiteCache) Set(ctx context.Context, key string, value string) error {
 		CreatedAt: time.Now().Unix(),
 	})
 }
+
+// TTLSQLiteCache implements currency.Cache with TTL-aware reads.
+type TTLSQLiteCache struct {
+	db *sql.DB
+}
+
+func NewTTLSQLiteCache(db *sql.DB) *TTLSQLiteCache {
+	return &TTLSQLiteCache{db: db}
+}
+
+func (c *TTLSQLiteCache) Get(ctx context.Context, key string, maxAge time.Duration) (string, bool, error) {
+	minCreatedAt := time.Now().Add(-maxAge).Unix()
+	val, err := pdb.New(c.db).GetCacheEntryIfFresh(ctx, pdb.GetCacheEntryIfFreshParams{
+		CacheKey:  key,
+		CreatedAt: minCreatedAt,
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return val, true, nil
+}
+
+func (c *TTLSQLiteCache) Set(ctx context.Context, key string, value string) error {
+	return pdb.New(c.db).UpsertCacheEntry(ctx, pdb.UpsertCacheEntryParams{
+		CacheKey:  key,
+		Value:     value,
+		CreatedAt: time.Now().Unix(),
+	})
+}

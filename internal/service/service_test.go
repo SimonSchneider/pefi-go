@@ -1,10 +1,14 @@
 package service_test
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo"
+	"github.com/SimonSchneider/pefigo/internal/currency"
 	"github.com/SimonSchneider/pefigo/internal/service"
 	"github.com/SimonSchneider/pefigo/internal/swe"
 	"github.com/SimonSchneider/pefigo/internal/uncertain"
@@ -2907,5 +2911,224 @@ func TestListAllTransferTemplates_MergesDBSalaryAndBills(t *testing.T) {
 	}
 	if billCount != 1 {
 		t.Errorf("expected 1 bill template, got %d", billCount)
+	}
+}
+
+// ---- BillAmount Currency Conversion ----
+
+func TestBillAmountCurrencyConversion(t *testing.T) {
+	getRate := func(from, to string) float64 {
+		if from == "EUR" && to == "SEK" {
+			return 11.47
+		}
+		return 1
+	}
+
+	t.Run("monthly EUR converted to SEK", func(t *testing.T) {
+		ba := service.BillAmount{
+			ID: "a1", BillID: "b1", Amount: newFixedValue(100),
+			Period: "monthly", Currency: "EUR",
+			StartDate: mustParseDate("2020-01-01"),
+		}
+		got := ba.ConvertedMonthlyAmountValue("SEK", getRate).Mean()
+		if !approxEqual(got, 1147, 0.01) {
+			t.Errorf("ConvertedMonthlyAmountValue = %v, want 1147", got)
+		}
+	})
+
+	t.Run("default currency no conversion", func(t *testing.T) {
+		ba := service.BillAmount{
+			ID: "a2", BillID: "b2", Amount: newFixedValue(100),
+			Period: "monthly", Currency: "",
+			StartDate: mustParseDate("2020-01-01"),
+		}
+		got := ba.ConvertedMonthlyAmountValue("SEK", getRate).Mean()
+		if !approxEqual(got, 100, 0.01) {
+			t.Errorf("empty currency should not convert, got %v, want 100", got)
+		}
+	})
+
+	t.Run("same currency no conversion", func(t *testing.T) {
+		ba := service.BillAmount{
+			ID: "a3", BillID: "b3", Amount: newFixedValue(100),
+			Period: "monthly", Currency: "SEK",
+			StartDate: mustParseDate("2020-01-01"),
+		}
+		got := ba.ConvertedMonthlyAmountValue("SEK", getRate).Mean()
+		if !approxEqual(got, 100, 0.01) {
+			t.Errorf("same currency should not convert, got %v, want 100", got)
+		}
+	})
+
+	t.Run("yearly EUR to monthly SEK", func(t *testing.T) {
+		ba := service.BillAmount{
+			ID: "a4", BillID: "b4", Amount: newFixedValue(1200),
+			Period: "yearly", Currency: "EUR",
+			StartDate: mustParseDate("2020-01-01"),
+		}
+		got := ba.ConvertedMonthlyAmountValue("SEK", getRate).Mean()
+		// 1200 yearly / 12 = 100 monthly EUR * 11.47 = 1147 SEK
+		if !approxEqual(got, 1147, 0.01) {
+			t.Errorf("yearly EUR -> monthly SEK = %v, want 1147", got)
+		}
+	})
+
+	t.Run("yearly conversion", func(t *testing.T) {
+		ba := service.BillAmount{
+			ID: "a5", BillID: "b5", Amount: newFixedValue(100),
+			Period: "monthly", Currency: "EUR",
+			StartDate: mustParseDate("2020-01-01"),
+		}
+		got := ba.ConvertedYearlyAmountValue("SEK", getRate).Mean()
+		// 100 monthly EUR * 12 = 1200 yearly EUR * 11.47 = 13764 SEK
+		if !approxEqual(got, 13764, 0.01) {
+			t.Errorf("monthly EUR -> yearly SEK = %v, want 13764", got)
+		}
+	})
+}
+
+// ---- Settings Persistence ----
+
+func TestSettingsGetAndSet(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	cur, err := svc.GetDefaultCurrency(ctx)
+	if err != nil {
+		t.Fatalf("GetDefaultCurrency: %v", err)
+	}
+	if cur != "SEK" {
+		t.Errorf("default currency = %q, want SEK", cur)
+	}
+
+	if err := svc.SetDefaultCurrency(ctx, "EUR"); err != nil {
+		t.Fatalf("SetDefaultCurrency: %v", err)
+	}
+
+	cur, err = svc.GetDefaultCurrency(ctx)
+	if err != nil {
+		t.Fatalf("GetDefaultCurrency after set: %v", err)
+	}
+	if cur != "EUR" {
+		t.Errorf("default currency after set = %q, want EUR", cur)
+	}
+}
+
+func newTestServiceWithCurrencyServer(t *testing.T, handler http.Handler) *service.Service {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	db, err := service.GetMigratedDB(t.Context(), pefigo.StaticEmbeddedFS, "static/migrations", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return service.New(db, service.WithCurrencyOptions(currency.WithBaseURL(srv.URL)))
+}
+
+func TestBillWithForeignCurrencyE2E(t *testing.T) {
+	svc := newTestServiceWithCurrencyServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"amount":1.0,"base":"EUR","date":"2026-03-25","rates":{"SEK":11.47}}`)
+	}))
+	ctx := t.Context()
+
+	if err := svc.SetDefaultCurrency(ctx, "SEK"); err != nil {
+		t.Fatalf("SetDefaultCurrency: %v", err)
+	}
+
+	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+	ba, _ := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name: "EU Bills", FromAccountID: acc.ID, Recurrence: "*-*-01", Enabled: true,
+	})
+	bill, _ := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID: ba.ID, Name: "Spotify EU", Enabled: true,
+	})
+	svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID: bill.ID, Amount: newFixedValue(100), Period: "monthly",
+		Currency: "EUR", StartDate: mustParseDate("2025-01-01"),
+	})
+
+	data, err := svc.GetBillAccountsPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetBillAccountsPageData: %v", err)
+	}
+
+	loadedBill := data.BillAccounts[0].Bills[0]
+
+	// Loaded bill should be automatically converted to default currency
+	converted := loadedBill.CurrentAmount()
+	if !approxEqual(converted, 1147, 0.01) {
+		t.Errorf("converted CurrentAmount = %v, want 1147", converted)
+	}
+
+	yearly := loadedBill.YearlyAmount()
+	if !approxEqual(yearly, 13764, 0.01) {
+		t.Errorf("converted YearlyAmount = %v, want 13764", yearly)
+	}
+
+	// Transfer templates should also use converted amounts
+	templates := loadedBill.GenerateTransferTemplates(data.BillAccounts[0])
+	if len(templates) == 0 {
+		t.Fatal("expected at least 1 transfer template")
+	}
+	ttAmount := templates[0].AmountFixed.Mean()
+	if !approxEqual(ttAmount, 1147, 0.01) {
+		t.Errorf("transfer template amount = %v, want 1147", ttAmount)
+	}
+
+	// Bill with default currency should not be converted
+	bill2, _ := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID: ba.ID, Name: "Local Bill", Enabled: true,
+	})
+	svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID: bill2.ID, Amount: newFixedValue(200), Period: "monthly",
+		Currency: "", StartDate: mustParseDate("2025-01-01"),
+	})
+
+	data2, _ := svc.GetBillAccountsPageData(ctx)
+	for _, b := range data2.BillAccounts[0].Bills {
+		if b.Name == "Local Bill" {
+			if !approxEqual(b.CurrentAmount(), 200, 0.01) {
+				t.Errorf("local bill CurrentAmount = %v, want 200", b.CurrentAmount())
+			}
+		}
+	}
+}
+
+func TestBillAmountWithCurrencyPersistence(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+	ba, _ := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name: "Bills", FromAccountID: acc.ID, Recurrence: "*-*-01", Enabled: true,
+	})
+	bill, _ := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID: ba.ID, Name: "Netflix EU", Enabled: true,
+	})
+
+	amt, err := svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID:    bill.ID,
+		Amount:    newFixedValue(9.99),
+		Period:    "monthly",
+		Currency:  "EUR",
+		StartDate: mustParseDate("2025-01-01"),
+	})
+	if err != nil {
+		t.Fatalf("UpsertBillAmount: %v", err)
+	}
+	if amt.Currency != "EUR" {
+		t.Errorf("saved currency = %q, want EUR", amt.Currency)
+	}
+
+	amounts, err := svc.ListBillAmounts(ctx, bill.ID)
+	if err != nil {
+		t.Fatalf("ListBillAmounts: %v", err)
+	}
+	if len(amounts) != 1 {
+		t.Fatalf("expected 1 amount, got %d", len(amounts))
+	}
+	if amounts[0].Currency != "EUR" {
+		t.Errorf("loaded currency = %q, want EUR", amounts[0].Currency)
 	}
 }

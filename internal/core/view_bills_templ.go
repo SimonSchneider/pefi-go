@@ -11,6 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"strconv"
 
+	"github.com/SimonSchneider/pefigo/internal/currency"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 )
 
@@ -98,7 +99,7 @@ func BillsListView(view *BillsPageData) templ.Component {
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(ba.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 34, Col: 45}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 35, Col: 45}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -111,7 +112,7 @@ func BillsListView(view *BillsPageData) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(string(ba.Recurrence))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 35, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 36, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -139,7 +140,7 @@ func BillsListView(view *BillsPageData) templ.Component {
 				var templ_7745c5c3_Var5 templ.SafeURL
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/bills/" + ba.ID + "/edit"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 42, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 43, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
@@ -219,7 +220,7 @@ func billsTable(view *BillsPageData, bills []Bill) templ.Component {
 					var templ_7745c5c3_Var7 string
 					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(billFaviconURL(bill))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 90, Col: 41}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 91, Col: 41}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 					if templ_7745c5c3_Err != nil {
@@ -237,7 +238,7 @@ func billsTable(view *BillsPageData, bills []Bill) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(bill.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 92, Col: 26}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 93, Col: 26}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -255,7 +256,7 @@ func billsTable(view *BillsPageData, bills []Bill) templ.Component {
 					var templ_7745c5c3_Var9 templ.SafeURL
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(bill.URL))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 97, Col: 42}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 98, Col: 42}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -269,7 +270,7 @@ func billsTable(view *BillsPageData, bills []Bill) templ.Component {
 						var templ_7745c5c3_Var10 string
 						templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(billCompanyName(bill))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 99, Col: 34}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 100, Col: 34}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 						if templ_7745c5c3_Err != nil {
@@ -350,7 +351,7 @@ func billsTable(view *BillsPageData, bills []Bill) templ.Component {
 				var templ_7745c5c3_Var11 templ.SafeURL
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/bill-items/" + bill.ID + "/edit"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 134, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 135, Col: 68}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -451,7 +452,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 		var templ_7745c5c3_Var14 templ.SafeURL
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs("/bills/?next=" + templ.EscapeString("/bills"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 162, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 163, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -464,7 +465,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(view.BillAccount.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 163, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 164, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -477,7 +478,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(view.BillAccount.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 169, Col: 132}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 170, Col: 132}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -490,7 +491,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(billAccountRecurrenceValue(view.BillAccount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 173, Col: 149}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 174, Col: 149}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -508,7 +509,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(acc.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 181, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 182, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -531,7 +532,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(acc.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 185, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 186, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
@@ -549,7 +550,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(billAccountPriorityValue(view.BillAccount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 191, Col: 142}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 192, Col: 142}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -600,7 +601,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(view.BillAccount.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 223, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 224, Col: 80}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -618,7 +619,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(cat.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 229, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 230, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -631,7 +632,7 @@ func BillAccountEditContent(view *BillAccountEditView) templ.Component {
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(cat.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 229, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 230, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -691,7 +692,7 @@ func deleteBillAccountButton(id string) templ.Component {
 		var templ_7745c5c3_Var25 templ.SafeURL
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinURLErrs("/bills/" + id + "/delete?next=" + templ.EscapeString("/bills"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 247, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 248, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {
@@ -778,7 +779,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 		var templ_7745c5c3_Var28 templ.SafeURL
 		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinURLErrs("/bill-items/?next=" + templ.EscapeString("/bill-items/"+view.Bill.ID+"/edit"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 269, Col: 97}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 270, Col: 97}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 		if templ_7745c5c3_Err != nil {
@@ -791,7 +792,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 		var templ_7745c5c3_Var29 string
 		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(view.Bill.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 270, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 271, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
@@ -804,7 +805,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(view.Bill.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 276, Col: 119}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 277, Col: 119}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
@@ -822,7 +823,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 			var templ_7745c5c3_Var31 string
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(ba.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 283, Col: 25}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 284, Col: 25}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -845,7 +846,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 			var templ_7745c5c3_Var32 string
 			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(ba.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 287, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 288, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
@@ -872,7 +873,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 			var templ_7745c5c3_Var33 string
 			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(cat.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 301, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 302, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 			if templ_7745c5c3_Err != nil {
@@ -895,7 +896,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 			var templ_7745c5c3_Var34 string
 			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(cat.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 305, Col: 22}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 306, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 			if templ_7745c5c3_Err != nil {
@@ -918,7 +919,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(billFaviconURL(view.Bill))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 313, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 314, Col: 47}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 			if templ_7745c5c3_Err != nil {
@@ -936,7 +937,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(view.Bill.URL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 315, Col: 117}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 316, Col: 117}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -949,7 +950,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(view.Bill.Notes)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 320, Col: 123}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 321, Col: 123}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
@@ -993,7 +994,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 				var templ_7745c5c3_Var38 string
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs("delete-bill-amount-form-" + amt.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 345, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 346, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
@@ -1006,7 +1007,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 				var templ_7745c5c3_Var39 templ.SafeURL
 				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinURLErrs("/bill-amounts/" + amt.ID + "/delete?next=" + templ.EscapeString("/bill-items/"+view.Bill.ID+"/edit"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 345, Col: 165}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 346, Col: 165}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
@@ -1017,7 +1018,7 @@ func BillEditContent(view *BillEditView) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, " <div class=\"mt-3 card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body p-3\"><h3 class=\"text-xs font-semibold uppercase tracking-wide text-base-content/60\">Amounts</h3><div class=\"grid items-center gap-x-2 gap-y-1 mt-1\" style=\"grid-template-columns: 1fr 1fr 1fr auto auto auto\"><div class=\"text-xs text-base-content/50\">Start Date</div><div class=\"text-xs text-base-content/50\">End Date</div><div class=\"text-xs text-base-content/50\">Amount</div><div class=\"text-xs text-base-content/50\">Period</div><div></div><div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, " <div class=\"mt-3 card bg-base-100 shadow-sm border border-base-300\"><div class=\"card-body p-3\"><h3 class=\"text-xs font-semibold uppercase tracking-wide text-base-content/60\">Amounts</h3><div class=\"grid items-center gap-x-2 gap-y-1 mt-1\" style=\"grid-template-columns: 1fr 1fr 1fr auto auto auto auto\"><div class=\"text-xs text-base-content/50\">Start Date</div><div class=\"text-xs text-base-content/50\">End Date</div><div class=\"text-xs text-base-content/50\">Amount</div><div class=\"text-xs text-base-content/50\">Period</div><div class=\"text-xs text-base-content/50\">Currency</div><div></div><div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1072,7 +1073,7 @@ func deleteBillButton(bill Bill) templ.Component {
 		var templ_7745c5c3_Var41 templ.SafeURL
 		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinURLErrs("/bill-items/" + bill.ID + "/delete?next=" + templ.EscapeString("/bills/"+bill.BillAccountID+"/edit"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 371, Col: 131}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 373, Col: 131}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {
@@ -1114,7 +1115,7 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 		var templ_7745c5c3_Var43 templ.SafeURL
 		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinURLErrs("/bill-amounts/?next=" + templ.EscapeString("/bill-items/"+billID+"/edit"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 379, Col: 104}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 381, Col: 104}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 		if templ_7745c5c3_Err != nil {
@@ -1127,7 +1128,7 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 		var templ_7745c5c3_Var44 string
 		templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(amt.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 381, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 383, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 		if templ_7745c5c3_Err != nil {
@@ -1140,7 +1141,7 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 		var templ_7745c5c3_Var45 string
 		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(billID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 382, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 384, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 		if templ_7745c5c3_Err != nil {
@@ -1153,7 +1154,7 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 		var templ_7745c5c3_Var46 string
 		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(amt.GetStartDateString())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 383, Col: 127}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 385, Col: 127}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 		if templ_7745c5c3_Err != nil {
@@ -1166,7 +1167,7 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 		var templ_7745c5c3_Var47 string
 		templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(amt.GetEndDateString())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 385, Col: 127}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 387, Col: 127}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 		if templ_7745c5c3_Err != nil {
@@ -1179,7 +1180,7 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 		var templ_7745c5c3_Var48 string
 		templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(amt.GetAmountString())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 386, Col: 117}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 388, Col: 117}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 		if templ_7745c5c3_Err != nil {
@@ -1205,20 +1206,76 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, ">Yearly</option></select></div><button type=\"submit\" class=\"btn btn-xs btn-square btn-primary btn-ghost\" title=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, ">Yearly</option></select></div><div><select class=\"select select-xs w-full\" name=\"amount_currency\"><option value=\"\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var49 string
-		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(rowActionTitle(amt.ID != ""))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 401, Col: 112}
+		if amt.Currency == "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, " selected")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, ">Default</option> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "\">")
+		for _, c := range currency.SupportedCurrencies() {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<option value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var49 string
+			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(c.Code)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 411, Col: 27}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if amt.Currency == c.Code {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, " selected")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, ">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var50 string
+			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(c.Code)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 415, Col: 14}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "</option>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "</select></div><button type=\"submit\" class=\"btn btn-xs btn-square btn-primary btn-ghost\" title=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var51 string
+		templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(rowActionTitle(amt.ID != ""))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 419, Col: 112}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1233,25 +1290,25 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "</button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "</button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if amt.ID != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<button type=\"submit\" form=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "<button type=\"submit\" form=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var50 string
-			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs("delete-bill-amount-form-" + amt.ID)
+			var templ_7745c5c3_Var52 string
+			templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs("delete-bill-amount-form-" + amt.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 409, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_bills.templ`, Line: 427, Col: 67}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "\" class=\"btn btn-xs btn-square btn-ghost text-error\" title=\"Delete\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "\" class=\"btn btn-xs btn-square btn-ghost text-error\" title=\"Delete\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1259,17 +1316,17 @@ func BillAmountRow(billID string, amt BillAmount) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "<div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "<div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "</form>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "</form>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -3,6 +3,7 @@ package core
 import (
 	"strconv"
 
+	"github.com/SimonSchneider/pefigo/internal/currency"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 )
 
@@ -347,13 +348,14 @@ templ BillEditContent(view *BillEditView) {
 					<div class="mt-3 card bg-base-100 shadow-sm border border-base-300">
 						<div class="card-body p-3">
 							<h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Amounts</h3>
-							<div class="grid items-center gap-x-2 gap-y-1 mt-1" style="grid-template-columns: 1fr 1fr 1fr auto auto auto">
-								<div class="text-xs text-base-content/50">Start Date</div>
-								<div class="text-xs text-base-content/50">End Date</div>
-								<div class="text-xs text-base-content/50">Amount</div>
-								<div class="text-xs text-base-content/50">Period</div>
-								<div></div>
-								<div></div>
+						<div class="grid items-center gap-x-2 gap-y-1 mt-1" style="grid-template-columns: 1fr 1fr 1fr auto auto auto auto">
+							<div class="text-xs text-base-content/50">Start Date</div>
+							<div class="text-xs text-base-content/50">End Date</div>
+							<div class="text-xs text-base-content/50">Amount</div>
+							<div class="text-xs text-base-content/50">Period</div>
+							<div class="text-xs text-base-content/50">Currency</div>
+							<div></div>
+							<div></div>
 								for _, amt := range view.Bill.Amounts {
 									@BillAmountRow(view.Bill.ID, amt)
 								}
@@ -396,6 +398,22 @@ templ BillAmountRow(billID string, amt BillAmount) {
 						selected
 					}
 				>Yearly</option>
+			</select>
+		</div>
+		<div>
+			<select class="select select-xs w-full" name="amount_currency">
+				<option value=""
+					if amt.Currency == "" {
+						selected
+					}
+				>Default</option>
+				for _, c := range currency.SupportedCurrencies() {
+					<option value={ c.Code }
+						if amt.Currency == c.Code {
+							selected
+						}
+					>{ c.Code }</option>
+				}
 			</select>
 		</div>
 		<button type="submit" class="btn btn-xs btn-square btn-primary btn-ghost" title={ rowActionTitle(amt.ID != "") }>
