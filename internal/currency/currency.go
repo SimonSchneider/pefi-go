@@ -11,41 +11,34 @@ import (
 )
 
 type Currency struct {
-	Code string
-	Name string
+	Code   string
+	Name   string
+	Format string // fmt.Sprintf format string, e.g. "%.2f kr" or "$%.2f"
+}
+
+func (c Currency) FormatAmount(val float64) string {
+	return fmt.Sprintf(c.Format, val)
 }
 
 var supported = []Currency{
-	{"AUD", "Australian Dollar"},
-	{"BRL", "Brazilian Real"},
-	{"CAD", "Canadian Dollar"},
-	{"CHF", "Swiss Franc"},
-	{"CNY", "Chinese Renminbi Yuan"},
-	{"CZK", "Czech Koruna"},
-	{"DKK", "Danish Krone"},
-	{"EUR", "Euro"},
-	{"GBP", "British Pound"},
-	{"HKD", "Hong Kong Dollar"},
-	{"HUF", "Hungarian Forint"},
-	{"IDR", "Indonesian Rupiah"},
-	{"ILS", "Israeli New Shekel"},
-	{"INR", "Indian Rupee"},
-	{"ISK", "Icelandic Króna"},
-	{"JPY", "Japanese Yen"},
-	{"KRW", "South Korean Won"},
-	{"MXN", "Mexican Peso"},
-	{"MYR", "Malaysian Ringgit"},
-	{"NOK", "Norwegian Krone"},
-	{"NZD", "New Zealand Dollar"},
-	{"PHP", "Philippine Peso"},
-	{"PLN", "Polish Złoty"},
-	{"RON", "Romanian Leu"},
-	{"SEK", "Swedish Krona"},
-	{"SGD", "Singapore Dollar"},
-	{"THB", "Thai Baht"},
-	{"TRY", "Turkish Lira"},
-	{"USD", "United States Dollar"},
-	{"ZAR", "South African Rand"},
+	{"EUR", "Euro", "€%.0f"},
+	{"SEK", "Swedish Krona", "%.0f kr"},
+	{"USD", "United States Dollar", "$%.0f"},
+	{"GBP", "British Pound", "£%.0f"},
+}
+
+var byCode map[string]Currency
+
+func init() {
+	byCode = make(map[string]Currency, len(supported))
+	for _, c := range supported {
+		byCode[c.Code] = c
+	}
+}
+
+func Get(code string) (Currency, bool) {
+	c, ok := byCode[code]
+	return c, ok
 }
 
 func SupportedCurrencies() []Currency {

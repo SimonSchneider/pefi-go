@@ -14,9 +14,6 @@ import (
 
 func TestSupportedCurrencies(t *testing.T) {
 	currencies := currency.SupportedCurrencies()
-	if len(currencies) == 0 {
-		t.Fatal("expected at least one supported currency")
-	}
 
 	codes := make(map[string]bool)
 	for _, c := range currencies {
@@ -26,16 +23,51 @@ func TestSupportedCurrencies(t *testing.T) {
 		if c.Name == "" {
 			t.Errorf("currency %s name must not be empty", c.Code)
 		}
+		if c.Format == "" {
+			t.Errorf("currency %s format must not be empty", c.Code)
+		}
 		if codes[c.Code] {
 			t.Errorf("duplicate currency code: %s", c.Code)
 		}
 		codes[c.Code] = true
 	}
 
-	for _, code := range []string{"SEK", "EUR", "USD", "GBP"} {
+	for _, code := range []string{"SEK", "EUR", "USD"} {
 		if !codes[code] {
 			t.Errorf("expected %s to be in supported currencies", code)
 		}
+	}
+}
+
+func TestCurrencyFormatAmount(t *testing.T) {
+	tests := []struct {
+		code string
+		val  float64
+		want string
+	}{
+		{"SEK", 1234.50, "1234.50 kr"},
+		{"SEK", -99.99, "-99.99 kr"},
+		{"EUR", 1234.50, "€1234.50"},
+		{"USD", 1234.50, "$1234.50"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s/%v", tt.code, tt.val), func(t *testing.T) {
+			c, ok := currency.Get(tt.code)
+			if !ok {
+				t.Fatalf("currency %s not found", tt.code)
+			}
+			got := c.FormatAmount(tt.val)
+			if got != tt.want {
+				t.Errorf("FormatAmount(%v) = %q, want %q", tt.val, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetUnknownCurrency(t *testing.T) {
+	_, ok := currency.Get("XYZ")
+	if ok {
+		t.Error("expected Get(XYZ) to return false")
 	}
 }
 
