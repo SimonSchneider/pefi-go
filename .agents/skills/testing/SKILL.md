@@ -1,3 +1,8 @@
+---
+name: testing
+description: How to build and design tests in pefigo.
+---
+
 # Testing
 
 Testing should focus mainly on Models (service layer). It's important only to excercise the public API used by Controllers.
