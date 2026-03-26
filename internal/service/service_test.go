@@ -3132,3 +3132,57 @@ func TestBillAmountWithCurrencyPersistence(t *testing.T) {
 		t.Errorf("loaded currency = %q, want EUR", amounts[0].Currency)
 	}
 }
+
+// ---- Settings Page Data ----
+
+func TestGetSettingsPageData(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	// Create test data
+	_, err := svc.UpsertAccountType(ctx, service.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
+	if err != nil {
+		t.Fatalf("create account type: %v", err)
+	}
+
+	color := "#abcdef"
+	_, err = svc.UpsertCategory(ctx, service.TransferTemplateCategoryInput{Name: "Housing", Color: &color})
+	if err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+
+	_, err = svc.UpsertSpecialDate(ctx, service.SpecialDateInput{Name: "Christmas", Date: mustParseDate("2025-12-25"), Color: "#ff0000"})
+	if err != nil {
+		t.Fatalf("create special date: %v", err)
+	}
+
+	_, err = svc.UpsertInkomstbasbelopp(ctx, service.Inkomstbasbelopp{Amount: 76200, Prisbasbelopp: 57300, ValidFrom: mustParseDate("2025-01-01")})
+	if err != nil {
+		t.Fatalf("create inkomstbasbelopp: %v", err)
+	}
+
+	// Call GetSettingsPageData
+	view, err := svc.GetSettingsPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetSettingsPageData: %v", err)
+	}
+
+	if len(view.AccountTypes) != 1 {
+		t.Errorf("expected 1 account type, got %d", len(view.AccountTypes))
+	}
+	if len(view.Categories) != 1 {
+		t.Errorf("expected 1 category, got %d", len(view.Categories))
+	}
+	if len(view.SpecialDates) != 1 {
+		t.Errorf("expected 1 special date, got %d", len(view.SpecialDates))
+	}
+	if len(view.Inkomstbasbelopp) != 1 {
+		t.Errorf("expected 1 inkomstbasbelopp, got %d", len(view.Inkomstbasbelopp))
+	}
+	if view.CurrentCurrency != "SEK" {
+		t.Errorf("expected default currency SEK, got %s", view.CurrentCurrency)
+	}
+	if len(view.Currencies) == 0 {
+		t.Error("expected non-empty currencies list")
+	}
+}

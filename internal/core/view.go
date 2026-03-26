@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"net/http"
+	"net/url"
 
 	"github.com/SimonSchneider/pefigo/internal/service"
 	"github.com/SimonSchneider/pefigo/internal/swe"
@@ -85,6 +86,7 @@ type (
 	TransferTemplateCategoriesView   = service.TransferTemplateCategoriesView
 	TransferTemplateCategoryEditView = service.TransferTemplateCategoryEditView
 	CategoriesPageView               = service.CategoriesPageView
+	SettingsPageView                 = service.SettingsPageView
 	PredictionParams                 = service.PredictionParams
 	AccountTypeGroup                 = service.AccountTypeGroup
 	AccountTypeChartEntry            = service.AccountTypeChartEntry
@@ -136,6 +138,10 @@ const (
 	GroupByAccount     TransferChartGroupBy = service.GroupByAccount
 	GroupByAccountType TransferChartGroupBy = service.GroupByAccountType
 )
+
+func nextEncoded(path string) string {
+	return url.QueryEscape(path)
+}
 
 func billFaviconURL(bill Bill) string {
 	domain := service.ExtractDomain(bill.URL)

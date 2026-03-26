@@ -11,7 +11,6 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
-	"github.com/SimonSchneider/pefigo/internal/currency"
 	"github.com/SimonSchneider/pefigo/internal/service"
 	"github.com/SimonSchneider/pefigo/internal/ui"
 )
@@ -33,14 +32,13 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("GET /transfer-templates/new", h.transferTemplatesNewPage())
 	mux.Handle("GET /transfer-templates/{id}/edit", h.transferTemplatesEditPage())
 
-	mux.Handle("GET /categories", h.categoriesPage())
+	mux.Handle("GET /settings", h.settingsPage())
 
 	mux.Handle("GET /account-types/new", h.accountTypeNewPage())
 	mux.Handle("GET /account-types/{id}/edit", h.accountTypeEditPage())
 	mux.Handle("POST /account-types/{$}", h.accountTypeUpsert())
 	mux.Handle("POST /account-types/{id}/delete", h.accountTypeDelete())
 
-	mux.Handle("GET /special-dates", h.specialDatesPage())
 	mux.Handle("GET /special-dates/new", h.specialDateNewPage())
 	mux.Handle("GET /special-dates/{id}/edit", h.specialDateEditPage())
 	mux.Handle("POST /special-dates/{$}", h.specialDateUpsert())
@@ -102,10 +100,8 @@ func NewHandler(svc *service.Service, public fs.FS) http.Handler {
 	mux.Handle("POST /bill-amounts/{id}/delete", h.billAmountDelete())
 	mux.Handle("GET /favicons/{domain}", h.faviconHandler())
 
-	mux.Handle("GET /settings/currency", h.currencySettingsPage())
 	mux.Handle("POST /settings/currency", h.currencySettingsSave())
 
-	mux.Handle("GET /settings/inkomstbasbelopp", h.inkomstbasbeloppListPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
 	mux.Handle("GET /settings/inkomstbasbelopp/{id}/edit", h.inkomstbasbeloppEditPage())
 	mux.Handle("POST /settings/inkomstbasbelopp/{$}", h.inkomstbasbeloppUpsert())
@@ -756,15 +752,26 @@ func (h *Handler) transferTemplateDelete() http.Handler {
 	})
 }
 
-// ---- Categories (combined) ----
+// ---- Settings (unified) ----
 
-func (h *Handler) categoriesPage() http.Handler {
+var validTabs = map[string]bool{
+	"categories":       true,
+	"currency":         true,
+	"inkomstbasbelopp": true,
+	"special-dates":    true,
+}
+
+func (h *Handler) settingsPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		view, err := h.svc.GetCategoriesPageData(ctx)
-		if err != nil {
-			return fmt.Errorf("getting categories page data: %w", err)
+		tab := r.URL.Query().Get("tab")
+		if !validTabs[tab] {
+			tab = "categories"
 		}
-		return NewView(ctx, w, r).Render(Page("Categories", PageCategories(view)))
+		view, err := h.svc.GetSettingsPageData(ctx)
+		if err != nil {
+			return fmt.Errorf("getting settings page data: %w", err)
+		}
+		return NewView(ctx, w, r).Render(Page("Settings", PageSettings(view, tab)))
 	})
 }
 
@@ -797,7 +804,7 @@ func (h *Handler) transferTemplateCategoryUpsert() http.Handler {
 		if _, err := h.svc.UpsertCategory(ctx, inp.TransferTemplateCategoryInput); err != nil {
 			return fmt.Errorf("upserting category: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/categories")
+		shttp.RedirectToNext(w, r, "/settings?tab=categories")
 		return nil
 	})
 }
@@ -807,7 +814,7 @@ func (h *Handler) transferTemplateCategoryDelete() http.Handler {
 		if err := h.svc.DeleteCategory(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting category: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/categories")
+		shttp.RedirectToNext(w, r, "/settings?tab=categories")
 		return nil
 	})
 }
@@ -840,7 +847,7 @@ func (h *Handler) accountTypeUpsert() http.Handler {
 		if err != nil {
 			return fmt.Errorf("upserting account type: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/categories")
+		shttp.RedirectToNext(w, r, "/settings?tab=categories")
 		return nil
 	})
 }
@@ -850,22 +857,12 @@ func (h *Handler) accountTypeDelete() http.Handler {
 		if err := h.svc.DeleteAccountType(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting account type: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/categories")
+		shttp.RedirectToNext(w, r, "/settings?tab=categories")
 		return nil
 	})
 }
 
 // ---- Special Dates ----
-
-func (h *Handler) specialDatesPage() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		specialDates, err := h.svc.ListSpecialDates(ctx)
-		if err != nil {
-			return fmt.Errorf("listing special dates: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Special Dates", PageSpecialDates(SpecialDatesView(specialDates))))
-	})
-}
 
 func (h *Handler) specialDateNewPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -893,7 +890,7 @@ func (h *Handler) specialDateUpsert() http.Handler {
 		if err != nil {
 			return fmt.Errorf("upserting special date: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/special-dates")
+		shttp.RedirectToNext(w, r, "/settings?tab=special-dates")
 		return nil
 	})
 }
@@ -903,7 +900,7 @@ func (h *Handler) specialDateDelete() http.Handler {
 		if err := h.svc.DeleteSpecialDate(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting special date: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/special-dates")
+		shttp.RedirectToNext(w, r, "/settings?tab=special-dates")
 		return nil
 	})
 }
@@ -1056,16 +1053,6 @@ func (h *Handler) chartsDataStream() http.Handler {
 	})
 }
 
-func (h *Handler) inkomstbasbeloppListPage() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		ibbs, err := h.svc.ListInkomstbasbelopp(ctx)
-		if err != nil {
-			return fmt.Errorf("listing inkomstbasbelopp: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Inkomstbasbelopp", InkomstbasbeloppListPage(ibbs)))
-	})
-}
-
 func (h *Handler) inkomstbasbeloppNewPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 		return NewView(ctx, w, r).Render(Page("New Inkomstbasbelopp", InkomstbasbeloppEditPage(Inkomstbasbelopp{}, false)))
@@ -1102,18 +1089,8 @@ func (h *Handler) inkomstbasbeloppDelete() http.Handler {
 		if err := h.svc.DeleteInkomstbasbelopp(ctx, r.PathValue("id")); err != nil {
 			return fmt.Errorf("deleting inkomstbasbelopp: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/settings/inkomstbasbelopp")
+		shttp.RedirectToNext(w, r, "/settings?tab=inkomstbasbelopp")
 		return nil
-	})
-}
-
-func (h *Handler) currencySettingsPage() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		cur, err := h.svc.GetDefaultCurrency(ctx)
-		if err != nil {
-			return fmt.Errorf("getting default currency: %w", err)
-		}
-		return NewView(ctx, w, r).Render(Page("Currency Settings", CurrencySettingsPage(cur, currency.SupportedCurrencies())))
 	})
 }
 
@@ -1129,7 +1106,7 @@ func (h *Handler) currencySettingsSave() http.Handler {
 		if err := h.svc.SetDefaultCurrency(ctx, code); err != nil {
 			return fmt.Errorf("setting default currency: %w", err)
 		}
-		shttp.RedirectToNext(w, r, "/settings/currency")
+		shttp.RedirectToNext(w, r, "/settings?tab=currency")
 		return nil
 	})
 }
