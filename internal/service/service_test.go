@@ -2701,8 +2701,8 @@ func TestBillGenerateTransferTemplates_MultipleAmountsWithEndDate(t *testing.T) 
 
 func TestBillGenerateTransferTemplates_DisabledBill(t *testing.T) {
 	ba := service.BillAccount{
-		ID:       "ba1",
-		Enabled:  true,
+		ID:         "ba1",
+		Enabled:    true,
 		Recurrence: "*-*-01",
 	}
 	bill := service.Bill{
@@ -2726,8 +2726,8 @@ func TestBillGenerateTransferTemplates_DisabledBill(t *testing.T) {
 
 func TestBillGenerateTransferTemplates_DisabledBillAccount(t *testing.T) {
 	ba := service.BillAccount{
-		ID:       "ba1",
-		Enabled:  false,
+		ID:         "ba1",
+		Enabled:    false,
 		Recurrence: "*-*-01",
 	}
 	bill := service.Bill{

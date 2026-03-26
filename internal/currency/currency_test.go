@@ -45,10 +45,10 @@ func TestCurrencyFormatAmount(t *testing.T) {
 		val  float64
 		want string
 	}{
-		{"SEK", 1234.50, "1234.50 kr"},
-		{"SEK", -99.99, "-99.99 kr"},
-		{"EUR", 1234.50, "€1234.50"},
-		{"USD", 1234.50, "$1234.50"},
+		{"SEK", 1234.50, "1\u00a0235 kr"},
+		{"SEK", -99.99, "−100 kr"},
+		{"EUR", 1234.50, "€1,235"},
+		{"USD", 1234.50, "$1,235"},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s/%v", tt.code, tt.val), func(t *testing.T) {

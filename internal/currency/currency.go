@@ -5,26 +5,32 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"time"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 type Currency struct {
-	Code   string
-	Name   string
-	Format string // fmt.Sprintf format string, e.g. "%.2f kr" or "$%.2f"
+	Code    string
+	Name    string
+	Format  string // fmt.Sprintf format string, e.g. "%.2f kr" or "$%.2f"
+	printer *message.Printer
 }
 
 func (c Currency) FormatAmount(val float64) string {
-	return fmt.Sprintf(c.Format, val)
+	rounded := math.Round(val)
+	return c.printer.Sprintf(c.Format, rounded)
 }
 
 var supported = []Currency{
-	{"EUR", "Euro", "€%.0f"},
-	{"SEK", "Swedish Krona", "%.0f kr"},
-	{"USD", "United States Dollar", "$%.0f"},
-	{"GBP", "British Pound", "£%.0f"},
+	{"EUR", "Euro", "€%.0f", message.NewPrinter(language.English)},
+	{"SEK", "Swedish Krona", "%.0f kr", message.NewPrinter(language.Swedish)},
+	{"USD", "United States Dollar", "$%.0f", message.NewPrinter(language.English)},
+	{"GBP", "British Pound", "£%.0f", message.NewPrinter(language.English)},
 }
 
 var byCode map[string]Currency

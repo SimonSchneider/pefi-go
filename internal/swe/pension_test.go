@@ -9,14 +9,14 @@ import (
 
 func TestCalculateITP1Pension(t *testing.T) {
 	const ibb = 76200.0
-	cutoffYearly := ibb * 7.5  // 571500
+	cutoffYearly := ibb * 7.5          // 571500
 	cutoffMonthly := cutoffYearly / 12 // 47625
 
 	tests := []struct {
-		name          string
-		grossMonthly  float64
-		ibb           float64
-		wantPension   float64
+		name         string
+		grossMonthly float64
+		ibb          float64
+		wantPension  float64
 	}{
 		{
 			name:         "zero salary",

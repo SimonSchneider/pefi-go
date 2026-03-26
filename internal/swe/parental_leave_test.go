@@ -133,10 +133,10 @@ func TestCalculateFullParentalLeaveCompensation(t *testing.T) {
 			}(),
 		},
 		{
-			name:            "0 sjuk days/week returns zero",
-			monthlyGross:    40000,
-			sjukDaysPerWeek: 0,
-			prisbasbelopp:   pbb,
+			name:              "0 sjuk days/week returns zero",
+			monthlyGross:      40000,
+			sjukDaysPerWeek:   0,
+			prisbasbelopp:     pbb,
 			wantMonthlyApprox: 0,
 		},
 		{

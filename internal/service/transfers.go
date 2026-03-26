@@ -286,8 +286,8 @@ func newNodeStyle(color string) *TransferChartDataNodeStyle {
 }
 
 type TransferChartDataNode struct {
-	Name      string                     `json:"name"`
-	Label     string                     `json:"label"`
+	Name      string                      `json:"name"`
+	Label     string                      `json:"label"`
 	ItemStyle *TransferChartDataNodeStyle `json:"itemStyle,omitempty"`
 }
 
