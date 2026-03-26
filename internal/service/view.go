@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/pefigo/internal/currency"
 )
 
 type TransferTemplateEditView struct {
@@ -281,6 +282,46 @@ func (s *Service) GetCategoriesPageData(ctx context.Context) (*CategoriesPageVie
 	return &CategoriesPageView{
 		AccountTypes: accountTypes,
 		Categories:   categories,
+	}, nil
+}
+
+type SettingsPageView struct {
+	AccountTypes     []AccountType
+	Categories       []TransferTemplateCategory
+	SpecialDates     []SpecialDate
+	Inkomstbasbelopp []Inkomstbasbelopp
+	CurrentCurrency  string
+	Currencies       []currency.Currency
+}
+
+func (s *Service) GetSettingsPageData(ctx context.Context) (*SettingsPageView, error) {
+	accountTypes, err := s.ListAccountTypes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing account types: %w", err)
+	}
+	categories, err := s.ListCategories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing categories: %w", err)
+	}
+	specialDates, err := s.ListSpecialDates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing special dates: %w", err)
+	}
+	ibbs, err := s.ListInkomstbasbelopp(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
+	}
+	cur, err := s.GetDefaultCurrency(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting default currency: %w", err)
+	}
+	return &SettingsPageView{
+		AccountTypes:     accountTypes,
+		Categories:       categories,
+		SpecialDates:     specialDates,
+		Inkomstbasbelopp: ibbs,
+		CurrentCurrency:  cur,
+		Currencies:       currency.SupportedCurrencies(),
 	}, nil
 }
 
