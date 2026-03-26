@@ -233,11 +233,11 @@ func TestCachingBehavior(t *testing.T) {
 			ResultCount: 1,
 			Results: []map[string]string{
 				{
-					"kommun":                    "STOCKHOLM",
-					"församling":                "TEST",
-					"summa, exkl. kyrkoavgift":  "30.67",
-					"summa, inkl. kyrkoavgift":  "31.85",
-					"år":                        "2025",
+					"kommun":                   "STOCKHOLM",
+					"församling":               "TEST",
+					"summa, exkl. kyrkoavgift": "30.67",
+					"summa, inkl. kyrkoavgift": "31.85",
+					"år":                       "2025",
 				},
 			},
 		}

@@ -57,35 +57,35 @@ func TestCalculateSickPayDeduction(t *testing.T) {
 	const pbb = 57300.0
 
 	tests := []struct {
-		name               string
-		monthlyGross       float64
-		sickDaysPerOcc     float64
-		sickOccsPerYear    float64
-		prisbasbelopp      float64
-		wantMonthlyApprox  float64
+		name              string
+		monthlyGross      float64
+		sickDaysPerOcc    float64
+		sickOccsPerYear   float64
+		prisbasbelopp     float64
+		wantMonthlyApprox float64
 	}{
 		{
-			name:           "zero occasions",
-			monthlyGross:   50000,
-			sickDaysPerOcc: 3,
-			sickOccsPerYear: 0,
-			prisbasbelopp:  pbb,
+			name:              "zero occasions",
+			monthlyGross:      50000,
+			sickDaysPerOcc:    3,
+			sickOccsPerYear:   0,
+			prisbasbelopp:     pbb,
 			wantMonthlyApprox: 0,
 		},
 		{
-			name:           "zero sick days per occasion",
-			monthlyGross:   50000,
-			sickDaysPerOcc: 0,
-			sickOccsPerYear: 4,
-			prisbasbelopp:  pbb,
+			name:              "zero sick days per occasion",
+			monthlyGross:      50000,
+			sickDaysPerOcc:    0,
+			sickOccsPerYear:   4,
+			prisbasbelopp:     pbb,
 			wantMonthlyApprox: 0,
 		},
 		{
-			name:           "salary below PBB cap, 4 occasions x 3 days",
-			monthlyGross:   40000,
-			sickDaysPerOcc: 3,
+			name:            "salary below PBB cap, 4 occasions x 3 days",
+			monthlyGross:    40000,
+			sickDaysPerOcc:  3,
 			sickOccsPerYear: 4,
-			prisbasbelopp:  pbb,
+			prisbasbelopp:   pbb,
 			wantMonthlyApprox: func() float64 {
 				annual := 40000.0 * 12
 				daily := annual / 260
@@ -97,11 +97,11 @@ func TestCalculateSickPayDeduction(t *testing.T) {
 			}(),
 		},
 		{
-			name:           "salary above PBB cap",
-			monthlyGross:   55000,
-			sickDaysPerOcc: 3,
+			name:            "salary above PBB cap",
+			monthlyGross:    55000,
+			sickDaysPerOcc:  3,
 			sickOccsPerYear: 4,
-			prisbasbelopp:  pbb,
+			prisbasbelopp:   pbb,
 			wantMonthlyApprox: func() float64 {
 				annual := 55000.0 * 12
 				capped := 10 * pbb
@@ -114,11 +114,11 @@ func TestCalculateSickPayDeduction(t *testing.T) {
 			}(),
 		},
 		{
-			name:           "1 day per occasion means only karensdag",
-			monthlyGross:   50000,
-			sickDaysPerOcc: 1,
+			name:            "1 day per occasion means only karensdag",
+			monthlyGross:    50000,
+			sickDaysPerOcc:  1,
 			sickOccsPerYear: 6,
-			prisbasbelopp:  pbb,
+			prisbasbelopp:   pbb,
 			wantMonthlyApprox: func() float64 {
 				annual := 50000.0 * 12
 				daily := annual / 260

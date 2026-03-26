@@ -28,22 +28,22 @@ type NetSalarySegment struct {
 }
 
 type Salary struct {
-	ID               string
-	Name             string
-	ToAccountID      string
-	PensionAccountID string
-	Priority         int64
-	Recurrence       date.Cron
-	BudgetCategoryID *string
-	Enabled          bool
-	Kommun           string
-	Forsamling       string
-	ChurchMember     bool
-	IsGross          bool
-	Amounts              []SalaryAmount
-	Adjustments          []SalaryAdjustment
+	ID                    string
+	Name                  string
+	ToAccountID           string
+	PensionAccountID      string
+	Priority              int64
+	Recurrence            date.Cron
+	BudgetCategoryID      *string
+	Enabled               bool
+	Kommun                string
+	Forsamling            string
+	ChurchMember          bool
+	IsGross               bool
+	Amounts               []SalaryAmount
+	Adjustments           []SalaryAdjustment
 	PartialParentalLeaves []PartialParentalLeave
-	FullParentalLeaves   []FullParentalLeave
+	FullParentalLeaves    []FullParentalLeave
 	// NetSegments is populated by the service layer when IsGross is true.
 	// Segments are split at the union of salary-amount, adjustment, and PBB change dates.
 	NetSegments []NetSalarySegment

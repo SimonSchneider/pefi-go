@@ -85,7 +85,7 @@ func (q *Queries) GetBillAccount(ctx context.Context, id string) (BillAccount, e
 }
 
 const listAllBillAmounts = `-- name: ListAllBillAmounts :many
-SELECT id, bill_id, amount, start_date, end_date, created_at, updated_at, period
+SELECT id, bill_id, amount, start_date, end_date, created_at, updated_at, period, currency
 FROM bill_amount
 ORDER BY bill_id, start_date, id
 `
@@ -108,6 +108,7 @@ func (q *Queries) ListAllBillAmounts(ctx context.Context) ([]BillAmount, error) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Period,
+			&i.Currency,
 		); err != nil {
 			return nil, err
 		}
@@ -200,7 +201,7 @@ func (q *Queries) ListBillAccounts(ctx context.Context) ([]BillAccount, error) {
 }
 
 const listBillAmounts = `-- name: ListBillAmounts :many
-SELECT id, bill_id, amount, start_date, end_date, created_at, updated_at, period
+SELECT id, bill_id, amount, start_date, end_date, created_at, updated_at, period, currency
 FROM bill_amount
 WHERE bill_id = ?
 ORDER BY start_date, id
@@ -224,6 +225,7 @@ func (q *Queries) ListBillAmounts(ctx context.Context, billID string) ([]BillAmo
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Period,
+			&i.Currency,
 		); err != nil {
 			return nil, err
 		}
@@ -405,20 +407,22 @@ INSERT INTO bill_amount (
     bill_id,
     amount,
     period,
+    currency,
     start_date,
     end_date,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET bill_id = EXCLUDED.bill_id,
   amount = EXCLUDED.amount,
   period = EXCLUDED.period,
+  currency = EXCLUDED.currency,
   start_date = EXCLUDED.start_date,
   end_date = EXCLUDED.end_date,
   updated_at = EXCLUDED.updated_at
-RETURNING id, bill_id, amount, start_date, end_date, created_at, updated_at, period
+RETURNING id, bill_id, amount, start_date, end_date, created_at, updated_at, period, currency
 `
 
 type UpsertBillAmountParams struct {
@@ -426,6 +430,7 @@ type UpsertBillAmountParams struct {
 	BillID    string
 	Amount    string
 	Period    string
+	Currency  string
 	StartDate int64
 	EndDate   *int64
 	CreatedAt int64
@@ -438,6 +443,7 @@ func (q *Queries) UpsertBillAmount(ctx context.Context, arg UpsertBillAmountPara
 		arg.BillID,
 		arg.Amount,
 		arg.Period,
+		arg.Currency,
 		arg.StartDate,
 		arg.EndDate,
 		arg.CreatedAt,
@@ -453,6 +459,7 @@ func (q *Queries) UpsertBillAmount(ctx context.Context, arg UpsertBillAmountPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Period,
+		&i.Currency,
 	)
 	return i, err
 }

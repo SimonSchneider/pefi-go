@@ -3,6 +3,11 @@ SELECT value
 FROM api_cache
 WHERE cache_key = ?;
 
+-- name: GetCacheEntryIfFresh :one
+SELECT value
+FROM api_cache
+WHERE cache_key = ? AND created_at >= ?;
+
 -- name: UpsertCacheEntry :exec
 INSERT INTO api_cache (cache_key, value, created_at)
 VALUES (?, ?, ?)
