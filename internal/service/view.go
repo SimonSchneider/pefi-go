@@ -15,7 +15,6 @@ type TransferTemplateEditView struct {
 	TransferTemplate TransferTemplate
 	Accounts         []Account
 	Categories       []TransferTemplateCategory
-	AllTemplates     []TransferTemplate
 }
 
 func (c TransferTemplateEditView) IsEdit() bool {
@@ -24,9 +23,14 @@ func (c TransferTemplateEditView) IsEdit() bool {
 
 type TransferTemplateWithAmount struct {
 	TransferTemplate
-	Amount float64
+	Amount     float64
+	GroupTotal float64
 
 	SimDate date.Date
+}
+
+func (t *TransferTemplateWithAmount) IsGroup() bool {
+	return len(t.GroupMembers) > 0
 }
 
 func (c *TransferTemplateWithAmount) HasDifferentAmount() bool {
@@ -90,14 +94,14 @@ type TransferTemplatesView2 struct {
 	Categories        map[string]TransferTemplateCategory
 	MonthlyIncome     float64
 	MonthlyExpenses   float64
-	childAmounts      map[string]TransferTemplateWithAmount
+	memberAmounts     map[string]TransferTemplateWithAmount
 }
 
-func (v *TransferTemplatesView2) GetChildWithAmount(child TransferTemplate) TransferTemplateWithAmount {
-	if a, ok := v.childAmounts[child.ID]; ok {
+func (v *TransferTemplatesView2) GetMemberWithAmount(member TransferTemplate) TransferTemplateWithAmount {
+	if a, ok := v.memberAmounts[member.ID]; ok {
 		return a
 	}
-	return TransferTemplateWithAmount{TransferTemplate: child}
+	return TransferTemplateWithAmount{TransferTemplate: member}
 }
 
 func newTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
@@ -106,31 +110,43 @@ func newTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []
 		TransferTemplates: MakeTransferTemplatesWithAmount(transferTemplates, day),
 		Accounts:          KeyBy(accounts, func(a Account) string { return a.ID }),
 		Categories:        KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
-		childAmounts:      make(map[string]TransferTemplateWithAmount),
+		memberAmounts:     make(map[string]TransferTemplateWithAmount),
 	}
 
-	var children []TransferTemplate
+	var members []TransferTemplate
 	for _, t := range transferTemplates {
-		children = append(children, t.ChildTemplates...)
+		members = append(members, t.GroupMembers...)
 	}
-	if len(children) > 0 {
-		for _, c := range MakeTransferTemplatesWithAmount(children, day) {
-			v.childAmounts[c.ID] = c
+	if len(members) > 0 {
+		for _, m := range MakeTransferTemplatesWithAmount(members, day) {
+			v.memberAmounts[m.ID] = m
 		}
 	}
 
-	addToMonthlyTotals := func(t TransferTemplateWithAmount) {
-		if t.FromAccountID == "" {
-			v.MonthlyIncome += t.Amount
-		} else if t.ToAccountID == "" {
-			v.MonthlyExpenses += -t.Amount
+	// Compute GroupTotal for each group row
+	for i := range v.TransferTemplates {
+		if v.TransferTemplates[i].IsGroup() {
+			total := v.TransferTemplates[i].Amount
+			for _, member := range v.TransferTemplates[i].GroupMembers {
+				total += v.memberAmounts[member.ID].Amount
+			}
+			v.TransferTemplates[i].GroupTotal = total
+		}
+	}
+
+	addToMonthlyTotals := func(fromID, toID string, amount float64) {
+		if fromID == "" {
+			v.MonthlyIncome += amount
+		} else if toID == "" {
+			v.MonthlyExpenses += -amount
 		}
 	}
 	for _, t := range v.TransferTemplates {
-		addToMonthlyTotals(t)
-	}
-	for _, t := range v.childAmounts {
-		addToMonthlyTotals(t)
+		if t.IsGroup() {
+			addToMonthlyTotals(t.FromAccountID, t.ToAccountID, t.GroupTotal)
+		} else {
+			addToMonthlyTotals(t.FromAccountID, t.ToAccountID, t.Amount)
+		}
 	}
 	return v
 }
@@ -501,14 +517,9 @@ func (s *Service) GetTransferTemplateNewPageData(ctx context.Context) (*Transfer
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
-	allTemplates, err := s.ListTransferTemplatesWithChildren(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("listing templates: %w", err)
-	}
 	return &TransferTemplateEditView{
-		Accounts:     accs,
-		Categories:   categories,
-		AllTemplates: allTemplates,
+		Accounts:   accs,
+		Categories: categories,
 	}, nil
 }
 
@@ -525,15 +536,10 @@ func (s *Service) GetTransferTemplateEditPageData(ctx context.Context, id string
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
-	allTemplates, err := s.ListTransferTemplatesWithChildren(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("listing templates: %w", err)
-	}
 	return &TransferTemplateEditView{
 		Accounts:         accs,
 		TransferTemplate: t,
 		Categories:       categories,
-		AllTemplates:     allTemplates,
 	}, nil
 }
 

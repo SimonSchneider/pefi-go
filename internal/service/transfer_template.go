@@ -39,11 +39,8 @@ type TransferTemplate struct {
 	StartDate        date.Date
 	EndDate          *date.Date
 	Enabled          bool
-	ParentTemplateID *string
 	BudgetCategoryID *string
-
-	ParentTemplate *TransferTemplate
-	ChildTemplates []TransferTemplate
+	GroupMembers     []TransferTemplate
 
 	Source TransferTemplateSource
 }
@@ -92,7 +89,6 @@ func transferTemplateFromDB(t pdb.TransferTemplate) (TransferTemplate, error) {
 		StartDate:        date.Date(t.StartDate),
 		EndDate:          endDate,
 		Enabled:          t.Enabled,
-		ParentTemplateID: t.ParentTemplateID,
 		BudgetCategoryID: t.BudgetCategoryID,
 	}, nil
 }
@@ -110,7 +106,6 @@ type TransferTemplateInput struct {
 	StartDate        date.Date
 	EndDate          *date.Date
 	Enabled          bool
-	ParentTemplateID *string
 	BudgetCategoryID *string
 }
 
@@ -140,7 +135,6 @@ func (s *Service) UpsertTransferTemplate(ctx context.Context, inp TransferTempla
 		StartDate:        int64(inp.StartDate),
 		EndDate:          endDate,
 		Enabled:          inp.Enabled,
-		ParentTemplateID: inp.ParentTemplateID,
 		BudgetCategoryID: inp.BudgetCategoryID,
 		CreatedAt:        time.Now().Unix(),
 		UpdatedAt:        time.Now().Unix(),
@@ -214,82 +208,79 @@ func sortTransferTemplates(ts []TransferTemplate) {
 	})
 }
 
-func (s *Service) ListAllTransferTemplatesWithChildren(ctx context.Context) ([]TransferTemplate, error) {
-	parsedTemplates, err := s.ListAllTransferTemplates(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list all templates: %w", err)
+func autoGroupTransferTemplates(templates []TransferTemplate) []TransferTemplate {
+	type groupKey struct {
+		Name          string
+		Priority      int64
+		Recurrence    string
+		FromAccountID string
+		ToAccountID   string
 	}
-	byId := make(map[string]int)
-	for i := range parsedTemplates {
-		byId[parsedTemplates[i].ID] = i
+
+	type groupEntry struct {
+		indices []int
 	}
-	for i := range parsedTemplates {
-		template := &parsedTemplates[i]
-		if template.ParentTemplateID != nil {
-			parentIndex, ok := byId[*template.ParentTemplateID]
-			if ok {
-				template.ParentTemplate = &parsedTemplates[parentIndex]
-				parsedTemplates[parentIndex].ChildTemplates = append(parsedTemplates[parentIndex].ChildTemplates, *template)
+
+	groups := make(map[groupKey]*groupEntry)
+	var keyOrder []groupKey
+
+	for i, t := range templates {
+		k := groupKey{
+			Name:          t.Name,
+			Priority:      t.Priority,
+			Recurrence:    string(t.Recurrence),
+			FromAccountID: t.FromAccountID,
+			ToAccountID:   t.ToAccountID,
+		}
+		if entry, ok := groups[k]; ok {
+			entry.indices = append(entry.indices, i)
+		} else {
+			groups[k] = &groupEntry{indices: []int{i}}
+			keyOrder = append(keyOrder, k)
+		}
+	}
+
+	result := make([]TransferTemplate, 0, len(keyOrder))
+	for _, k := range keyOrder {
+		indices := groups[k].indices
+		if len(indices) == 1 {
+			result = append(result, templates[indices[0]])
+		} else {
+			repIdx := indices[0]
+			for _, idx := range indices[1:] {
+				if templates[idx].StartDate > templates[repIdx].StartDate {
+					repIdx = idx
+				}
 			}
+			rep := templates[repIdx]
+			members := make([]TransferTemplate, 0, len(indices)-1)
+			for _, idx := range indices {
+				if idx != repIdx {
+					members = append(members, templates[idx])
+				}
+			}
+			rep.GroupMembers = members
+			result = append(result, rep)
 		}
 	}
-	result := make([]TransferTemplate, 0, len(parsedTemplates))
-	for _, t := range parsedTemplates {
-		if t.ParentTemplateID == nil {
-			result = append(result, t)
-		}
-	}
-	return result, nil
+	return result
 }
 
-func (s *Service) ListTransferTemplatesWithChildren(ctx context.Context) ([]TransferTemplate, error) {
-	parsedTemplates, err := s.ListTransferTemplates(ctx)
+func (s *Service) ListAllTransferTemplatesWithChildren(ctx context.Context) ([]TransferTemplate, error) {
+	templates, err := s.ListAllTransferTemplates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list all templates: %w", err)
 	}
-	byId := make(map[string]int)
-	for i := range parsedTemplates {
-		byId[parsedTemplates[i].ID] = i
-	}
-	for i := range parsedTemplates {
-		template := &parsedTemplates[i]
-		if template.ParentTemplateID != nil {
-			parentIndex, ok := byId[*template.ParentTemplateID]
-			if ok {
-				template.ParentTemplate = &parsedTemplates[parentIndex]
-				parsedTemplates[parentIndex].ChildTemplates = append(parsedTemplates[parentIndex].ChildTemplates, *template)
-			}
-		}
-	}
-	result := make([]TransferTemplate, 0, len(parsedTemplates))
-	for _, t := range parsedTemplates {
-		if t.ParentTemplateID == nil {
-			result = append(result, t)
-		}
-	}
-	return result, nil
+	return autoGroupTransferTemplates(templates), nil
 }
+
 
 func (s *Service) GetTransferTemplate(ctx context.Context, id string) (TransferTemplate, error) {
 	t, err := pdb.New(s.db).GetTransferTemplate(ctx, id)
 	if err != nil {
 		return TransferTemplate{}, fmt.Errorf("failed to get transfer template: %w", err)
 	}
-	template, err := transferTemplateFromDB(t)
-	if err != nil {
-		return TransferTemplate{}, err
-	}
-	if template.ParentTemplateID != nil {
-		parent, err := s.GetTransferTemplate(ctx, *template.ParentTemplateID)
-		if err == nil {
-			template.ParentTemplate = &parent
-		}
-	}
-	children, err := s.GetChildTemplates(ctx, template.ID)
-	if err == nil && len(children) > 0 {
-		template.ChildTemplates = children
-	}
-	return template, nil
+	return transferTemplateFromDB(t)
 }
 
 func (s *Service) DeleteTransferTemplate(ctx context.Context, id string) error {
@@ -299,18 +290,3 @@ func (s *Service) DeleteTransferTemplate(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Service) GetChildTemplates(ctx context.Context, parentID string) ([]TransferTemplate, error) {
-	templates, err := pdb.New(s.db).GetChildTemplates(ctx, &parentID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get child templates: %w", err)
-	}
-	var result []TransferTemplate
-	for _, t := range templates {
-		template, err := transferTemplateFromDB(t)
-		if err != nil {
-			return nil, fmt.Errorf("converting transfer template from DB: %w", err)
-		}
-		result = append(result, template)
-	}
-	return result, nil
-}

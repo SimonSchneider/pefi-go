@@ -236,12 +236,6 @@ func (t *transferTemplateForm) FromForm(r *http.Request) error {
 	} else {
 		t.BudgetCategoryID = nil
 	}
-	parentTemplateID := r.FormValue("parent_template_id")
-	if parentTemplateID != "" {
-		t.ParentTemplateID = &parentTemplateID
-	} else {
-		t.ParentTemplateID = nil
-	}
 	return nil
 }
 

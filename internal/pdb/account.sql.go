@@ -275,55 +275,6 @@ func (q *Queries) GetBudgetAccounts(ctx context.Context) ([]Account, error) {
 	return items, nil
 }
 
-const getChildTemplates = `-- name: GetChildTemplates :many
-SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id, budget_category_id
-FROM transfer_template
-WHERE parent_template_id = ?
-ORDER BY start_date,
-  name,
-  id
-`
-
-func (q *Queries) GetChildTemplates(ctx context.Context, parentTemplateID *string) ([]TransferTemplate, error) {
-	rows, err := q.db.QueryContext(ctx, getChildTemplates, parentTemplateID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TransferTemplate
-	for rows.Next() {
-		var i TransferTemplate
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.FromAccountID,
-			&i.ToAccountID,
-			&i.AmountType,
-			&i.AmountFixed,
-			&i.AmountPercent,
-			&i.Priority,
-			&i.Recurrence,
-			&i.StartDate,
-			&i.EndDate,
-			&i.Enabled,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ParentTemplateID,
-			&i.BudgetCategoryID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getGrowthModel = `-- name: GetGrowthModel :one
 SELECT id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
 FROM growth_model
@@ -639,7 +590,7 @@ func (q *Queries) GetStartupShareOption(ctx context.Context, id string) (Startup
 }
 
 const getTransferTemplate = `-- name: GetTransferTemplate :one
-SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id, budget_category_id
+SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, budget_category_id
 FROM transfer_template
 WHERE id = ?
 `
@@ -662,7 +613,6 @@ func (q *Queries) GetTransferTemplate(ctx context.Context, id string) (TransferT
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ParentTemplateID,
 		&i.BudgetCategoryID,
 	)
 	return i, err
@@ -688,7 +638,7 @@ func (q *Queries) GetTransferTemplateCategory(ctx context.Context, id string) (T
 }
 
 const getTransferTemplates = `-- name: GetTransferTemplates :many
-SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id, budget_category_id
+SELECT id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, budget_category_id
 FROM transfer_template
 ORDER BY recurrence,
   priority,
@@ -722,7 +672,6 @@ func (q *Queries) GetTransferTemplates(ctx context.Context) ([]TransferTemplate,
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.ParentTemplateID,
 			&i.BudgetCategoryID,
 		); err != nil {
 			return nil, err
@@ -1584,12 +1533,11 @@ INSERT INTO transfer_template (
     start_date,
     end_date,
     enabled,
-    parent_template_id,
     budget_category_id,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
   from_account_id = EXCLUDED.from_account_id,
@@ -1602,10 +1550,9 @@ SET name = EXCLUDED.name,
   start_date = EXCLUDED.start_date,
   end_date = EXCLUDED.end_date,
   enabled = EXCLUDED.enabled,
-  parent_template_id = EXCLUDED.parent_template_id,
   budget_category_id = EXCLUDED.budget_category_id,
   updated_at = EXCLUDED.updated_at
-RETURNING id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, parent_template_id, budget_category_id
+RETURNING id, name, from_account_id, to_account_id, amount_type, amount_fixed, amount_percent, priority, recurrence, start_date, end_date, enabled, created_at, updated_at, budget_category_id
 `
 
 type UpsertTransferTemplateParams struct {
@@ -1621,7 +1568,6 @@ type UpsertTransferTemplateParams struct {
 	StartDate        int64
 	EndDate          *int64
 	Enabled          bool
-	ParentTemplateID *string
 	BudgetCategoryID *string
 	CreatedAt        int64
 	UpdatedAt        int64
@@ -1641,7 +1587,6 @@ func (q *Queries) UpsertTransferTemplate(ctx context.Context, arg UpsertTransfer
 		arg.StartDate,
 		arg.EndDate,
 		arg.Enabled,
-		arg.ParentTemplateID,
 		arg.BudgetCategoryID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -1662,7 +1607,6 @@ func (q *Queries) UpsertTransferTemplate(ctx context.Context, arg UpsertTransfer
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ParentTemplateID,
 		&i.BudgetCategoryID,
 	)
 	return i, err

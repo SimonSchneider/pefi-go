@@ -224,7 +224,6 @@ type TransferTemplate struct {
 	Enabled          bool
 	CreatedAt        int64
 	UpdatedAt        int64
-	ParentTemplateID *string
 	BudgetCategoryID *string
 }
 
