@@ -357,6 +357,11 @@ templ TransferTemplateMemberRow(view *TransferTemplatesView2, parentID string, t
 							<span class="inline-block w-2 h-2 rounded-full bg-error shrink-0" title="Disabled"></span>
 					}
 					<span>{ t.Name }</span>
+					if t.Source.IsGenerated() {
+						<a href={ templ.SafeURL(t.Source.EditURL) } class="badge badge-outline badge-sm gap-1" title={ t.Source.Label }>
+							{ t.Source.Type }
+						</a>
+					}
 				</div>
 				if t.StartDate > 0 || t.EndDate != nil {
 					<div class="text-xs text-base-content/40 ml-6">
