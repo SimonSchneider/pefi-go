@@ -24,6 +24,7 @@ tr:hover .row-actions { opacity: 1; }
 .no-transition *::before,
 .no-transition *::after {
     transition-duration: 0s !important;
+    transition-delay: 0s !important;
 }
 
 /* === Collapsed sidebar (drawer unchecked on desktop) === */

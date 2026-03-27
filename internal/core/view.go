@@ -22,7 +22,26 @@ func NewView(ctx context.Context, w http.ResponseWriter, r *http.Request) *View 
 
 func (v *View) Render(c templ.Component) error {
 	v.setupHeaders(false)
-	return c.Render(v.ctx, v.w)
+	ctx := context.WithValue(v.ctx, sidebarExpandedKey{}, isSidebarExpanded(v.r))
+	return c.Render(ctx, v.w)
+}
+
+type sidebarExpandedKey struct{}
+
+func isSidebarExpanded(r *http.Request) bool {
+	c, err := r.Cookie("sidebar-expanded")
+	if err != nil {
+		return true // default: expanded
+	}
+	return c.Value != "false"
+}
+
+func getSidebarExpanded(ctx context.Context) bool {
+	v, ok := ctx.Value(sidebarExpandedKey{}).(bool)
+	if !ok {
+		return true
+	}
+	return v
 }
 
 func (v *View) setupHeaders(cache bool) {

@@ -15,6 +15,8 @@ templ Page(name string, child templ.Component) {
 					if (t === "bumblebee" || t === "bumblebee-dark") {
 						document.documentElement.setAttribute("data-theme", t);
 					}
+					// Suppress transitions during initial page load (removed after first paint by sidebar.js)
+					document.documentElement.classList.add("no-transition");
 				})();
 			</script>
 			<script src="/static/public/htmx.min.js"></script>
@@ -159,29 +161,17 @@ templ Header(title string, btns ...templ.Component) {
 
 templ Layout(page string, child templ.Component) {
 	<div class="drawer lg:drawer-open" style="height:100vh;overflow:hidden">
-		<input id="sidebar-drawer" type="checkbox" class="drawer-toggle"/>
-		<script>
-			// Immediately set sidebar state before any rendering occurs.
-			// Also suppress transitions on initial load to prevent flash.
-			(function() {
-				var t = document.getElementById("sidebar-drawer");
-				if (t && window.innerWidth >= 1024) {
-					t.checked = localStorage.getItem("sidebar-expanded") !== "false";
-				}
-				document.documentElement.classList.add("no-transition");
-				requestAnimationFrame(function() {
-					requestAnimationFrame(function() {
-						document.documentElement.classList.remove("no-transition");
-					});
-				});
-			})();
-		</script>
-		<div class="drawer-content flex flex-col min-w-0 overflow-hidden" style="max-height:100vh">
-			@child
-		</div>
+		if getSidebarExpanded(ctx) {
+			<input id="sidebar-drawer" type="checkbox" class="drawer-toggle" checked/>
+		} else {
+			<input id="sidebar-drawer" type="checkbox" class="drawer-toggle"/>
+		}
 		<div class="drawer-side is-drawer-close:overflow-visible z-40">
 			<label for="sidebar-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
 			@SidebarContent(page)
+		</div>
+		<div class="drawer-content flex flex-col min-w-0 overflow-hidden" style="max-height:100vh">
+			@child
 		</div>
 	</div>
 }

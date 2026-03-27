@@ -573,7 +573,7 @@ func TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateW
 		ctx = templ.ClearChildren(ctx)
 		isGroup := t.IsGroup()
 		var templ_7745c5c3_Var24 = []any{"transition-colors hover:bg-base-200/50",
-			templ.KV("cursor-pointer font-semibold", isGroup),
+			templ.KV("cursor-pointer font-semibold collapsed", isGroup),
 		}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var24...)
 		if templ_7745c5c3_Err != nil {
@@ -1058,7 +1058,7 @@ func TransferTemplateMemberRow(view *TransferTemplatesView2, parentID string, t 
 			templ_7745c5c3_Var43 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<tr class=\"hover:bg-base-200/50 transition-colors bg-base-100/50\" data-parent-id=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<tr class=\"hover:bg-base-200/50 transition-colors bg-base-100/50 hidden\" data-parent-id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
