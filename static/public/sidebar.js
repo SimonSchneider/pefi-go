@@ -6,6 +6,18 @@
   var THEME_KEY = "theme";
   var LG = 1024;
 
+  // Remove no-transition class after first paint so future toggles animate
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      document.documentElement.classList.remove("no-transition");
+    });
+  });
+
+  function setSidebarState(expanded) {
+    localStorage.setItem(STORAGE_KEY, expanded ? "true" : "false");
+    document.cookie = STORAGE_KEY + "=" + (expanded ? "true" : "false") + ";path=/;max-age=31536000;SameSite=Lax";
+  }
+
   // Theme persistence: sync theme-controller checkbox and data-theme with localStorage
   var themeController = document.querySelector('input.theme-controller[value="bumblebee-dark"]');
   if (themeController) {
@@ -27,7 +39,7 @@
   // and trigger resize so ECharts and other components recalculate
   toggle.addEventListener("change", function () {
     if (window.innerWidth >= LG) {
-      localStorage.setItem(STORAGE_KEY, toggle.checked ? "true" : "false");
+      setSidebarState(toggle.checked);
     }
     // Wait for the CSS transition to finish (200ms), then fire resize
     setTimeout(function () {
