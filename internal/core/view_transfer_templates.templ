@@ -208,7 +208,7 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 	<tr
 		class={
 			"transition-colors hover:bg-base-200/50",
-			templ.KV("cursor-pointer font-semibold", isGroup),
+			templ.KV("cursor-pointer font-semibold collapsed", isGroup),
 		}
 		if isGroup {
 			data-template-id={ t.ID }
@@ -346,7 +346,7 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 
 templ TransferTemplateMemberRow(view *TransferTemplatesView2, parentID string, t *TransferTemplateWithAmount) {
 	<tr
-		class="hover:bg-base-200/50 transition-colors bg-base-100/50"
+		class="hover:bg-base-200/50 transition-colors bg-base-100/50 hidden"
 		data-parent-id={ parentID }
 	>
 		<td class="font-medium" style="padding-left:2.5rem;">
