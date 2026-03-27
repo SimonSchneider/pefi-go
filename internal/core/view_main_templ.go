@@ -254,13 +254,30 @@ func SidebarContent(page string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = NavGroup("Settings",
-			NavItem("/settings", IconSettings("w-5 h-5"), "Settings", page),
-		).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</ul></nav><!-- Footer --><div class=\"sidebar-footer border-t border-base-300 p-2 is-drawer-open:p-4\"><div class=\"flex is-drawer-open:flex-row is-drawer-close:flex-col items-center is-drawer-open:justify-between gap-2\"><label class=\"swap swap-rotate btn btn-ghost btn-circle\"><input type=\"checkbox\" class=\"theme-controller\" value=\"bumblebee-dark\"> <svg class=\"swap-off h-5 w-5 fill-current\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z\"></path></svg> <svg class=\"swap-on h-5 w-5 fill-current\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z\"></path></svg></label><div class=\"is-drawer-close:tooltip is-drawer-close:tooltip-right\" data-tip=\"Settings\"><a href=\"/settings\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</ul></nav><!-- Footer --><div class=\"sidebar-footer border-t border-base-300 p-2 is-drawer-open:p-4\"><div class=\"flex is-drawer-open:flex-row is-drawer-close:flex-col items-center is-drawer-open:justify-between gap-2\"><label class=\"swap swap-rotate btn btn-ghost btn-circle\"><input type=\"checkbox\" class=\"theme-controller\" value=\"bumblebee-dark\"> <svg class=\"swap-off h-5 w-5 fill-current\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z\"></path></svg> <svg class=\"swap-on h-5 w-5 fill-current\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z\"></path></svg></label> <label for=\"sidebar-drawer\" class=\"btn btn-ghost btn-circle swap swap-rotate hidden lg:flex\" aria-label=\"Toggle sidebar\"><input type=\"checkbox\" class=\"peer/toggle hidden\" id=\"sidebar-toggle-visual\"> <span class=\"is-drawer-open:hidden\">")
+		if "/settings" == page {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, " class=\"btn btn-primary btn-circle\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " class=\"btn btn-ghost btn-circle\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, ">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = IconSettings("w-5 h-5").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</a></div><label for=\"sidebar-drawer\" class=\"btn btn-ghost btn-circle swap swap-rotate hidden lg:flex\" aria-label=\"Toggle sidebar\"><input type=\"checkbox\" class=\"peer/toggle hidden\" id=\"sidebar-toggle-visual\"> <span class=\"is-drawer-open:hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -268,7 +285,7 @@ func SidebarContent(page string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</span> <span class=\"is-drawer-close:hidden\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span> <span class=\"is-drawer-close:hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -276,7 +293,7 @@ func SidebarContent(page string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</span></label></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span></label></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -305,7 +322,7 @@ func Header(title string, btns ...templ.Component) templ.Component {
 			templ_7745c5c3_Var10 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<header class=\"h-16 bg-base-100 border-b border-base-300 shadow-sm flex items-center justify-between px-6\"><div class=\"flex items-center gap-4\"><label for=\"sidebar-drawer\" class=\"btn btn-ghost btn-square btn-sm lg:hidden\" aria-label=\"Open menu\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<header class=\"h-16 bg-base-100 border-b border-base-300 shadow-sm flex items-center justify-between px-6\"><div class=\"flex items-center gap-4\"><label for=\"sidebar-drawer\" class=\"btn btn-ghost btn-square btn-sm lg:hidden\" aria-label=\"Open menu\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -313,20 +330,20 @@ func Header(title string, btns ...templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</label><h2 class=\"text-2xl font-bold text-base-content\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</label><h2 class=\"text-2xl font-bold text-base-content\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 141, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/core/view_main.templ`, Line: 150, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</h2></div><div class=\"flex items-center gap-3\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</h2></div><div class=\"flex items-center gap-3\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -336,7 +353,7 @@ func Header(title string, btns ...templ.Component) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div></header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</div></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -365,7 +382,7 @@ func Layout(page string, child templ.Component) templ.Component {
 			templ_7745c5c3_Var12 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"drawer lg:drawer-open\" style=\"height:100vh;overflow:hidden\"><input id=\"sidebar-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><script>\n\t\t\t// Immediately set sidebar state before any rendering occurs.\n\t\t\t// Also suppress transitions on initial load to prevent flash.\n\t\t\t(function() {\n\t\t\t\tvar t = document.getElementById(\"sidebar-drawer\");\n\t\t\t\tif (t && window.innerWidth >= 1024) {\n\t\t\t\t\tt.checked = localStorage.getItem(\"sidebar-expanded\") !== \"false\";\n\t\t\t\t}\n\t\t\t\tdocument.documentElement.classList.add(\"no-transition\");\n\t\t\t\trequestAnimationFrame(function() {\n\t\t\t\t\trequestAnimationFrame(function() {\n\t\t\t\t\t\tdocument.documentElement.classList.remove(\"no-transition\");\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t})();\n\t\t</script><div class=\"drawer-content flex flex-col min-w-0 overflow-hidden\" style=\"max-height:100vh\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"drawer lg:drawer-open\" style=\"height:100vh;overflow:hidden\"><input id=\"sidebar-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><script>\n\t\t\t// Immediately set sidebar state before any rendering occurs.\n\t\t\t// Also suppress transitions on initial load to prevent flash.\n\t\t\t(function() {\n\t\t\t\tvar t = document.getElementById(\"sidebar-drawer\");\n\t\t\t\tif (t && window.innerWidth >= 1024) {\n\t\t\t\t\tt.checked = localStorage.getItem(\"sidebar-expanded\") !== \"false\";\n\t\t\t\t}\n\t\t\t\tdocument.documentElement.classList.add(\"no-transition\");\n\t\t\t\trequestAnimationFrame(function() {\n\t\t\t\t\trequestAnimationFrame(function() {\n\t\t\t\t\t\tdocument.documentElement.classList.remove(\"no-transition\");\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t})();\n\t\t</script><div class=\"drawer-content flex flex-col min-w-0 overflow-hidden\" style=\"max-height:100vh\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -373,7 +390,7 @@ func Layout(page string, child templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</div><div class=\"drawer-side is-drawer-close:overflow-visible z-40\"><label for=\"sidebar-drawer\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div><div class=\"drawer-side is-drawer-close:overflow-visible z-40\"><label for=\"sidebar-drawer\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -381,7 +398,7 @@ func Layout(page string, child templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
