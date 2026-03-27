@@ -643,14 +643,14 @@ func TestListAccountsDetailed(t *testing.T) {
 	}
 }
 
-// ---- Transfer Template Child Amount Computation ----
+// ---- Transfer Template Auto-Grouping ----
 
-func TestGetTransferTemplatesPageData_ChildAmountsComputed(t *testing.T) {
+func TestGetTransferTemplatesPageData_GroupAmountsComputed(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()
 
 	pastEnd := mustParseDate("2020-12-31")
-	parent, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+	_, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
 		Name:        "Rent",
 		AmountType:  "fixed",
 		AmountFixed: newFixedValue(1500),
@@ -661,21 +661,20 @@ func TestGetTransferTemplatesPageData_ChildAmountsComputed(t *testing.T) {
 		Enabled:     true,
 	})
 	if err != nil {
-		t.Fatalf("create parent: %v", err)
+		t.Fatalf("create inactive template: %v", err)
 	}
 
 	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
-		Name:             "Rent",
-		AmountType:       "fixed",
-		AmountFixed:      newFixedValue(2000),
-		Priority:         1,
-		Recurrence:       "*-*-01",
-		StartDate:        mustParseDate("2020-01-01"),
-		Enabled:          true,
-		ParentTemplateID: &parent.ID,
+		Name:        "Rent",
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(2000),
+		Priority:    1,
+		Recurrence:  "*-*-01",
+		StartDate:   mustParseDate("2021-01-01"),
+		Enabled:     true,
 	})
 	if err != nil {
-		t.Fatalf("create child: %v", err)
+		t.Fatalf("create active template: %v", err)
 	}
 
 	view, err := svc.GetTransferTemplatesPageData(ctx)
@@ -684,25 +683,48 @@ func TestGetTransferTemplatesPageData_ChildAmountsComputed(t *testing.T) {
 	}
 
 	if len(view.TransferTemplates) != 1 {
-		t.Fatalf("expected 1 root template, got %d", len(view.TransferTemplates))
+		t.Fatalf("expected 1 group row, got %d", len(view.TransferTemplates))
 	}
 
-	parentTpl := view.TransferTemplates[0]
-	if parentTpl.Amount != 0 {
-		t.Errorf("inactive parent: expected amount 0, got %f", parentTpl.Amount)
+	groupRow := view.TransferTemplates[0]
+	if !groupRow.IsGroup() {
+		t.Fatal("expected group row to be a group")
 	}
 
-	if len(parentTpl.ChildTemplates) != 1 {
-		t.Fatalf("expected 1 child template, got %d", len(parentTpl.ChildTemplates))
+	// Group row is virtual — ID is not one of the real member IDs
+	memberIDs := map[string]bool{}
+	for _, m := range groupRow.GroupMembers {
+		memberIDs[m.ID] = true
+	}
+	if memberIDs[groupRow.ID] {
+		t.Errorf("group row ID %q should not be one of the real member IDs", groupRow.ID)
 	}
 
-	childWithAmount := view.GetChildWithAmount(parentTpl.ChildTemplates[0])
-	if childWithAmount.Amount != 2000 {
-		t.Errorf("active child: expected amount 2000, got %f", childWithAmount.Amount)
+	// All real members are in GroupMembers
+	if len(groupRow.GroupMembers) != 2 {
+		t.Fatalf("expected 2 group members, got %d", len(groupRow.GroupMembers))
+	}
+
+	// GroupTotal = sum of active members only (inactive contributes 0)
+	if groupRow.GroupTotal != 2000 {
+		t.Errorf("expected GroupTotal 2000, got %f", groupRow.GroupTotal)
+	}
+
+	// Both members have their own amounts computed
+	amounts := map[float64]bool{}
+	for _, m := range groupRow.GroupMembers {
+		mwa := view.GetMemberWithAmount(m)
+		amounts[mwa.Amount] = true
+	}
+	if !amounts[0] {
+		t.Error("expected inactive member with amount 0")
+	}
+	if !amounts[2000] {
+		t.Error("expected active member with amount 2000")
 	}
 }
 
-func TestGetTransferTemplatesPageData_ActiveChildContributesToMonthlyIncome(t *testing.T) {
+func TestGetTransferTemplatesPageData_ActiveGroupMemberContributesToMonthlyIncome(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()
 
@@ -712,7 +734,7 @@ func TestGetTransferTemplatesPageData_ActiveChildContributesToMonthlyIncome(t *t
 	}
 
 	pastEnd := mustParseDate("2020-12-31")
-	parent, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
 		Name:        "Salary",
 		ToAccountID: acc.ID,
 		AmountType:  "fixed",
@@ -724,22 +746,21 @@ func TestGetTransferTemplatesPageData_ActiveChildContributesToMonthlyIncome(t *t
 		Enabled:     true,
 	})
 	if err != nil {
-		t.Fatalf("create parent: %v", err)
+		t.Fatalf("create inactive template: %v", err)
 	}
 
 	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
-		Name:             "Salary",
-		ToAccountID:      acc.ID,
-		AmountType:       "fixed",
-		AmountFixed:      newFixedValue(5000),
-		Priority:         1,
-		Recurrence:       "*-*-25",
-		StartDate:        mustParseDate("2020-01-01"),
-		Enabled:          true,
-		ParentTemplateID: &parent.ID,
+		Name:        "Salary",
+		ToAccountID: acc.ID,
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(5000),
+		Priority:    1,
+		Recurrence:  "*-*-25",
+		StartDate:   mustParseDate("2021-01-01"),
+		Enabled:     true,
 	})
 	if err != nil {
-		t.Fatalf("create child: %v", err)
+		t.Fatalf("create active template: %v", err)
 	}
 
 	view, err := svc.GetTransferTemplatesPageData(ctx)
@@ -748,11 +769,231 @@ func TestGetTransferTemplatesPageData_ActiveChildContributesToMonthlyIncome(t *t
 	}
 
 	if view.MonthlyIncome != 5000 {
-		t.Errorf("expected monthly income 5000 from active child, got %f", view.MonthlyIncome)
+		t.Errorf("expected monthly income 5000 from active group member, got %f", view.MonthlyIncome)
 	}
 }
 
-func TestComputeTransfersView_IncludesActiveChildOfInactiveParent(t *testing.T) {
+func TestGetTransferTemplatesPageData_ActiveGroupMemberContributesToMonthlyExpenses(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, err := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	pastEnd := mustParseDate("2020-12-31")
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(800),
+		Priority:      1,
+		Recurrence:    "*-*-1",
+		StartDate:     mustParseDate("2020-01-01"),
+		EndDate:       &pastEnd,
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create inactive template: %v", err)
+	}
+
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(1200),
+		Priority:      1,
+		Recurrence:    "*-*-1",
+		StartDate:     mustParseDate("2021-01-01"),
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create active template: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	if view.MonthlyExpenses != -1200 {
+		t.Errorf("expected monthly expenses -1200 from active group member, got %f", view.MonthlyExpenses)
+	}
+}
+
+func TestGetTransferTemplatesPageData_PercentTemplateAfterGroupedSalary(t *testing.T) {
+	// Regression: percent-type templates that depend on account balances built up
+	// by prior fixed-type templates must still compute correctly when those
+	// fixed templates are auto-grouped into a virtual entry (AmountType="").
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	salary := mustAccount(t, svc, "Lön")
+	gem := mustAccount(t, svc, "Gem")
+
+	// Two salary periods — same key, so they auto-group.
+	pastEnd := mustParseDate("2023-12-31")
+	_, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:        "Lön",
+		ToAccountID: salary.ID,
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(4000),
+		Priority:    1,
+		Recurrence:  "*-*-25",
+		StartDate:   mustParseDate("2020-01-01"),
+		EndDate:     &pastEnd,
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("old salary: %v", err)
+	}
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:        "Lön",
+		ToAccountID: salary.ID,
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(5000),
+		Priority:    1,
+		Recurrence:  "*-*-25",
+		StartDate:   mustParseDate("2024-01-01"),
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("current salary: %v", err)
+	}
+
+	// Standalone percent transfer: 100% of Lön → Gem, priority 3 (after salary).
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Gem bidrag",
+		FromAccountID: salary.ID,
+		ToAccountID:   gem.ID,
+		AmountType:    "percent",
+		AmountFixed:   newFixedValue(0),
+		AmountPercent: 1.0,
+		Priority:      3,
+		Recurrence:    "*-*-25",
+		StartDate:     mustParseDate("2020-01-01"),
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("gem bidrag: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	// Find the Gem bidrag standalone row
+	var gemBidrag *service.TransferTemplateWithAmount
+	for i := range view.TransferTemplates {
+		if view.TransferTemplates[i].Name == "Gem bidrag" {
+			gemBidrag = &view.TransferTemplates[i]
+			break
+		}
+	}
+	if gemBidrag == nil {
+		t.Fatal("Gem bidrag template not found in view")
+	}
+	// 100% of active salary (5000) = 5000
+	if gemBidrag.Amount != 5000 {
+		t.Errorf("expected Gem bidrag Amount=5000 (100%% of salary), got %f", gemBidrag.Amount)
+	}
+}
+
+func mustAccount(t *testing.T, svc *service.Service, name string) service.Account {
+	t.Helper()
+	acc, err := svc.UpsertAccount(t.Context(), service.AccountInput{Name: name})
+	if err != nil {
+		t.Fatalf("create account %q: %v", name, err)
+	}
+	return acc
+}
+
+func TestGetTransferTemplatesPageData_MixedStandaloneAndGroupedTotals(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, err := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	pastEnd := mustParseDate("2020-12-31")
+
+	// Standalone expense (not grouped — unique name)
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Electricity",
+		FromAccountID: acc.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(500),
+		Priority:      1,
+		Recurrence:    "*-*-1",
+		StartDate:     mustParseDate("2020-01-01"),
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create standalone expense: %v", err)
+	}
+
+	// Standalone income (not grouped — unique name)
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:        "Freelance",
+		ToAccountID: acc.ID,
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(3000),
+		Priority:    1,
+		Recurrence:  "*-*-1",
+		StartDate:   mustParseDate("2020-01-01"),
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("create standalone income: %v", err)
+	}
+
+	// Grouped expense: inactive (old) + active (current)
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(600),
+		Priority:      2,
+		Recurrence:    "*-*-1",
+		StartDate:     mustParseDate("2020-01-01"),
+		EndDate:       &pastEnd,
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create inactive grouped expense: %v", err)
+	}
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(800),
+		Priority:      2,
+		Recurrence:    "*-*-1",
+		StartDate:     mustParseDate("2021-01-01"),
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create active grouped expense: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	if view.MonthlyIncome != 3000 {
+		t.Errorf("expected MonthlyIncome 3000, got %f", view.MonthlyIncome)
+	}
+	if view.MonthlyExpenses != -1300 {
+		t.Errorf("expected MonthlyExpenses -1300 (standalone 500 + active grouped 800), got %f", view.MonthlyExpenses)
+	}
+}
+
+func TestComputeTransfersView_IncludesAllGroupMembers(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()
 
@@ -760,7 +1001,7 @@ func TestComputeTransfersView_IncludesActiveChildOfInactiveParent(t *testing.T) 
 	acc2, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "Savings"})
 
 	pastEnd := mustParseDate("2024-12-31")
-	parent, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+	_, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
 		Name:          "Rent",
 		FromAccountID: acc1.ID,
 		ToAccountID:   acc2.ID,
@@ -773,23 +1014,22 @@ func TestComputeTransfersView_IncludesActiveChildOfInactiveParent(t *testing.T) 
 		Enabled:       true,
 	})
 	if err != nil {
-		t.Fatalf("create parent: %v", err)
+		t.Fatalf("create inactive template: %v", err)
 	}
 
-	child, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
-		Name:             "Rent",
-		FromAccountID:    acc1.ID,
-		ToAccountID:      acc2.ID,
-		AmountType:       "fixed",
-		AmountFixed:      newFixedValue(2000),
-		Priority:         1,
-		Recurrence:       "*-*-01",
-		StartDate:        mustParseDate("2025-01-01"),
-		Enabled:          true,
-		ParentTemplateID: &parent.ID,
+	active, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc1.ID,
+		ToAccountID:   acc2.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(2000),
+		Priority:      1,
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2025-01-01"),
+		Enabled:       true,
 	})
 	if err != nil {
-		t.Fatalf("create child: %v", err)
+		t.Fatalf("create active template: %v", err)
 	}
 
 	day := mustParseDate("2025-06-01")
@@ -800,13 +1040,156 @@ func TestComputeTransfersView_IncludesActiveChildOfInactiveParent(t *testing.T) 
 
 	found := false
 	for _, tt := range view.TransferTemplates {
-		if tt.ID == child.ID {
+		if tt.ID == active.ID {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("active child template %s not found in TransfersView; parent-child should be a visual grouping only", child.ID)
+		t.Errorf("active template %s not found in TransfersView; auto-grouping should be visual only", active.ID)
+	}
+}
+
+func TestAutoGrouping_SameKeyGroupsTogether(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc1, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "From"})
+	acc2, _ := svc.UpsertAccount(ctx, service.AccountInput{Name: "To"})
+
+	pastEnd := mustParseDate("2020-12-31")
+	_, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc1.ID,
+		ToAccountID:   acc2.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(1500),
+		Priority:      1,
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2020-01-01"),
+		EndDate:       &pastEnd,
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create template 1: %v", err)
+	}
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:          "Rent",
+		FromAccountID: acc1.ID,
+		ToAccountID:   acc2.ID,
+		AmountType:    "fixed",
+		AmountFixed:   newFixedValue(2000),
+		Priority:      1,
+		Recurrence:    "*-*-01",
+		StartDate:     mustParseDate("2021-01-01"),
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create template 2: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	if len(view.TransferTemplates) != 1 {
+		t.Fatalf("expected 1 group row, got %d", len(view.TransferTemplates))
+	}
+	if !view.TransferTemplates[0].IsGroup() {
+		t.Error("expected the row to be a group")
+	}
+	if len(view.TransferTemplates[0].GroupMembers) != 2 {
+		t.Errorf("expected 2 group members (all real members), got %d", len(view.TransferTemplates[0].GroupMembers))
+	}
+	// Group row ID must not be one of the real member IDs
+	group := view.TransferTemplates[0]
+	memberIDs := map[string]bool{}
+	for _, m := range group.GroupMembers {
+		memberIDs[m.ID] = true
+	}
+	if memberIDs[group.ID] {
+		t.Errorf("group row ID %q should not be a real member ID", group.ID)
+	}
+}
+
+func TestAutoGrouping_DifferentNameDoesNotGroup(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	for _, name := range []string{"Rent A", "Rent B"} {
+		_, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+			Name:        name,
+			AmountType:  "fixed",
+			AmountFixed: newFixedValue(1000),
+			Priority:    1,
+			Recurrence:  "*-*-01",
+			StartDate:   mustParseDate("2021-01-01"),
+			Enabled:     true,
+		})
+		if err != nil {
+			t.Fatalf("create template %s: %v", name, err)
+		}
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	if len(view.TransferTemplates) != 2 {
+		t.Fatalf("expected 2 separate rows, got %d", len(view.TransferTemplates))
+	}
+	for _, row := range view.TransferTemplates {
+		if row.IsGroup() {
+			t.Errorf("row %q should not be a group", row.Name)
+		}
+	}
+}
+
+func TestAutoGrouping_GroupAmountIsSumOfActiveMembers(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	pastEnd := mustParseDate("2020-12-31")
+	_, err := svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:        "Rent",
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(1500),
+		Priority:    1,
+		Recurrence:  "*-*-01",
+		StartDate:   mustParseDate("2020-01-01"),
+		EndDate:     &pastEnd,
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("create inactive template: %v", err)
+	}
+	_, err = svc.UpsertTransferTemplate(ctx, service.TransferTemplate{
+		Name:        "Rent",
+		AmountType:  "fixed",
+		AmountFixed: newFixedValue(2000),
+		Priority:    1,
+		Recurrence:  "*-*-01",
+		StartDate:   mustParseDate("2021-01-01"),
+		Enabled:     true,
+	})
+	if err != nil {
+		t.Fatalf("create active template: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	if len(view.TransferTemplates) != 1 {
+		t.Fatalf("expected 1 group row, got %d", len(view.TransferTemplates))
+	}
+	groupRow := view.TransferTemplates[0]
+	// GroupTotal should be sum of active members only: 2000 (inactive member contributes 0)
+	if groupRow.GroupTotal != 2000 {
+		t.Errorf("expected GroupTotal 2000, got %f", groupRow.GroupTotal)
 	}
 }
 
@@ -2527,6 +2910,68 @@ func TestBillCascadeDelete(t *testing.T) {
 }
 
 // ---- Bill Transfer Template Generation ----
+
+func TestGetTransferTemplatesPageData_BillExpensesCorrect(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	acc, err := svc.UpsertAccount(ctx, service.AccountInput{Name: "Checking"})
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	ba, err := svc.UpsertBillAccount(ctx, service.BillAccount{
+		Name:          "Monthly Bills",
+		FromAccountID: acc.ID,
+		Recurrence:    "*-*-01",
+		Priority:      1,
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create bill account: %v", err)
+	}
+
+	bill, err := svc.UpsertBill(ctx, service.Bill{
+		BillAccountID: ba.ID,
+		Name:          "Rent",
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("create bill: %v", err)
+	}
+
+	// Historical amount (inactive - past end date)
+	pastEnd := mustParseDate("2023-12-31")
+	_, err = svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID:    bill.ID,
+		Amount:    newFixedValue(800),
+		StartDate: mustParseDate("2020-01-01"),
+		EndDate:   &pastEnd,
+	})
+	if err != nil {
+		t.Fatalf("create historical bill amount: %v", err)
+	}
+
+	// Current amount (active)
+	_, err = svc.UpsertBillAmount(ctx, service.BillAmount{
+		BillID:    bill.ID,
+		Amount:    newFixedValue(1000),
+		StartDate: mustParseDate("2024-01-01"),
+	})
+	if err != nil {
+		t.Fatalf("create current bill amount: %v", err)
+	}
+
+	view, err := svc.GetTransferTemplatesPageData(ctx)
+	if err != nil {
+		t.Fatalf("GetTransferTemplatesPageData: %v", err)
+	}
+
+	// Only the active (current) amount should count, not the historical one
+	if view.MonthlyExpenses != -1000 {
+		t.Errorf("expected MonthlyExpenses -1000 (active bill period only), got %f", view.MonthlyExpenses)
+	}
+}
 
 func TestBillGenerateTransferTemplates_SingleAmount(t *testing.T) {
 	ba := service.BillAccount{

@@ -24,7 +24,7 @@
     }
   }
 
-  // Expose function globally for inline onclick handlers
+  // Called by the small toggle button (kept for backwards compat)
   window.toggleTemplateChildren = function(button) {
     const parentRow = button.closest('tr[data-template-id]');
     if (parentRow) {
@@ -32,17 +32,22 @@
     }
   };
 
+  // Called when the whole group row is clicked
+  window.toggleTemplateRow = function(row) {
+    toggleChildren(row);
+  };
+
   function initCollapsibleRows() {
-    // Find all parent rows
+    // Find all parent rows and collapse them initially
     const parentRows = document.querySelectorAll('tr[data-template-id]');
-    
+
     for (let i = 0; i < parentRows.length; i++) {
       const parentRow = parentRows[i];
       const templateId = parentRow.getAttribute('data-template-id');
       if (!templateId) continue;
-      
+
       const childRows = document.querySelectorAll('tr[data-parent-id="' + templateId + '"]');
-      
+
       // Set initial state - collapsed by default
       if (childRows.length > 0) {
         parentRow.classList.add('collapsed');
@@ -55,9 +60,8 @@
 
   // Initialize immediately and on DOM ready
   initCollapsibleRows();
-  
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initCollapsibleRows);
   }
 })();
-

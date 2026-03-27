@@ -15,7 +15,6 @@ type TransferTemplateEditView struct {
 	TransferTemplate TransferTemplate
 	Accounts         []Account
 	Categories       []TransferTemplateCategory
-	AllTemplates     []TransferTemplate
 }
 
 func (c TransferTemplateEditView) IsEdit() bool {
@@ -24,9 +23,14 @@ func (c TransferTemplateEditView) IsEdit() bool {
 
 type TransferTemplateWithAmount struct {
 	TransferTemplate
-	Amount float64
+	Amount     float64
+	GroupTotal float64
 
 	SimDate date.Date
+}
+
+func (t *TransferTemplateWithAmount) IsGroup() bool {
+	return len(t.GroupMembers) > 0
 }
 
 func (c *TransferTemplateWithAmount) HasDifferentAmount() bool {
@@ -90,47 +94,61 @@ type TransferTemplatesView2 struct {
 	Categories        map[string]TransferTemplateCategory
 	MonthlyIncome     float64
 	MonthlyExpenses   float64
-	childAmounts      map[string]TransferTemplateWithAmount
+	memberAmounts     map[string]TransferTemplateWithAmount
 }
 
-func (v *TransferTemplatesView2) GetChildWithAmount(child TransferTemplate) TransferTemplateWithAmount {
-	if a, ok := v.childAmounts[child.ID]; ok {
+func (v *TransferTemplatesView2) GetMemberWithAmount(member TransferTemplate) TransferTemplateWithAmount {
+	if a, ok := v.memberAmounts[member.ID]; ok {
 		return a
 	}
-	return TransferTemplateWithAmount{TransferTemplate: child}
+	return TransferTemplateWithAmount{TransferTemplate: member}
 }
 
-func newTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
+func newTransferTemplatesView2(flatTemplates []TransferTemplate, groupedTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
 	day := date.Today()
 	v := &TransferTemplatesView2{
-		TransferTemplates: MakeTransferTemplatesWithAmount(transferTemplates, day),
-		Accounts:          KeyBy(accounts, func(a Account) string { return a.ID }),
-		Categories:        KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
-		childAmounts:      make(map[string]TransferTemplateWithAmount),
+		Accounts:      KeyBy(accounts, func(a Account) string { return a.ID }),
+		Categories:    KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
+		memberAmounts: make(map[string]TransferTemplateWithAmount),
 	}
 
-	var children []TransferTemplate
-	for _, t := range transferTemplates {
-		children = append(children, t.ChildTemplates...)
+	// Compute all amounts from the flat (ungrouped) list so that percent-type
+	// templates correctly chain off prior templates' account balance effects.
+	flatAmounts := make(map[string]TransferTemplateWithAmount)
+	for _, twa := range MakeTransferTemplatesWithAmount(flatTemplates, day) {
+		flatAmounts[twa.ID] = twa
+		v.memberAmounts[twa.ID] = twa
 	}
-	if len(children) > 0 {
-		for _, c := range MakeTransferTemplatesWithAmount(children, day) {
-			v.childAmounts[c.ID] = c
+
+	// Build the display list from grouped templates, wiring in pre-computed amounts.
+	for _, t := range groupedTemplates {
+		if len(t.GroupMembers) > 0 {
+			twa := TransferTemplateWithAmount{TransferTemplate: t, SimDate: day}
+			var total float64
+			for _, member := range t.GroupMembers {
+				total += flatAmounts[member.ID].Amount
+			}
+			twa.GroupTotal = total
+			v.TransferTemplates = append(v.TransferTemplates, twa)
+		} else {
+			if twa, ok := flatAmounts[t.ID]; ok {
+				v.TransferTemplates = append(v.TransferTemplates, twa)
+			} else {
+				v.TransferTemplates = append(v.TransferTemplates, TransferTemplateWithAmount{TransferTemplate: t, SimDate: day})
+			}
 		}
 	}
 
-	addToMonthlyTotals := func(t TransferTemplateWithAmount) {
-		if t.FromAccountID == "" {
-			v.MonthlyIncome += t.Amount
-		} else if t.ToAccountID == "" {
-			v.MonthlyExpenses += -t.Amount
+	// Monthly totals computed from flat amounts — grouping is purely visual.
+	for _, twa := range flatAmounts {
+		if twa.Amount == 0 {
+			continue
 		}
-	}
-	for _, t := range v.TransferTemplates {
-		addToMonthlyTotals(t)
-	}
-	for _, t := range v.childAmounts {
-		addToMonthlyTotals(t)
+		if twa.FromAccountID == "" {
+			v.MonthlyIncome += twa.Amount
+		} else if twa.ToAccountID == "" {
+			v.MonthlyExpenses += -twa.Amount
+		}
 	}
 	return v
 }
@@ -477,7 +495,7 @@ func (s *Service) GetAccountEditPageData(ctx context.Context, accountID string, 
 }
 
 func (s *Service) GetTransferTemplatesPageData(ctx context.Context) (*TransferTemplatesView2, error) {
-	transferTemplates, err := s.ListAllTransferTemplatesWithChildren(ctx)
+	flat, err := s.ListAllTransferTemplates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing transfer templates: %w", err)
 	}
@@ -489,7 +507,7 @@ func (s *Service) GetTransferTemplatesPageData(ctx context.Context) (*TransferTe
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
-	return newTransferTemplatesView2(transferTemplates, accounts, categories), nil
+	return newTransferTemplatesView2(flat, autoGroupTransferTemplates(flat), accounts, categories), nil
 }
 
 func (s *Service) GetTransferTemplateNewPageData(ctx context.Context) (*TransferTemplateEditView, error) {
@@ -501,14 +519,9 @@ func (s *Service) GetTransferTemplateNewPageData(ctx context.Context) (*Transfer
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
-	allTemplates, err := s.ListTransferTemplatesWithChildren(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("listing templates: %w", err)
-	}
 	return &TransferTemplateEditView{
-		Accounts:     accs,
-		Categories:   categories,
-		AllTemplates: allTemplates,
+		Accounts:   accs,
+		Categories: categories,
 	}, nil
 }
 
@@ -525,15 +538,10 @@ func (s *Service) GetTransferTemplateEditPageData(ctx context.Context, id string
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
-	allTemplates, err := s.ListTransferTemplatesWithChildren(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("listing templates: %w", err)
-	}
 	return &TransferTemplateEditView{
 		Accounts:         accs,
 		TransferTemplate: t,
 		Categories:       categories,
-		AllTemplates:     allTemplates,
 	}, nil
 }
 

@@ -120,12 +120,11 @@ INSERT INTO transfer_template (
     start_date,
     end_date,
     enabled,
-    parent_template_id,
     budget_category_id,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO
 UPDATE
 SET name = EXCLUDED.name,
   from_account_id = EXCLUDED.from_account_id,
@@ -138,7 +137,6 @@ SET name = EXCLUDED.name,
   start_date = EXCLUDED.start_date,
   end_date = EXCLUDED.end_date,
   enabled = EXCLUDED.enabled,
-  parent_template_id = EXCLUDED.parent_template_id,
   budget_category_id = EXCLUDED.budget_category_id,
   updated_at = EXCLUDED.updated_at
 RETURNING *;
@@ -255,13 +253,6 @@ RETURNING *;
 -- name: DeleteTransferTemplateCategory :exec
 DELETE FROM transfer_template_category
 WHERE id = ?;
--- name: GetChildTemplates :many
-SELECT *
-FROM transfer_template
-WHERE parent_template_id = ?
-ORDER BY start_date,
-  name,
-  id;
 -- name: UpsertStartupShareAccount :one
 INSERT INTO startup_share_account (account_id, tax_rate, valuation_discount_factor)
 VALUES (?, ?, ?) ON CONFLICT (account_id) DO

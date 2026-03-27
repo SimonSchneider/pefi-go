@@ -172,48 +172,19 @@ templ TransferTemplateForm(view *TransferTemplateEditView) {
 				<div class="card bg-base-100 shadow-sm border border-base-300 lg:col-span-2">
 					<div class="card-body p-5">
 						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Advanced</h3>
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div class="form-control">
-								<label class="label"><span class="label-text font-medium">Parent Template</span></label>
-								<select class="select select-bordered w-full" name="parent_template_id">
-									<option value="">None</option>
-									for _, tpl := range view.AllTemplates {
-										{{ selected := false }}
-										if view.TransferTemplate.ParentTemplateID != nil && *view.TransferTemplate.ParentTemplateID == tpl.ID {
-											{{ selected = true }}
-										}
-										{{ skip := false }}
-										if view.TransferTemplate.ID != "" && tpl.ID == view.TransferTemplate.ID {
-											{{ skip = true }}
-										}
-										if !skip {
-											<option
-												value={ tpl.ID }
-												if selected {
-													selected
-												}
-											>{ tpl.Name }</option>
-										}
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Enabled</span></label>
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									class="checkbox"
+									name="enabled"
+									if view.TransferTemplate.Enabled {
+										checked
 									}
-								</select>
-								<div class="text-sm text-base-content/60 mt-1">
-									Group templates that represent the same transfer but active during different time periods.
-								</div>
-							</div>
-							<div class="form-control">
-								<label class="label"><span class="label-text font-medium">Enabled</span></label>
-								<label class="flex items-center gap-2 cursor-pointer">
-									<input
-										type="checkbox"
-										class="checkbox"
-										name="enabled"
-										if view.TransferTemplate.Enabled {
-											checked
-										}
-									/>
-									<span class="label-text">This template is active</span>
-								</label>
-							</div>
+								/>
+								<span class="label-text">This template is active</span>
+							</label>
 						</div>
 					</div>
 				</div>
@@ -233,30 +204,26 @@ templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
 }
 
 templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateWithAmount) {
-	{{ isParent := len(t.ChildTemplates) > 0 }}
-	{{ isChild := t.ParentTemplate != nil }}
+	{{ isGroup := t.IsGroup() }}
 	<tr
 		class={
-			"hover:bg-base-200/50 transition-colors",
-			templ.KV("bg-base-100/50", isChild),
+			"transition-colors hover:bg-base-200/50",
+			templ.KV("cursor-pointer font-semibold", isGroup),
 		}
-		if isParent {
+		if isGroup {
 			data-template-id={ t.ID }
-		}
-		if isChild {
-			data-parent-id={ t.ParentTemplate.ID }
+			onclick="window.toggleTemplateRow(this)"
 		}
 	>
 		<!-- Name + Status dot + Date range -->
 		<td class="font-medium">
 			<div class="flex flex-col gap-0.5">
 				<div class="flex items-center gap-2">
-					if isParent {
+					if isGroup {
 						<button
 							type="button"
 							class="collapse-toggle btn btn-ghost btn-xs p-0 min-h-0 h-4 w-4"
-							title="Toggle children"
-							onclick="window.toggleTemplateChildren(this)"
+							title="Toggle group members"
 						>
 							<svg class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -275,9 +242,9 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 					}
 					<span>{ t.Name }</span>
 					if t.Source.IsGenerated() {
-						<a href={ templ.SafeURL(t.Source.EditURL) } class="badge badge-outline badge-sm gap-1" title={ t.Source.Label }>
+						<div class="badge badge-outline badge-sm gap-1" title={ t.Source.Label }>
 							{ t.Source.Type }
-						</a>
+						</div>
 					}
 				</div>
 				if t.StartDate > 0 || t.EndDate != nil {
@@ -341,15 +308,133 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 				if t.FromAccountID == "" {
 					{{ class = "text-green-600" }}
 				}
-				@BalanceBadge(t.Amount, false, class)
-				if t.AmountType == "percent" {
-					<span class="text-xs text-base-content/40">{ t.AmountPercent * 100 }%</span>
-				} else if t.HasDifferentAmount() {
-				    @BalanceBadge(t.AmountFixed.Mean(), false, "text-xs text-base-content/40")
+				if isGroup {
+					@BalanceBadge(t.GroupTotal, false, class)
+				} else {
+					@BalanceBadge(t.Amount, false, class)
+					if t.AmountType == "percent" {
+						<span class="text-xs text-base-content/40">{ t.AmountPercent * 100 }%</span>
+					} else if t.HasDifferentAmount() {
+					    @BalanceBadge(t.AmountFixed.Mean(), false, "text-xs text-base-content/40")
+					}
 				}
 			</div>
 		</td>
 		<!-- Actions -->
+		<td class="text-right">
+			<div class="flex items-center justify-end gap-1 row-actions">
+				if !isGroup {
+					if t.Source.IsGenerated() {
+						<a class="btn btn-ghost btn-xs" title={ "Edit " + t.Source.Label } href={ templ.SafeURL(t.Source.EditURL) }>
+							@IconPencil("w-4 h-4")
+						</a>
+					} else {
+						<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
+							<button type="submit" class="btn btn-ghost btn-xs" title="Duplicate">
+								@IconCopy("w-4 h-4")
+							</button>
+						</form>
+						<a class="btn btn-ghost btn-xs display-none" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
+							@IconPencil("w-4 h-4")
+						</a>
+					}
+				}
+			</div>
+		</td>
+	</tr>
+}
+
+templ TransferTemplateMemberRow(view *TransferTemplatesView2, parentID string, t *TransferTemplateWithAmount) {
+	<tr
+		class="hover:bg-base-200/50 transition-colors bg-base-100/50"
+		data-parent-id={ parentID }
+	>
+		<td class="font-medium" style="padding-left:2.5rem;">
+			<div class="flex items-stretch gap-2">
+				<div style="background-color:var(--color-base-content);opacity:0.2;" class="shrink-0"></div>
+				<div class="flex flex-col gap-0.5">
+				<div class="flex items-center gap-2">
+					switch t.ActiveState() {
+						case "Active":
+							<span class="inline-block w-2 h-2 rounded-full bg-success shrink-0" title="Active"></span>
+						case "Inactive":
+							<span class="inline-block w-2 h-2 rounded-full bg-warning shrink-0" title="Inactive"></span>
+						case "Disabled":
+							<span class="inline-block w-2 h-2 rounded-full bg-error shrink-0" title="Disabled"></span>
+					}
+					<span>{ t.Name }</span>
+					if t.Source.IsGenerated() {
+						<a href={ templ.SafeURL(t.Source.EditURL) } class="badge badge-outline badge-sm gap-1" title={ t.Source.Label }>
+							{ t.Source.Type }
+						</a>
+					}
+				</div>
+				if t.StartDate > 0 || t.EndDate != nil {
+					<div class="text-xs text-base-content/40 ml-6">
+						if t.StartDate > 0 {
+							{ t.StartDate.String() }
+						} else {
+							-
+						}
+						—
+						if t.EndDate != nil {
+							{ t.EndDate.String() }
+						} else {
+							-
+						}
+					</div>
+				}
+				</div>
+			</div>
+		</td>
+		<td class="text-sm whitespace-nowrap">
+			{{ from := view.GetAccount(t.FromAccountID) }}
+			{{ to := view.GetAccount(t.ToAccountID) }}
+			if t.FromAccountID != "" {
+				<span class="inline-block max-w-[12rem] truncate align-bottom" title={ from.Name }>{ from.Name }</span>
+			} else {
+				<span class="text-green-700">external</span>
+			}
+			<span class="text-base-content/40 mx-1">→</span>
+			if t.ToAccountID != "" {
+				<span class="inline-block max-w-[12rem] truncate align-bottom" title={ to.Name }>{ to.Name }</span>
+			} else {
+				<span class="text-red-400">external</span>
+			}
+		</td>
+		<td>
+			<div class="flex flex-col gap-0.5">
+				if t.Recurrence != "" {
+					<span>{ t.Recurrence }</span>
+					<span class="text-xs text-base-content/50">{ t.Priority }</span>
+				} else {
+					<span class="badge badge-secondary badge-sm">one-time</span>
+				}
+			</div>
+		</td>
+		<td>
+			{{ budgetCat := view.GetBudgetCategory(t.BudgetCategoryID) }}
+			if budgetCat != nil {
+				@CategoryBadge(*budgetCat)
+			}
+		</td>
+		<td class="text-right">
+			<div class="flex flex-col items-end gap-0.5">
+				{{ class := "" }}
+				if t.ToAccountID == "" {
+					{{ class = "text-red-600" }}
+				}
+				if t.FromAccountID == "" {
+					{{ class = "text-green-600" }}
+				}
+				@BalanceBadge(t.Amount, false, class)
+				if t.AmountType == "percent" {
+					<span class="text-xs text-base-content/40">{ t.AmountPercent * 100 }%</span>
+				} else if t.HasDifferentAmount() {
+					@BalanceBadge(t.AmountFixed.Mean(), false, "text-xs text-base-content/40")
+				}
+			</div>
+		</td>
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-1 row-actions">
 				if t.Source.IsGenerated() {
@@ -392,7 +477,7 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 								tr[data-parent-id].hidden { display: none !important; }
 								tr[data-template-id].collapsed .collapse-toggle svg { transform: rotate(0deg); }
 								tr[data-template-id] .collapse-toggle svg { transform: rotate(90deg); }
-								tr[data-parent-id] { border-left: 2px solid hsl(var(--p)); }
+
 							</style>
 							<table class="table w-full">
 								<thead class="bg-base-200/60">
@@ -417,25 +502,13 @@ templ TransferTemplatesContent(view *TransferTemplatesView2) {
 											</td>
 										</tr>
 									} else {
-										{{ rendered := make(map[string]bool) }}
 										for _, tpl := range view.TransferTemplates {
-											{{ isChild := tpl.ParentTemplate != nil }}
-											{{ isParent := len(tpl.ChildTemplates) > 0 }}
-											if !isChild {
-												@TransferTemplateTableRow(view, &tpl)
-												{{ rendered[tpl.ID] = true }}
-											if isParent {
-												for _, child := range tpl.ChildTemplates {
-													{{ childWithAmount := view.GetChildWithAmount(child) }}
-													@TransferTemplateTableRow(view, &childWithAmount)
-													{{ rendered[child.ID] = true }}
+											@TransferTemplateTableRow(view, &tpl)
+											if tpl.IsGroup() {
+												for _, member := range tpl.GroupMembers {
+													{{ mwa := view.GetMemberWithAmount(member) }}
+													@TransferTemplateMemberRow(view, tpl.ID, &mwa)
 												}
-												}
-											}
-										}
-										for _, tpl := range view.TransferTemplates {
-											if !rendered[tpl.ID] {
-												@TransferTemplateTableRow(view, &tpl)
 											}
 										}
 									}
