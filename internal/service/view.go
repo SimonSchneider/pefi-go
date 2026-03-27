@@ -23,10 +23,26 @@ func (c TransferTemplateEditView) IsEdit() bool {
 
 type TransferTemplateWithAmount struct {
 	TransferTemplate
-	Amount     float64
-	GroupTotal float64
+	Amount         float64
+	GroupTotal     float64
+	GroupStartDate date.Date
+	GroupEndDate   *date.Date
 
 	SimDate date.Date
+}
+
+func (t *TransferTemplateWithAmount) DisplayStartDate() date.Date {
+	if t.IsGroup() {
+		return t.GroupStartDate
+	}
+	return t.StartDate
+}
+
+func (t *TransferTemplateWithAmount) DisplayEndDate() *date.Date {
+	if t.IsGroup() {
+		return t.GroupEndDate
+	}
+	return t.EndDate
 }
 
 func (t *TransferTemplateWithAmount) IsGroup() bool {
@@ -123,14 +139,29 @@ func newTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []
 		}
 	}
 
-	// Compute GroupTotal for each group row
+	// Compute GroupTotal and group date range for each group row
 	for i := range v.TransferTemplates {
 		if v.TransferTemplates[i].IsGroup() {
-			total := v.TransferTemplates[i].Amount
-			for _, member := range v.TransferTemplates[i].GroupMembers {
+			rep := &v.TransferTemplates[i]
+			total := rep.Amount
+			minStart := rep.StartDate
+			maxEnd := rep.EndDate // nil means open-ended
+			for _, member := range rep.GroupMembers {
 				total += v.memberAmounts[member.ID].Amount
+				if member.StartDate < minStart {
+					minStart = member.StartDate
+				}
+				if maxEnd != nil { // once open-ended, stays open-ended
+					if member.EndDate == nil {
+						maxEnd = nil
+					} else if *member.EndDate > *maxEnd {
+						maxEnd = member.EndDate
+					}
+				}
 			}
-			v.TransferTemplates[i].GroupTotal = total
+			rep.GroupTotal = total
+			rep.GroupStartDate = minStart
+			rep.GroupEndDate = maxEnd
 		}
 	}
 

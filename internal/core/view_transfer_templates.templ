@@ -244,16 +244,18 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 						</a>
 					}
 				</div>
-				if t.StartDate > 0 || t.EndDate != nil {
+				{{ displayStart := t.DisplayStartDate() }}
+				{{ displayEnd := t.DisplayEndDate() }}
+				if displayStart > 0 || displayEnd != nil {
 					<div class="text-xs text-base-content/40 ml-6">
-						if t.StartDate > 0 {
-							{ t.StartDate.String() }
+						if displayStart > 0 {
+							{ displayStart.String() }
 						} else {
 							-
 						}
 						—
-						if t.EndDate != nil {
-							{ t.EndDate.String() }
+						if displayEnd != nil {
+							{ displayEnd.String() }
 						} else {
 							-
 						}
