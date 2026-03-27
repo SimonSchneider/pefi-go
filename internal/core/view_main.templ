@@ -89,9 +89,6 @@ templ SidebarContent(page string) {
 					NavItem("/transfers/chart", IconChartSankey("w-5 h-5"), "Cashflows", page),
 					NavItem("/chart", IconTrendingUp("w-5 h-5"), "Forecast", page),
 				)
-		@NavGroup("Settings",
-			NavItem("/settings", IconSettings("w-5 h-5"), "Settings", page),
-		)
 			</ul>
 		</nav>
 		<!-- Footer -->
@@ -118,6 +115,18 @@ templ SidebarContent(page string) {
 						></path>
 					</svg>
 				</label>
+				<div class="is-drawer-close:tooltip is-drawer-close:tooltip-right" data-tip="Settings">
+					<a
+						href="/settings"
+						if "/settings" == page {
+							class="btn btn-primary btn-circle"
+						} else {
+							class="btn btn-ghost btn-circle"
+						}
+					>
+						@IconSettings("w-5 h-5")
+					</a>
+				</div>
 				<label for="sidebar-drawer" class="btn btn-ghost btn-circle swap swap-rotate hidden lg:flex" aria-label="Toggle sidebar">
 					<input type="checkbox" class="peer/toggle hidden" id="sidebar-toggle-visual"/>
 					<span class="is-drawer-open:hidden">

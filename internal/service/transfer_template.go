@@ -294,7 +294,6 @@ func (s *Service) ListAllTransferTemplatesWithChildren(ctx context.Context) ([]T
 	return autoGroupTransferTemplates(templates), nil
 }
 
-
 func (s *Service) GetTransferTemplate(ctx context.Context, id string) (TransferTemplate, error) {
 	t, err := pdb.New(s.db).GetTransferTemplate(ctx, id)
 	if err != nil {
@@ -309,4 +308,3 @@ func (s *Service) DeleteTransferTemplate(ctx context.Context, id string) error {
 	}
 	return nil
 }
-
