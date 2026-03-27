@@ -206,9 +206,14 @@ templ TransferTemplatesStatCardRow(view *TransferTemplatesView2) {
 templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplateWithAmount) {
 	{{ isGroup := t.IsGroup() }}
 	<tr
-		class="hover:bg-base-200/50 transition-colors"
+		class={
+			"transition-colors",
+			templ.KV("hover:bg-base-200/50", !isGroup),
+			templ.KV("bg-base-200/60 hover:bg-base-200/80 cursor-pointer font-semibold", isGroup),
+		}
 		if isGroup {
 			data-template-id={ t.ID }
+			onclick="window.toggleTemplateRow(this)"
 		}
 	>
 		<!-- Name + Status dot + Date range -->
@@ -321,20 +326,19 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-1 row-actions">
 				if !isGroup {
-					if t.Source.IsGenerated() {
-						<a class="btn btn-ghost btn-xs" title={ "Edit " + t.Source.Label } href={ templ.SafeURL(t.Source.EditURL) }>
-							@IconPencil("w-4 h-4")
-						</a>
-					} else {
-						<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
-							<button type="submit" class="btn btn-ghost btn-xs" title="Duplicate">
-								@IconCopy("w-4 h-4")
-							</button>
-						</form>
-						<a class="btn btn-ghost btn-xs display-none" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
-							@IconPencil("w-4 h-4")
-						</a>
-					}
+				if t.Source.IsGenerated() {
+					<a class="btn btn-ghost btn-xs" title={ "Edit " + t.Source.Label } href={ templ.SafeURL(t.Source.EditURL) }>
+						@IconPencil("w-4 h-4")
+					</a>
+				} else {
+					<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
+						<button type="submit" class="btn btn-ghost btn-xs" title="Duplicate">
+							@IconCopy("w-4 h-4")
+						</button>
+					</form>
+					<a class="btn btn-ghost btn-xs display-none" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
+						@IconPencil("w-4 h-4")
+					</a>
 				}
 			</div>
 		</td>

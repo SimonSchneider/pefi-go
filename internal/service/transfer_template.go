@@ -267,6 +267,7 @@ func autoGroupTransferTemplates(templates []TransferTemplate) []TransferTemplate
 				}
 			}
 			virtual := TransferTemplate{
+				ID:               "group-" + sid.MustNewString(16),
 				Name:             k.Name,
 				FromAccountID:    k.FromAccountID,
 				ToAccountID:      k.ToAccountID,

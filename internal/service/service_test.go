@@ -692,8 +692,12 @@ func TestGetTransferTemplatesPageData_GroupAmountsComputed(t *testing.T) {
 	}
 
 	// Group row is virtual — ID is not one of the real member IDs
-	if groupRow.ID != "" {
-		t.Errorf("group row should have empty ID (virtual), got %q", groupRow.ID)
+	memberIDs := map[string]bool{}
+	for _, m := range groupRow.GroupMembers {
+		memberIDs[m.ID] = true
+	}
+	if memberIDs[groupRow.ID] {
+		t.Errorf("group row ID %q should not be one of the real member IDs", groupRow.ID)
 	}
 
 	// All real members are in GroupMembers
@@ -878,8 +882,14 @@ func TestAutoGrouping_SameKeyGroupsTogether(t *testing.T) {
 	if len(view.TransferTemplates[0].GroupMembers) != 2 {
 		t.Errorf("expected 2 group members (all real members), got %d", len(view.TransferTemplates[0].GroupMembers))
 	}
-	if view.TransferTemplates[0].ID != "" {
-		t.Errorf("group row should have empty ID (virtual), got %q", view.TransferTemplates[0].ID)
+	// Group row ID must not be one of the real member IDs
+	group := view.TransferTemplates[0]
+	memberIDs := map[string]bool{}
+	for _, m := range group.GroupMembers {
+		memberIDs[m.ID] = true
+	}
+	if memberIDs[group.ID] {
+		t.Errorf("group row ID %q should not be a real member ID", group.ID)
 	}
 }
 
