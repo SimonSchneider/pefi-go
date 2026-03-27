@@ -104,48 +104,50 @@ func (v *TransferTemplatesView2) GetMemberWithAmount(member TransferTemplate) Tr
 	return TransferTemplateWithAmount{TransferTemplate: member}
 }
 
-func newTransferTemplatesView2(transferTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
+func newTransferTemplatesView2(flatTemplates []TransferTemplate, groupedTemplates []TransferTemplate, accounts []Account, categories []TransferTemplateCategory) *TransferTemplatesView2 {
 	day := date.Today()
 	v := &TransferTemplatesView2{
-		TransferTemplates: MakeTransferTemplatesWithAmount(transferTemplates, day),
-		Accounts:          KeyBy(accounts, func(a Account) string { return a.ID }),
-		Categories:        KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
-		memberAmounts:     make(map[string]TransferTemplateWithAmount),
+		Accounts:      KeyBy(accounts, func(a Account) string { return a.ID }),
+		Categories:    KeyBy(categories, func(c TransferTemplateCategory) string { return c.ID }),
+		memberAmounts: make(map[string]TransferTemplateWithAmount),
 	}
 
-	var members []TransferTemplate
-	for _, t := range transferTemplates {
-		members = append(members, t.GroupMembers...)
-	}
-	if len(members) > 0 {
-		for _, m := range MakeTransferTemplatesWithAmount(members, day) {
-			v.memberAmounts[m.ID] = m
-		}
+	// Compute all amounts from the flat (ungrouped) list so that percent-type
+	// templates correctly chain off prior templates' account balance effects.
+	flatAmounts := make(map[string]TransferTemplateWithAmount)
+	for _, twa := range MakeTransferTemplatesWithAmount(flatTemplates, day) {
+		flatAmounts[twa.ID] = twa
+		v.memberAmounts[twa.ID] = twa
 	}
 
-	// Compute GroupTotal for each group row
-	for i := range v.TransferTemplates {
-		if v.TransferTemplates[i].IsGroup() {
+	// Build the display list from grouped templates, wiring in pre-computed amounts.
+	for _, t := range groupedTemplates {
+		if len(t.GroupMembers) > 0 {
+			twa := TransferTemplateWithAmount{TransferTemplate: t, SimDate: day}
 			var total float64
-			for _, member := range v.TransferTemplates[i].GroupMembers {
-				total += v.memberAmounts[member.ID].Amount
+			for _, member := range t.GroupMembers {
+				total += flatAmounts[member.ID].Amount
 			}
-			v.TransferTemplates[i].GroupTotal = total
+			twa.GroupTotal = total
+			v.TransferTemplates = append(v.TransferTemplates, twa)
+		} else {
+			if twa, ok := flatAmounts[t.ID]; ok {
+				v.TransferTemplates = append(v.TransferTemplates, twa)
+			} else {
+				v.TransferTemplates = append(v.TransferTemplates, TransferTemplateWithAmount{TransferTemplate: t, SimDate: day})
+			}
 		}
 	}
 
-	addToMonthlyTotals := func(fromID, toID string, amount float64) {
-		if fromID == "" {
-			v.MonthlyIncome += amount
-		} else if toID == "" {
-			v.MonthlyExpenses += -amount
+	// Monthly totals computed from flat amounts — grouping is purely visual.
+	for _, twa := range flatAmounts {
+		if twa.Amount == 0 {
+			continue
 		}
-	}
-	for _, t := range v.TransferTemplates {
-		if t.IsGroup() {
-			addToMonthlyTotals(t.FromAccountID, t.ToAccountID, t.GroupTotal)
-		} else {
-			addToMonthlyTotals(t.FromAccountID, t.ToAccountID, t.Amount)
+		if twa.FromAccountID == "" {
+			v.MonthlyIncome += twa.Amount
+		} else if twa.ToAccountID == "" {
+			v.MonthlyExpenses += -twa.Amount
 		}
 	}
 	return v
@@ -493,7 +495,7 @@ func (s *Service) GetAccountEditPageData(ctx context.Context, accountID string, 
 }
 
 func (s *Service) GetTransferTemplatesPageData(ctx context.Context) (*TransferTemplatesView2, error) {
-	transferTemplates, err := s.ListAllTransferTemplatesWithChildren(ctx)
+	flat, err := s.ListAllTransferTemplates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing transfer templates: %w", err)
 	}
@@ -505,7 +507,7 @@ func (s *Service) GetTransferTemplatesPageData(ctx context.Context) (*TransferTe
 	if err != nil {
 		return nil, fmt.Errorf("listing categories: %w", err)
 	}
-	return newTransferTemplatesView2(transferTemplates, accounts, categories), nil
+	return newTransferTemplatesView2(flat, autoGroupTransferTemplates(flat), accounts, categories), nil
 }
 
 func (s *Service) GetTransferTemplateNewPageData(ctx context.Context) (*TransferTemplateEditView, error) {
