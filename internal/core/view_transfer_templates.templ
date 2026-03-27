@@ -244,18 +244,16 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 						</a>
 					}
 				</div>
-				{{ displayStart := t.DisplayStartDate() }}
-				{{ displayEnd := t.DisplayEndDate() }}
-				if displayStart > 0 || displayEnd != nil {
+				if t.StartDate > 0 || t.EndDate != nil {
 					<div class="text-xs text-base-content/40 ml-6">
-						if displayStart > 0 {
-							{ displayStart.String() }
+						if t.StartDate > 0 {
+							{ t.StartDate.String() }
 						} else {
 							-
 						}
 						—
-						if displayEnd != nil {
-							{ displayEnd.String() }
+						if t.EndDate != nil {
+							{ t.EndDate.String() }
 						} else {
 							-
 						}
@@ -322,19 +320,21 @@ templ TransferTemplateTableRow(view *TransferTemplatesView2, t *TransferTemplate
 		<!-- Actions -->
 		<td class="text-right">
 			<div class="flex items-center justify-end gap-1 row-actions">
-				if t.Source.IsGenerated() {
-					<a class="btn btn-ghost btn-xs" title={ "Edit " + t.Source.Label } href={ templ.SafeURL(t.Source.EditURL) }>
-						@IconPencil("w-4 h-4")
-					</a>
-				} else {
-					<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
-						<button type="submit" class="btn btn-ghost btn-xs" title="Duplicate">
-							@IconCopy("w-4 h-4")
-						</button>
-					</form>
-					<a class="btn btn-ghost btn-xs display-none" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
-						@IconPencil("w-4 h-4")
-					</a>
+				if !isGroup {
+					if t.Source.IsGenerated() {
+						<a class="btn btn-ghost btn-xs" title={ "Edit " + t.Source.Label } href={ templ.SafeURL(t.Source.EditURL) }>
+							@IconPencil("w-4 h-4")
+						</a>
+					} else {
+						<form method="post" action={ "/transfers/" + t.ID + "/duplicate" } style="display:inline;">
+							<button type="submit" class="btn btn-ghost btn-xs" title="Duplicate">
+								@IconCopy("w-4 h-4")
+							</button>
+						</form>
+						<a class="btn btn-ghost btn-xs display-none" title="Edit" href={ "/transfer-templates/" + t.ID + "/edit" }>
+							@IconPencil("w-4 h-4")
+						</a>
+					}
 				}
 			</div>
 		</td>

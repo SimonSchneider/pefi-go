@@ -246,21 +246,40 @@ func autoGroupTransferTemplates(templates []TransferTemplate) []TransferTemplate
 		if len(indices) == 1 {
 			result = append(result, templates[indices[0]])
 		} else {
-			repIdx := indices[0]
-			for _, idx := range indices[1:] {
-				if templates[idx].StartDate > templates[repIdx].StartDate {
-					repIdx = idx
-				}
-			}
-			rep := templates[repIdx]
-			members := make([]TransferTemplate, 0, len(indices)-1)
+			// Build a virtual group entry: all real members go into GroupMembers,
+			// the group row itself has no ID and spans the full date range.
+			first := templates[indices[0]]
+			minStart := first.StartDate
+			maxEnd := first.EndDate
+			members := make([]TransferTemplate, 0, len(indices))
 			for _, idx := range indices {
-				if idx != repIdx {
-					members = append(members, templates[idx])
+				m := templates[idx]
+				members = append(members, m)
+				if m.StartDate < minStart {
+					minStart = m.StartDate
+				}
+				if maxEnd != nil {
+					if m.EndDate == nil {
+						maxEnd = nil
+					} else if *m.EndDate > *maxEnd {
+						maxEnd = m.EndDate
+					}
 				}
 			}
-			rep.GroupMembers = members
-			result = append(result, rep)
+			virtual := TransferTemplate{
+				Name:             k.Name,
+				FromAccountID:    k.FromAccountID,
+				ToAccountID:      k.ToAccountID,
+				Priority:         k.Priority,
+				Recurrence:       date.Cron(k.Recurrence),
+				BudgetCategoryID: first.BudgetCategoryID,
+				Source:           first.Source,
+				Enabled:          true,
+				StartDate:        minStart,
+				EndDate:          maxEnd,
+				GroupMembers:     members,
+			}
+			result = append(result, virtual)
 		}
 	}
 	return result

@@ -690,19 +690,33 @@ func TestGetTransferTemplatesPageData_GroupAmountsComputed(t *testing.T) {
 	if !groupRow.IsGroup() {
 		t.Fatal("expected group row to be a group")
 	}
-	if len(groupRow.GroupMembers) != 1 {
-		t.Fatalf("expected 1 group member, got %d", len(groupRow.GroupMembers))
+
+	// Group row is virtual — ID is not one of the real member IDs
+	if groupRow.ID != "" {
+		t.Errorf("group row should have empty ID (virtual), got %q", groupRow.ID)
 	}
 
-	// The representative (latest StartDate) is the active one with amount 2000
-	if groupRow.Amount != 2000 {
-		t.Errorf("active representative: expected amount 2000, got %f", groupRow.Amount)
+	// All real members are in GroupMembers
+	if len(groupRow.GroupMembers) != 2 {
+		t.Fatalf("expected 2 group members, got %d", len(groupRow.GroupMembers))
 	}
 
-	// The group member is the inactive one with amount 0
-	memberWithAmount := view.GetMemberWithAmount(groupRow.GroupMembers[0])
-	if memberWithAmount.Amount != 0 {
-		t.Errorf("inactive member: expected amount 0, got %f", memberWithAmount.Amount)
+	// GroupTotal = sum of active members only (inactive contributes 0)
+	if groupRow.GroupTotal != 2000 {
+		t.Errorf("expected GroupTotal 2000, got %f", groupRow.GroupTotal)
+	}
+
+	// Both members have their own amounts computed
+	amounts := map[float64]bool{}
+	for _, m := range groupRow.GroupMembers {
+		mwa := view.GetMemberWithAmount(m)
+		amounts[mwa.Amount] = true
+	}
+	if !amounts[0] {
+		t.Error("expected inactive member with amount 0")
+	}
+	if !amounts[2000] {
+		t.Error("expected active member with amount 2000")
 	}
 }
 
@@ -861,8 +875,11 @@ func TestAutoGrouping_SameKeyGroupsTogether(t *testing.T) {
 	if !view.TransferTemplates[0].IsGroup() {
 		t.Error("expected the row to be a group")
 	}
-	if len(view.TransferTemplates[0].GroupMembers) != 1 {
-		t.Errorf("expected 1 group member, got %d", len(view.TransferTemplates[0].GroupMembers))
+	if len(view.TransferTemplates[0].GroupMembers) != 2 {
+		t.Errorf("expected 2 group members (all real members), got %d", len(view.TransferTemplates[0].GroupMembers))
+	}
+	if view.TransferTemplates[0].ID != "" {
+		t.Errorf("group row should have empty ID (virtual), got %q", view.TransferTemplates[0].ID)
 	}
 }
 
