@@ -45,7 +45,6 @@ func deleteWithLookupHandler[T any](getFn func(ctx context.Context, id string) (
 	})
 }
 
-
 func NewHandler(svc *model.Service, public fs.FS) http.Handler {
 	h := &Handler{svc: svc}
 	mux := http.NewServeMux()
