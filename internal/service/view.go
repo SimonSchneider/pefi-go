@@ -9,6 +9,7 @@ import (
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/currency"
+	"github.com/SimonSchneider/pefigo/internal/ui"
 )
 
 type TransferTemplateEditView struct {
@@ -229,14 +230,14 @@ func (v *AccountEditView2) GetStartupShareSharesOwned() string {
 	if v.DerivedStartupShareSummary == nil {
 		return "0"
 	}
-	return fmt.Sprintf("%.2f", v.DerivedStartupShareSummary.SharesOwned)
+	return ui.FormatWithThousands(v.DerivedStartupShareSummary.SharesOwned)
 }
 
 func (v *AccountEditView2) GetStartupShareTotalShares() string {
 	if v.DerivedStartupShareSummary == nil {
 		return "0"
 	}
-	return fmt.Sprintf("%.2f", v.DerivedStartupShareSummary.TotalShares)
+	return ui.FormatWithThousands(v.DerivedStartupShareSummary.TotalShares)
 }
 
 func (v *AccountEditView2) GetStartupSharePurchasePrice() string {
@@ -273,6 +274,13 @@ func (v *AccountEditView2) GetStartupShareFieldsStyle() string {
 
 func (v *AccountEditView2) IsEdit() bool {
 	return v.Account.ID != ""
+}
+
+func (v *AccountEditView2) AccountFormMode() string {
+	if v.HasStartupShareAccount() {
+		return "startup"
+	}
+	return "standard"
 }
 
 func (v *AccountEditView2) GetAccountTypeName(typeID string) string {

@@ -188,7 +188,7 @@ func (h *Handler) accountUpsert() http.Handler {
 			return fmt.Errorf("decoding input: %w", err)
 		}
 		var startupShares *service.StartupShareAccountInput
-		if r.FormValue("enable_startup_shares") == "on" {
+		if r.FormValue("account_form_mode") == "startup" {
 			var ssaInp startupShareAccountInputForm
 			if err := srvu.Decode(r, &ssaInp, false); err == nil {
 				startupShares = &ssaInp.StartupShareAccountInput
