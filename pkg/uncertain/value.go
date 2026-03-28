@@ -22,6 +22,8 @@ func NewConfig(seed, samples int64) *Config {
 	}
 }
 
+var meanCfg = NewConfig(42, 100)
+
 type DistributionType string
 
 const (
@@ -41,6 +43,7 @@ type Value struct {
 
 	Samples   []float64                 // Only for DistEmpirical
 	SampleFun func(cfg *Config) float64 // Optional mapping function for custom sampling
+	mean      *float64                  // Cache for mean value, can be nil if not calculated yet
 }
 
 type ParamsFixedValue struct {
@@ -139,12 +142,14 @@ func (u Value) Mean() float64 {
 		}
 		return sum / float64(len(u.Samples))
 	case DistMapped:
-		cfg := NewConfig(42, 100)
-		sum := 0.0
-		for i := 0; i < int(cfg.Samples); i++ {
-			sum += u.SampleFun(cfg)
+		if u.mean == nil {
+			sum := 0.0
+			for i := 0; i < int(meanCfg.Samples); i++ {
+				sum += u.SampleFun(meanCfg)
+			}
+			u.mean = new(sum / float64(meanCfg.Samples))
 		}
-		return sum / float64(cfg.Samples)
+		return *u.mean
 	default:
 		return 0
 	}

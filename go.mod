@@ -1,6 +1,6 @@
 module github.com/SimonSchneider/pefigo
 
-go 1.25.4
+go 1.26.0
 
 require (
 	github.com/SimonSchneider/goslu v0.1.6
