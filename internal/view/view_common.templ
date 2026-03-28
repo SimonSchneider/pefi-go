@@ -1,0 +1,84 @@
+package view
+
+import "github.com/SimonSchneider/pefigo/pkg/ui"
+
+templ SaveButton(isEdit bool) {
+	<div class="flex gap-2 mt-6 pt-4 border-t border-base-200">
+		<button class="btn btn-primary" type="submit">
+			if isEdit {
+				Save Changes
+			} else {
+				Create
+			}
+		</button>
+	</div>
+}
+
+templ StatCard(title string, value string, desc string, icon templ.Component) {
+	<div class="card bg-base-100 shadow-sm border border-base-300">
+		<div class="card-body p-0">
+			<div class="stats">
+				<div class="stat">
+					<div class="stat-title">{ title }</div>
+					<div class="stat-value">{ value }</div>
+					<div class="stat-desc">{ desc }</div>
+					<div class="stat-figure">
+						@icon
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+templ BalanceBadge(val float64, coloring bool, class string) {
+	<span
+		class={ templ.KV("text-green-600", val > 0 && coloring),
+		templ.KV("text-red-600", val < 0 && coloring),
+		templ.KV("text-base-content/40", val == 0 && coloring),
+		"font-mono",
+		"inline-block",
+		"min-w-[6ch]",
+		class }
+	>{ ui.FormatWithThousands(val) }</span>
+}
+
+templ ItemsTooltip() {
+	<div class="hidden group-hover:block fixed z-50 bg-base-100 border border-base-300 rounded-lg shadow-lg p-3 min-w-[250px]" data-tooltip>
+		{ children... }
+	</div>
+}
+
+templ ItemsTooltipScript() {
+	<script type="text/javascript">
+		(function() {
+			document.addEventListener('mouseover', function(e) {
+				var row = e.target.closest('.group');
+				if (!row) return;
+				var tip = row.querySelector('[data-tooltip]');
+				if (!tip) return;
+				var rect = row.getBoundingClientRect();
+				var spaceBelow = window.innerHeight - rect.bottom;
+				tip.style.left = rect.left + 'px';
+				if (spaceBelow < tip.scrollHeight + 8) {
+					tip.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+					tip.style.top = 'auto';
+				} else {
+					tip.style.top = (rect.bottom + 4) + 'px';
+					tip.style.bottom = 'auto';
+				}
+			});
+		})();
+	</script>
+}
+
+templ ItemsTooltipRow(name string, value string) {
+	<div class="flex justify-between gap-4 py-0.5">
+		<span class="text-sm">{ name }</span>
+		<span class="text-sm font-mono font-medium">{ value }</span>
+	</div>
+}
+
+templ NoDataImg() {
+	<img src="/static/public/empty.png" class="w-12 h-12 text-base-content/30" />
+}
