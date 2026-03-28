@@ -42,7 +42,6 @@ func TestPowNegativeBaseNonIntegerExponentPanics(t *testing.T) {
 		}
 	}()
 
-	base.Pow(cfg, exp)
 	// Force sampling to trigger the panic
 	_ = base.Pow(cfg, exp).Sample(cfg)
 }
