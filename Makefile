@@ -1,5 +1,9 @@
 PORT := 3002
-IMAGE ?= ghcr.io/simonschneider/pefi-go:main
+CONTAINER_RUNTIME ?= podman
+VERSION ?= main
+EXTRA_TAGS ?=
+REGISTRY ?= ghcr.io/simonschneider/pefi-go
+IMAGE ?= $(REGISTRY):$(VERSION)
 
 watch-tw:
 	@echo "Watching for changes..."
@@ -33,13 +37,38 @@ run:
 	@echo "Running the application..."
 	@go run cmd/*.go -addr ":$(PORT)" -watch -dburl ":memory:"
 
-docker-build:
+BUILD_DIR ?= build
+
+build:
+	@go build ./...
+
+build-linux:
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/app cmd/main.go
+
+test:
+	@go test ./...
+
+format:
+	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+bench:
+	@go test -bench=. -benchmem ./...
+
+docker-build: build-linux
 	@echo "Building Docker image..."
-	@podman build --platform linux/amd64 -t $(IMAGE) .
+	@$(CONTAINER_RUNTIME) build -t $(IMAGE) .
+	@$(foreach tag,$(EXTRA_TAGS),$(CONTAINER_RUNTIME) tag $(IMAGE) $(REGISTRY):$(tag);)
 
 docker-push:
 	@echo "Pushing Docker image..."
-	@podman push $(IMAGE)
+	@$(CONTAINER_RUNTIME) push $(IMAGE)
+	@$(foreach tag,$(EXTRA_TAGS),$(CONTAINER_RUNTIME) push $(REGISTRY):$(tag);)
 
 docker-build-push: docker-build docker-push
 	@echo "Docker image built and pushed successfully."
+
+ci-pr: build format test bench docker-build
+
+ci-main: build format test bench docker-build docker-push
+
+ci-release: build format test bench docker-build docker-push

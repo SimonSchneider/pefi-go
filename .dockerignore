@@ -1,7 +1,3 @@
 *
 
-!cmd
-!internal
-!static
-!*.go
-!go.*
+!build/app
