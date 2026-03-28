@@ -204,7 +204,7 @@ func (s *Service) UpsertSalary(ctx context.Context, inp Salary) (Salary, error) 
 		inp.ID = sid.MustNewString(32)
 	}
 	now := time.Now().Unix()
-	sal, err := pdb.New(s.db).UpsertSalary(ctx, pdb.UpsertSalaryParams{
+	sal, err := s.q.UpsertSalary(ctx, pdb.UpsertSalaryParams{
 		ID:               inp.ID,
 		Name:             inp.Name,
 		ToAccountID:      ui.WithDefaultNull(inp.ToAccountID),
@@ -227,7 +227,7 @@ func (s *Service) UpsertSalary(ctx context.Context, inp Salary) (Salary, error) 
 }
 
 func (s *Service) ListSalaries(ctx context.Context) ([]Salary, error) {
-	rows, err := pdb.New(s.db).ListSalaries(ctx)
+	rows, err := s.q.ListSalaries(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing salaries: %w", err)
 	}
@@ -239,7 +239,7 @@ func (s *Service) ListSalaries(ctx context.Context) ([]Salary, error) {
 }
 
 func (s *Service) GetSalary(ctx context.Context, id string) (Salary, error) {
-	sal, err := pdb.New(s.db).GetSalary(ctx, id)
+	sal, err := s.q.GetSalary(ctx, id)
 	if err != nil {
 		return Salary{}, fmt.Errorf("getting salary: %w", err)
 	}
@@ -268,7 +268,7 @@ func (s *Service) GetSalary(ctx context.Context, id string) (Salary, error) {
 }
 
 func (s *Service) DeleteSalary(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteSalary(ctx, id); err != nil {
+	if err := s.q.DeleteSalary(ctx, id); err != nil {
 		return fmt.Errorf("deleting salary: %w", err)
 	}
 	return nil
@@ -283,7 +283,7 @@ func (s *Service) UpsertSalaryAmount(ctx context.Context, inp SalaryAmount) (Sal
 		return SalaryAmount{}, fmt.Errorf("encoding amount: %w", err)
 	}
 	now := time.Now().Unix()
-	a, err := pdb.New(s.db).UpsertSalaryAmount(ctx, pdb.UpsertSalaryAmountParams{
+	a, err := s.q.UpsertSalaryAmount(ctx, pdb.UpsertSalaryAmountParams{
 		ID:        inp.ID,
 		SalaryID:  inp.SalaryID,
 		Amount:    encoded,
@@ -298,7 +298,7 @@ func (s *Service) UpsertSalaryAmount(ctx context.Context, inp SalaryAmount) (Sal
 }
 
 func (s *Service) ListSalaryAmounts(ctx context.Context, salaryID string) ([]SalaryAmount, error) {
-	rows, err := pdb.New(s.db).ListSalaryAmounts(ctx, salaryID)
+	rows, err := s.q.ListSalaryAmounts(ctx, salaryID)
 	if err != nil {
 		return nil, fmt.Errorf("listing salary amounts: %w", err)
 	}
@@ -314,7 +314,7 @@ func (s *Service) ListSalaryAmounts(ctx context.Context, salaryID string) ([]Sal
 }
 
 func (s *Service) DeleteSalaryAmount(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteSalaryAmount(ctx, id); err != nil {
+	if err := s.q.DeleteSalaryAmount(ctx, id); err != nil {
 		return fmt.Errorf("deleting salary amount: %w", err)
 	}
 	return nil
@@ -337,7 +337,7 @@ func (s *Service) UpsertSalaryAdjustment(ctx context.Context, inp SalaryAdjustme
 		inp.ID = sid.MustNewString(32)
 	}
 	now := time.Now().Unix()
-	a, err := pdb.New(s.db).UpsertSalaryAdjustment(ctx, pdb.UpsertSalaryAdjustmentParams{
+	a, err := s.q.UpsertSalaryAdjustment(ctx, pdb.UpsertSalaryAdjustmentParams{
 		ID:                   inp.ID,
 		SalaryID:             inp.SalaryID,
 		ValidFrom:            int64(inp.ValidFrom),
@@ -355,7 +355,7 @@ func (s *Service) UpsertSalaryAdjustment(ctx context.Context, inp SalaryAdjustme
 }
 
 func (s *Service) ListSalaryAdjustments(ctx context.Context, salaryID string) ([]SalaryAdjustment, error) {
-	rows, err := pdb.New(s.db).ListSalaryAdjustments(ctx, salaryID)
+	rows, err := s.q.ListSalaryAdjustments(ctx, salaryID)
 	if err != nil {
 		return nil, fmt.Errorf("listing salary adjustments: %w", err)
 	}
@@ -367,7 +367,7 @@ func (s *Service) ListSalaryAdjustments(ctx context.Context, salaryID string) ([
 }
 
 func (s *Service) DeleteSalaryAdjustment(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteSalaryAdjustment(ctx, id); err != nil {
+	if err := s.q.DeleteSalaryAdjustment(ctx, id); err != nil {
 		return fmt.Errorf("deleting salary adjustment: %w", err)
 	}
 	return nil
@@ -390,7 +390,7 @@ func (s *Service) UpsertPartialParentalLeave(ctx context.Context, inp PartialPar
 		inp.ID = sid.MustNewString(32)
 	}
 	now := time.Now().Unix()
-	a, err := pdb.New(s.db).UpsertPartialParentalLeave(ctx, pdb.UpsertPartialParentalLeaveParams{
+	a, err := s.q.UpsertPartialParentalLeave(ctx, pdb.UpsertPartialParentalLeaveParams{
 		ID:                     inp.ID,
 		SalaryID:               inp.SalaryID,
 		StartDate:              int64(inp.StartDate),
@@ -408,7 +408,7 @@ func (s *Service) UpsertPartialParentalLeave(ctx context.Context, inp PartialPar
 }
 
 func (s *Service) ListPartialParentalLeaves(ctx context.Context, salaryID string) ([]PartialParentalLeave, error) {
-	rows, err := pdb.New(s.db).ListPartialParentalLeaves(ctx, salaryID)
+	rows, err := s.q.ListPartialParentalLeaves(ctx, salaryID)
 	if err != nil {
 		return nil, fmt.Errorf("listing partial parental leaves: %w", err)
 	}
@@ -420,7 +420,7 @@ func (s *Service) ListPartialParentalLeaves(ctx context.Context, salaryID string
 }
 
 func (s *Service) DeletePartialParentalLeave(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeletePartialParentalLeave(ctx, id); err != nil {
+	if err := s.q.DeletePartialParentalLeave(ctx, id); err != nil {
 		return fmt.Errorf("deleting partial parental leave: %w", err)
 	}
 	return nil
@@ -441,7 +441,7 @@ func (s *Service) UpsertFullParentalLeave(ctx context.Context, inp FullParentalL
 		inp.ID = sid.MustNewString(32)
 	}
 	now := time.Now().Unix()
-	a, err := pdb.New(s.db).UpsertFullParentalLeave(ctx, pdb.UpsertFullParentalLeaveParams{
+	a, err := s.q.UpsertFullParentalLeave(ctx, pdb.UpsertFullParentalLeaveParams{
 		ID:              inp.ID,
 		SalaryID:        inp.SalaryID,
 		StartDate:       int64(inp.StartDate),
@@ -457,7 +457,7 @@ func (s *Service) UpsertFullParentalLeave(ctx context.Context, inp FullParentalL
 }
 
 func (s *Service) ListFullParentalLeaves(ctx context.Context, salaryID string) ([]FullParentalLeave, error) {
-	rows, err := pdb.New(s.db).ListFullParentalLeaves(ctx, salaryID)
+	rows, err := s.q.ListFullParentalLeaves(ctx, salaryID)
 	if err != nil {
 		return nil, fmt.Errorf("listing full parental leaves: %w", err)
 	}
@@ -469,7 +469,7 @@ func (s *Service) ListFullParentalLeaves(ctx context.Context, salaryID string) (
 }
 
 func (s *Service) DeleteFullParentalLeave(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteFullParentalLeave(ctx, id); err != nil {
+	if err := s.q.DeleteFullParentalLeave(ctx, id); err != nil {
 		return fmt.Errorf("deleting full parental leave: %w", err)
 	}
 	return nil
@@ -585,7 +585,7 @@ func (s *Service) GetSalariesPageData(ctx context.Context) ([]Salary, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing salaries: %w", err)
 	}
-	allAmounts, err := pdb.New(s.db).ListAllSalaryAmounts(ctx)
+	allAmounts, err := s.q.ListAllSalaryAmounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing salary amounts: %w", err)
 	}
@@ -639,11 +639,11 @@ func (s *Service) GetSalaryEditPageData(ctx context.Context, id string) (*Salary
 }
 
 func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]TransferTemplate, error) {
-	salaries, err := pdb.New(s.db).ListSalaries(ctx)
+	salaries, err := s.q.ListSalaries(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing salaries: %w", err)
 	}
-	allAmounts, err := pdb.New(s.db).ListAllSalaryAmounts(ctx)
+	allAmounts, err := s.q.ListAllSalaryAmounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing salary amounts: %w", err)
 	}
@@ -656,7 +656,7 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		amountsBySalary[a.SalaryID] = append(amountsBySalary[a.SalaryID], parsed)
 	}
 
-	allAdjustments, err := pdb.New(s.db).ListAllSalaryAdjustments(ctx)
+	allAdjustments, err := s.q.ListAllSalaryAdjustments(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing salary adjustments: %w", err)
 	}
@@ -665,7 +665,7 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		adjustmentsBySalary[a.SalaryID] = append(adjustmentsBySalary[a.SalaryID], salaryAdjustmentFromDB(a))
 	}
 
-	allPartialPLs, err := pdb.New(s.db).ListAllPartialParentalLeaves(ctx)
+	allPartialPLs, err := s.q.ListAllPartialParentalLeaves(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing partial parental leaves: %w", err)
 	}
@@ -674,7 +674,7 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		partialPLsBySalary[a.SalaryID] = append(partialPLsBySalary[a.SalaryID], partialParentalLeaveFromDB(a))
 	}
 
-	allFullPLs, err := pdb.New(s.db).ListAllFullParentalLeaves(ctx)
+	allFullPLs, err := s.q.ListAllFullParentalLeaves(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing full parental leaves: %w", err)
 	}

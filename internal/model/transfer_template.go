@@ -122,7 +122,7 @@ func (s *Service) UpsertTransferTemplate(ctx context.Context, inp TransferTempla
 	if inp.ID == "" {
 		inp.ID = sid.MustNewString(32)
 	}
-	t, err := pdb.New(s.db).UpsertTransferTemplate(ctx, pdb.UpsertTransferTemplateParams{
+	t, err := s.q.UpsertTransferTemplate(ctx, pdb.UpsertTransferTemplateParams{
 		ID:               inp.ID,
 		Name:             inp.Name,
 		FromAccountID:    ui.WithDefaultNull(inp.FromAccountID),
@@ -155,7 +155,7 @@ func (s *Service) DuplicateTransferTemplate(ctx context.Context, id string) (Tra
 }
 
 func (s *Service) ListTransferTemplates(ctx context.Context) ([]TransferTemplate, error) {
-	templates, err := pdb.New(s.db).GetTransferTemplates(ctx)
+	templates, err := s.q.GetTransferTemplates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list templates: %w", err)
 	}
@@ -295,7 +295,7 @@ func (s *Service) ListAllTransferTemplatesWithChildren(ctx context.Context) ([]T
 }
 
 func (s *Service) GetTransferTemplate(ctx context.Context, id string) (TransferTemplate, error) {
-	t, err := pdb.New(s.db).GetTransferTemplate(ctx, id)
+	t, err := s.q.GetTransferTemplate(ctx, id)
 	if err != nil {
 		return TransferTemplate{}, fmt.Errorf("failed to get transfer template: %w", err)
 	}
@@ -303,7 +303,7 @@ func (s *Service) GetTransferTemplate(ctx context.Context, id string) (TransferT
 }
 
 func (s *Service) DeleteTransferTemplate(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteTransferTemplate(ctx, id); err != nil {
+	if err := s.q.DeleteTransferTemplate(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete template: %w", err)
 	}
 	return nil

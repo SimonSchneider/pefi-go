@@ -49,7 +49,7 @@ func accountTypeFromDB(at pdb.AccountType) AccountType {
 }
 
 func (s *Service) GetAccountType(ctx context.Context, id string) (AccountType, error) {
-	at, err := pdb.New(s.db).GetAccountType(ctx, id)
+	at, err := s.q.GetAccountType(ctx, id)
 	if err != nil {
 		return AccountType{}, fmt.Errorf("failed to get account type: %w", err)
 	}
@@ -61,7 +61,7 @@ func (s *Service) UpsertAccountType(ctx context.Context, inp AccountTypeInput) (
 	if id == "" {
 		id = sid.MustNewString(15)
 	}
-	at, err := pdb.New(s.db).UpsertAccountType(ctx, pdb.UpsertAccountTypeParams{
+	at, err := s.q.UpsertAccountType(ctx, pdb.UpsertAccountTypeParams{
 		ID:    id,
 		Name:  inp.Name,
 		Color: ui.WithDefaultNull(inp.Color),
@@ -73,7 +73,7 @@ func (s *Service) UpsertAccountType(ctx context.Context, inp AccountTypeInput) (
 }
 
 func (s *Service) DeleteAccountType(ctx context.Context, id string) error {
-	err := pdb.New(s.db).DeleteAccountType(ctx, id)
+	err := s.q.DeleteAccountType(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete account type: %w", err)
 	}
@@ -81,7 +81,7 @@ func (s *Service) DeleteAccountType(ctx context.Context, id string) error {
 }
 
 func (s *Service) ListAccountTypes(ctx context.Context) ([]AccountType, error) {
-	ats, err := pdb.New(s.db).ListAccountTypes(ctx)
+	ats, err := s.q.ListAccountTypes(ctx)
 	if err != nil {
 		return nil, err
 	}

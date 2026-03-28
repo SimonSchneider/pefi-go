@@ -185,8 +185,7 @@ ORDER BY ir.date,
 -- name: ListActiveGrowthModels :many
 SELECT *
 FROM growth_model
-WHERE end_date IS NULL
-  OR end_date > @param1
+WHERE (end_date IS NULL OR end_date > @param1)
   AND start_date <= @param1;
 -- name: UpdateSnapshotDate :many
 UPDATE account_snapshot

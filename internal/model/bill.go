@@ -302,7 +302,7 @@ func (s *Service) UpsertBillAccount(ctx context.Context, inp BillAccount) (BillA
 		inp.ID = sid.MustNewString(32)
 	}
 	now := time.Now().Unix()
-	ba, err := pdb.New(s.db).UpsertBillAccount(ctx, pdb.UpsertBillAccountParams{
+	ba, err := s.q.UpsertBillAccount(ctx, pdb.UpsertBillAccountParams{
 		ID:            inp.ID,
 		Name:          inp.Name,
 		FromAccountID: ui.WithDefaultNull(inp.FromAccountID),
@@ -319,7 +319,7 @@ func (s *Service) UpsertBillAccount(ctx context.Context, inp BillAccount) (BillA
 }
 
 func (s *Service) GetBillAccount(ctx context.Context, id string) (BillAccount, error) {
-	ba, err := pdb.New(s.db).GetBillAccount(ctx, id)
+	ba, err := s.q.GetBillAccount(ctx, id)
 	if err != nil {
 		return BillAccount{}, fmt.Errorf("getting bill account: %w", err)
 	}
@@ -327,7 +327,7 @@ func (s *Service) GetBillAccount(ctx context.Context, id string) (BillAccount, e
 }
 
 func (s *Service) ListBillAccounts(ctx context.Context) ([]BillAccount, error) {
-	rows, err := pdb.New(s.db).ListBillAccounts(ctx)
+	rows, err := s.q.ListBillAccounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing bill accounts: %w", err)
 	}
@@ -339,7 +339,7 @@ func (s *Service) ListBillAccounts(ctx context.Context) ([]BillAccount, error) {
 }
 
 func (s *Service) DeleteBillAccount(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteBillAccount(ctx, id); err != nil {
+	if err := s.q.DeleteBillAccount(ctx, id); err != nil {
 		return fmt.Errorf("deleting bill account: %w", err)
 	}
 	return nil
@@ -350,7 +350,7 @@ func (s *Service) UpsertBill(ctx context.Context, inp Bill) (Bill, error) {
 		inp.ID = sid.MustNewString(32)
 	}
 	now := time.Now().Unix()
-	b, err := pdb.New(s.db).UpsertBill(ctx, pdb.UpsertBillParams{
+	b, err := s.q.UpsertBill(ctx, pdb.UpsertBillParams{
 		ID:               inp.ID,
 		BillAccountID:    inp.BillAccountID,
 		Name:             inp.Name,
@@ -368,7 +368,7 @@ func (s *Service) UpsertBill(ctx context.Context, inp Bill) (Bill, error) {
 }
 
 func (s *Service) GetBill(ctx context.Context, id string) (Bill, error) {
-	b, err := pdb.New(s.db).GetBill(ctx, id)
+	b, err := s.q.GetBill(ctx, id)
 	if err != nil {
 		return Bill{}, fmt.Errorf("getting bill: %w", err)
 	}
@@ -376,7 +376,7 @@ func (s *Service) GetBill(ctx context.Context, id string) (Bill, error) {
 }
 
 func (s *Service) ListBills(ctx context.Context, billAccountID string) ([]Bill, error) {
-	rows, err := pdb.New(s.db).ListBills(ctx, billAccountID)
+	rows, err := s.q.ListBills(ctx, billAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("listing bills: %w", err)
 	}
@@ -388,7 +388,7 @@ func (s *Service) ListBills(ctx context.Context, billAccountID string) ([]Bill, 
 }
 
 func (s *Service) DeleteBill(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteBill(ctx, id); err != nil {
+	if err := s.q.DeleteBill(ctx, id); err != nil {
 		return fmt.Errorf("deleting bill: %w", err)
 	}
 	return nil
@@ -412,7 +412,7 @@ func (s *Service) UpsertBillAmount(ctx context.Context, inp BillAmount) (BillAmo
 	if period == "" {
 		period = "monthly"
 	}
-	a, err := pdb.New(s.db).UpsertBillAmount(ctx, pdb.UpsertBillAmountParams{
+	a, err := s.q.UpsertBillAmount(ctx, pdb.UpsertBillAmountParams{
 		ID:        inp.ID,
 		BillID:    inp.BillID,
 		Amount:    encoded,
@@ -430,7 +430,7 @@ func (s *Service) UpsertBillAmount(ctx context.Context, inp BillAmount) (BillAmo
 }
 
 func (s *Service) ListBillAmounts(ctx context.Context, billID string) ([]BillAmount, error) {
-	rows, err := pdb.New(s.db).ListBillAmounts(ctx, billID)
+	rows, err := s.q.ListBillAmounts(ctx, billID)
 	if err != nil {
 		return nil, fmt.Errorf("listing bill amounts: %w", err)
 	}
@@ -446,7 +446,7 @@ func (s *Service) ListBillAmounts(ctx context.Context, billID string) ([]BillAmo
 }
 
 func (s *Service) DeleteBillAmount(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteBillAmount(ctx, id); err != nil {
+	if err := s.q.DeleteBillAmount(ctx, id); err != nil {
 		return fmt.Errorf("deleting bill amount: %w", err)
 	}
 	return nil
@@ -500,11 +500,11 @@ func (s *Service) GetBillAccountsPageData(ctx context.Context) (*BillsPageData, 
 	if err != nil {
 		return nil, fmt.Errorf("listing bill accounts: %w", err)
 	}
-	allBills, err := pdb.New(s.db).ListAllBills(ctx)
+	allBills, err := s.q.ListAllBills(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing all bills: %w", err)
 	}
-	allAmounts, err := pdb.New(s.db).ListAllBillAmounts(ctx)
+	allAmounts, err := s.q.ListAllBillAmounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing all bill amounts: %w", err)
 	}
@@ -561,7 +561,7 @@ func (s *Service) GetBillAccountEditPageData(ctx context.Context, id string) (*B
 	if err != nil {
 		return nil, fmt.Errorf("listing bills: %w", err)
 	}
-	allAmounts, err := pdb.New(s.db).ListAllBillAmounts(ctx)
+	allAmounts, err := s.q.ListAllBillAmounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing bill amounts: %w", err)
 	}
@@ -625,15 +625,15 @@ func (s *Service) GetBillEditPageData(ctx context.Context, billID string) (*Bill
 }
 
 func (s *Service) generateBillTransferTemplates(ctx context.Context) ([]TransferTemplate, error) {
-	billAccounts, err := pdb.New(s.db).ListBillAccounts(ctx)
+	billAccounts, err := s.q.ListBillAccounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing bill accounts: %w", err)
 	}
-	allBills, err := pdb.New(s.db).ListAllBills(ctx)
+	allBills, err := s.q.ListAllBills(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing all bills: %w", err)
 	}
-	allAmounts, err := pdb.New(s.db).ListAllBillAmounts(ctx)
+	allAmounts, err := s.q.ListAllBillAmounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing all bill amounts: %w", err)
 	}

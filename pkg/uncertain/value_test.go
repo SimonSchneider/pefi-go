@@ -31,6 +31,21 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+func TestPowNegativeBaseNonIntegerExponentPanics(t *testing.T) {
+	cfg := NewConfig(42, 1)
+	base := NewFixed(-2.0)
+	exp := NewFixed(0.5) // non-integer exponent
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic for negative base with non-integer exponent, but did not panic")
+		}
+	}()
+
+	// Force sampling to trigger the panic
+	_ = base.Pow(cfg, exp).Sample(cfg)
+}
+
 func TestMappedMean(t *testing.T) {
 	base := NewFixed(100)
 	mapped := NewMapped(func(cfg *Config) float64 {

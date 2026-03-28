@@ -59,7 +59,7 @@ func (s *Service) UpsertAccountSnapshot(ctx context.Context, accountID string, i
 	if err != nil {
 		return AccountSnapshot{}, fmt.Errorf("encoding balance: %w", err)
 	}
-	snap, err := pdb.New(s.db).UpsertSnapshot(ctx, pdb.UpsertSnapshotParams{
+	snap, err := s.q.UpsertSnapshot(ctx, pdb.UpsertSnapshotParams{
 		AccountID: accountID,
 		Date:      int64(inp.Date),
 		Balance:   balance,
@@ -71,7 +71,7 @@ func (s *Service) UpsertAccountSnapshot(ctx context.Context, accountID string, i
 }
 
 func (s *Service) DeleteAccountSnapshot(ctx context.Context, id string, d date.Date) error {
-	if err := pdb.New(s.db).DeleteSnapshot(ctx, pdb.DeleteSnapshotParams{AccountID: id, Date: int64(d)}); err != nil {
+	if err := s.q.DeleteSnapshot(ctx, pdb.DeleteSnapshotParams{AccountID: id, Date: int64(d)}); err != nil {
 		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
 	return nil
@@ -82,7 +82,7 @@ func (s *Service) ListAccountSnapshots(ctx context.Context, id string) ([]Accoun
 }
 
 func (s *Service) ListAccountsSnapshots(ctx context.Context, ids []string) ([]AccountSnapshot, error) {
-	snapshots, err := pdb.New(s.db).GetSnapshotsByAccounts(ctx, ids)
+	snapshots, err := s.q.GetSnapshotsByAccounts(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list account snapshots: %w", err)
 	}
@@ -94,7 +94,7 @@ func (s *Service) ListAccountsSnapshots(ctx context.Context, ids []string) ([]Ac
 }
 
 func (s *Service) UpdateSnapshotDate(ctx context.Context, oldDate, newDate date.Date) ([]AccountSnapshot, error) {
-	snaps, err := pdb.New(s.db).UpdateSnapshotDate(ctx, pdb.UpdateSnapshotDateParams{
+	snaps, err := s.q.UpdateSnapshotDate(ctx, pdb.UpdateSnapshotDateParams{
 		Date:   int64(newDate),
 		Date_2: int64(oldDate),
 	})
@@ -132,7 +132,7 @@ func (s *Service) UpsertOrDeleteSnapshot(ctx context.Context, accountID string, 
 }
 
 func (s *Service) GetAccountSnapshot(ctx context.Context, id string, d date.Date) (AccountSnapshot, error) {
-	snap, err := pdb.New(s.db).GetSnapshot(ctx, pdb.GetSnapshotParams{
+	snap, err := s.q.GetSnapshot(ctx, pdb.GetSnapshotParams{
 		AccountID: id,
 		Date:      int64(d),
 	})

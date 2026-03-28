@@ -100,7 +100,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (*DashboardView, error) 
 }
 
 func (s *Service) buildSnapshotHistoryChart(ctx context.Context, accountTypes []AccountType) (SnapshotHistoryChartData, error) {
-	q := pdb.New(s.db)
+	q := s.q
 	rows, err := q.ListSnapshotHistoryWithType(ctx)
 	if err != nil {
 		return SnapshotHistoryChartData{}, err
