@@ -2,7 +2,7 @@ PORT := 3002
 CONTAINER_RUNTIME ?= podman
 VERSION ?= main
 EXTRA_TAGS ?=
-REGISTRY ?= ghcr.io/simonschneider/pefi-go
+REGISTRY ?= ghcr.io/simonschneider/pefigo
 IMAGE ?= $(REGISTRY):$(VERSION)
 
 watch-tw:
