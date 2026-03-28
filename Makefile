@@ -37,8 +37,13 @@ run:
 	@echo "Running the application..."
 	@go run cmd/*.go -addr ":$(PORT)" -watch -dburl ":memory:"
 
+BUILD_DIR ?= build
+
 build:
 	@go build ./...
+
+build-linux:
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/app cmd/main.go
 
 test:
 	@go test ./...
@@ -49,9 +54,9 @@ format:
 bench:
 	@go test -bench=. -benchmem ./...
 
-docker-build:
+docker-build: build-linux
 	@echo "Building Docker image..."
-	@$(CONTAINER_RUNTIME) build --platform linux/amd64 -t $(IMAGE) .
+	@$(CONTAINER_RUNTIME) build -t $(IMAGE) .
 	@$(foreach tag,$(EXTRA_TAGS),$(CONTAINER_RUNTIME) tag $(IMAGE) $(REGISTRY):$(tag);)
 
 docker-push:
