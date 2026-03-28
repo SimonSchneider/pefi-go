@@ -91,3 +91,7 @@ When adding a new feature, follow this order:
 - Tests exist in `internal/finance/` and `internal/core/` — run with `go test ./...`
 - Avoid dependencies when possible
 - Always use Red Green TDD when doing any changes.
+
+## Before creating a PR
+
+Ensure the CI will pass by running `make ci-pr` locally, which runs all checks including tests, formatting, and build verification. This helps catch issues early and ensures a smooth review process.
