@@ -8,7 +8,7 @@ import (
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
 
 type AccountTypeGroup struct {

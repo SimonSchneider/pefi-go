@@ -11,10 +11,10 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"strconv"
 
-	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
 
-// import "github.com/SimonSchneider/pefigo/internal/uncertain"
+// import "github.com/SimonSchneider/pefigo/pkg/uncertain"
 func PageTransferTemplates(view *TransferTemplatesView2) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

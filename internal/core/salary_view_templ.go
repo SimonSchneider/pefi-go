@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
 
 func PageSalaries(child templ.Component) templ.Component {

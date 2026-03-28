@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/pefigo/internal/finance"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
-	"github.com/SimonSchneider/pefigo/internal/ui"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
+	finance2 "github.com/SimonSchneider/pefigo/pkg/finance"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
 
 type PredictionParams struct {
@@ -80,8 +80,8 @@ func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEven
 	q := pdb.New(s.db)
 	q1, q2 := (1-params.Quantile)/2, (1+params.Quantile)/2
 
-	transfers := make([]finance.TransferTemplate, 0)
-	entities := make([]finance.Entity, 0)
+	transfers := make([]finance2.TransferTemplate, 0)
+	entities := make([]finance2.Entity, 0)
 	accs, err := q.ListAccounts(ctx)
 	if err != nil {
 		return fmt.Errorf("listing accounts for Prediction: %w", err)
@@ -120,20 +120,20 @@ func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEven
 		if err != nil {
 			return fmt.Errorf("getting growth models for account %s: %w", acc.ID, err)
 		}
-		var balanceLimit finance.BalanceLimit
+		var balanceLimit finance2.BalanceLimit
 		if acc.BalanceUpperLimit != nil {
-			balanceLimit = finance.BalanceLimit{
+			balanceLimit = finance2.BalanceLimit{
 				Upper: uncertain.NewFixed(*acc.BalanceUpperLimit),
 			}
 		}
-		entity := finance.Entity{
+		entity := finance2.Entity{
 			ID:           acc.ID,
 			Name:         acc.Name,
 			BalanceLimit: balanceLimit,
-			Snapshots:    make([]finance.BalanceSnapshot, 0, len(snaps)),
+			Snapshots:    make([]finance2.BalanceSnapshot, 0, len(snaps)),
 		}
 		if acc.CashFlowFrequency != nil || acc.CashFlowDestinationID != nil {
-			entity.CashFlow = &finance.CashFlowModel{
+			entity.CashFlow = &finance2.CashFlowModel{
 				Frequency:     date.Cron(ui.OrDefault(acc.CashFlowFrequency)),
 				DestinationID: ui.OrDefault(acc.CashFlowDestinationID),
 			}
@@ -192,18 +192,18 @@ func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEven
 		return fmt.Errorf("setting up grouping event handler: %w", err)
 	}
 
-	snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
+	snapshotRecorder := finance2.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
 		return h.snapshot(accountID, day, balance)
 	})
-	if err := finance.RunPrediction(ctx, ucfg, startDate, endDate, params.SnapshotInterval, entities, transfers, finance.CompositeRecorder{SnapshotRecorder: snapshotRecorder}); err != nil {
+	if err := finance2.RunPrediction(ctx, ucfg, startDate, endDate, params.SnapshotInterval, entities, transfers, finance2.CompositeRecorder{SnapshotRecorder: snapshotRecorder}); err != nil {
 		return fmt.Errorf("running prediction for SSE: %w", err)
 	}
 	return h.close()
 }
 
 type startupShareForecastState struct {
-	GrowthModel *finance.StartupGrowth
-	Snapshots   []finance.BalanceSnapshot
+	GrowthModel *finance2.StartupGrowth
+	Snapshots   []finance2.BalanceSnapshot
 }
 
 func buildStartupShareForecastState(
@@ -225,36 +225,36 @@ func buildStartupShareForecastState(
 	}
 	sharesOwnedAtStart, avgPurchaseAtStart := DeriveShareState(shareChanges, startDate)
 
-	investmentRounds := make(map[date.Date]finance.StartupGrowthInvestmentRound)
+	investmentRounds := make(map[date.Date]finance2.StartupGrowthInvestmentRound)
 	for _, round := range rounds {
-		investmentRounds[round.Date] = finance.StartupGrowthInvestmentRound{
+		investmentRounds[round.Date] = finance2.StartupGrowthInvestmentRound{
 			PreMoneyValuation: uncertain.NewFixed(round.Valuation),
 			PreMoneyShares:    uncertain.NewFixed(round.PreMoneyShares),
 			Investment:        uncertain.NewFixed(round.Investment),
 		}
 	}
 
-	shareChangesMap := make(map[date.Date]finance.StartupGrowthShareChange)
+	shareChangesMap := make(map[date.Date]finance2.StartupGrowthShareChange)
 	for _, sc := range shareChanges {
 		if sc.Date >= startDate {
-			shareChangesMap[sc.Date] = finance.StartupGrowthShareChange{
+			shareChangesMap[sc.Date] = finance2.StartupGrowthShareChange{
 				DeltaShares: uncertain.NewFixed(sc.DeltaShares),
 				TotalPrice:  uncertain.NewFixed(sc.TotalPrice),
 			}
 		}
 	}
 
-	options := make(map[date.Date]finance.StartupGrowthOption)
+	options := make(map[date.Date]finance2.StartupGrowthOption)
 	for _, opt := range opts {
-		options[opt.EndDate] = finance.StartupGrowthOption{
+		options[opt.EndDate] = finance2.StartupGrowthOption{
 			StrikePricePerShare: uncertain.NewFixed(opt.StrikePricePerShare),
 			NumShares:           uncertain.NewFixed(opt.Shares),
 			SourceAccountID:     opt.SourceAccountID,
 		}
 	}
 
-	growthModel := &finance.StartupGrowth{
-		TimeFrameGrowth: finance.TimeFrameGrowth{
+	growthModel := &finance2.StartupGrowth{
+		TimeFrameGrowth: finance2.TimeFrameGrowth{
 			StartDate: 0,
 			EndDate:   nil,
 		},
@@ -288,7 +288,7 @@ func buildStartupShareForecastState(
 	}
 	sort.Slice(sortedEventDates, func(i, j int) bool { return sortedEventDates[i] < sortedEventDates[j] })
 
-	snapshots := make([]finance.BalanceSnapshot, 0, len(sortedEventDates)+1)
+	snapshots := make([]finance2.BalanceSnapshot, 0, len(sortedEventDates)+1)
 	for _, eventDate := range sortedEventDates {
 		var best *InvestmentRound
 		for i := range rounds {
@@ -316,12 +316,12 @@ func buildStartupShareForecastState(
 			postMoneyShares,
 			ssa.ValuationDiscountFactor,
 		)
-		snapshots = append(snapshots, finance.BalanceSnapshot{
+		snapshots = append(snapshots, finance2.BalanceSnapshot{
 			Date:    eventDate,
 			Balance: balance,
 		})
 	}
-	snapshots = append(snapshots, finance.BalanceSnapshot{
+	snapshots = append(snapshots, finance2.BalanceSnapshot{
 		Date:    startDate,
 		Balance: growthModel.Balance(ucfg),
 	})
@@ -348,7 +348,7 @@ type groupingEventHandler struct {
 	currentAccs map[string]uncertain.Value
 }
 
-func (h *groupingEventHandler) setup(entities []finance.Entity, endDate date.Date, specialDates []SpecialDate) error {
+func (h *groupingEventHandler) setup(entities []finance2.Entity, endDate date.Date, specialDates []SpecialDate) error {
 	for _, e := range h.accsById {
 		if e.TypeID == nil {
 			h.accountTypesById[""] = pdb.AccountType{

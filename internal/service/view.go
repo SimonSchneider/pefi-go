@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/pefigo/internal/currency"
-	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/pkg/currency"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
 
 type TransferTemplateEditView struct {

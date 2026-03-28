@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/SimonSchneider/pefigo/internal/swe"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
 )
 
 func grossToNetServers() (taxRateSrv, taxTableSrv *httptest.Server) {

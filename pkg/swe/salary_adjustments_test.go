@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/SimonSchneider/pefigo/internal/swe"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
 )
 
 func approxEqual(a, b, epsilon float64) bool {

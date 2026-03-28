@@ -12,7 +12,7 @@ import (
 	"github.com/SimonSchneider/goslu/srvu"
 	"github.com/SimonSchneider/goslu/static/shttp"
 	"github.com/SimonSchneider/pefigo/internal/service"
-	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
 
 type Handler struct {

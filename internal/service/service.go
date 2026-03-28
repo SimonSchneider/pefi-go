@@ -8,8 +8,8 @@ import (
 
 	"github.com/SimonSchneider/goslu/config"
 	"github.com/SimonSchneider/goslu/migrate"
-	"github.com/SimonSchneider/pefigo/internal/currency"
-	"github.com/SimonSchneider/pefigo/internal/swe"
+	"github.com/SimonSchneider/pefigo/pkg/currency"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
 )
 
 type Service struct {

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/pefigo/internal/finance"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
+	finance2 "github.com/SimonSchneider/pefigo/pkg/finance"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
 
 type TransfersView struct {
@@ -54,8 +54,8 @@ func (s *Service) ComputeTransfersView(ctx context.Context, day date.Date, amoun
 	}
 	if view.TransfersReady {
 		ucfg := uncertain.NewConfig(time.Now().UnixMilli(), 1)
-		transfers := make([]finance.TransferTemplate, 0)
-		entities := make([]finance.Entity, 0)
+		transfers := make([]finance2.TransferTemplate, 0)
+		entities := make([]finance2.Entity, 0)
 		accounts, err := s.ListAccountsDetailed(ctx, day)
 		if err != nil {
 			return nil, fmt.Errorf("listing accounts: %w", err)
@@ -74,13 +74,13 @@ func (s *Service) ComputeTransfersView(ctx context.Context, day date.Date, amoun
 			if a.BalanceUpperLimit != nil {
 				ul = uncertain.NewFixed(*a.BalanceUpperLimit)
 			}
-			entity := finance.Entity{
+			entity := finance2.Entity{
 				ID:   a.ID,
 				Name: a.Name,
-				BalanceLimit: finance.BalanceLimit{
+				BalanceLimit: finance2.BalanceLimit{
 					Upper: ul,
 				},
-				Snapshots: []finance.BalanceSnapshot{a.LastSnapshot.ToFinance()},
+				Snapshots: []finance2.BalanceSnapshot{a.LastSnapshot.ToFinance()},
 			}
 			if a.GrowthModel != nil {
 				entity.GrowthModel = GrowthModels([]GrowthModel{*a.GrowthModel}).ToFinance()
@@ -97,7 +97,7 @@ func (s *Service) ComputeTransfersView(ctx context.Context, day date.Date, amoun
 			transfers = append(transfers, t.ToFinanceTransferTemplate())
 		}
 
-		transferRecorder := finance.TransferRecorderFunc(func(sourceAccountID, destinationAccountID string, transferDay date.Date, amount uncertain.Value) error {
+		transferRecorder := finance2.TransferRecorderFunc(func(sourceAccountID, destinationAccountID string, transferDay date.Date, amount uncertain.Value) error {
 			if amount.Distribution != uncertain.DistFixed {
 				view.IncompleteTransfers = true
 				return nil
@@ -109,7 +109,7 @@ func (s *Service) ComputeTransfersView(ctx context.Context, day date.Date, amoun
 			})
 			return nil
 		})
-		if err := finance.RunPrediction(ctx, ucfg, day, day.Add(1*date.Day), date.Cron(day.String()), entities, transfers, finance.CompositeRecorder{TransferRecorder: transferRecorder}); err != nil {
+		if err := finance2.RunPrediction(ctx, ucfg, day, day.Add(1*date.Day), date.Cron(day.String()), entities, transfers, finance2.CompositeRecorder{TransferRecorder: transferRecorder}); err != nil {
 			return nil, fmt.Errorf("running prediction for SSE: %w", err)
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/SimonSchneider/pefigo/internal/swe"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
 )
 
 func TestCalculateITP1Pension(t *testing.T) {

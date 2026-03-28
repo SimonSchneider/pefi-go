@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
-	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
 
 func PageBudget(view *BudgetView) templ.Component {

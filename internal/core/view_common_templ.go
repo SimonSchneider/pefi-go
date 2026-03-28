@@ -8,7 +8,7 @@ package core
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/SimonSchneider/pefigo/internal/ui"
+import "github.com/SimonSchneider/pefigo/pkg/ui"
 
 func SaveButton(isEdit bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

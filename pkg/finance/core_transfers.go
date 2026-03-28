@@ -2,9 +2,10 @@ package finance
 
 import (
 	"fmt"
-	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"math"
+
+	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
 
 type TransferAmountType string
