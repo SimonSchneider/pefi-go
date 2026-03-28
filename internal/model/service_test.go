@@ -643,6 +643,35 @@ func TestListAccountsDetailed(t *testing.T) {
 	}
 }
 
+func TestListActiveGrowthModels_ExcludesFutureStartDate(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	at, _ := svc.UpsertAccountType(ctx, model.AccountTypeInput{Name: "Bank"})
+	acc, _ := svc.UpsertAccount(ctx, model.AccountInput{Name: "Savings", TypeID: at.ID})
+
+	// Growth model that starts in the future with no end date
+	svc.UpsertAccountGrowthModel(ctx, model.AccountGrowthModelInput{
+		AccountID:        acc.ID,
+		Type:             "fixed",
+		AnnualRate:       newFixedValue(0.05),
+		AnnualVolatility: newFixedValue(0),
+		StartDate:        mustParseDate("2026-01-01"),
+	})
+
+	// Query as of 2025-06-01 — model hasn't started yet, should not appear
+	detailed, err := svc.ListAccountsDetailed(ctx, mustParseDate("2025-06-01"))
+	if err != nil {
+		t.Fatalf("list detailed: %v", err)
+	}
+	if len(detailed) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(detailed))
+	}
+	if detailed[0].GrowthModel != nil {
+		t.Fatalf("expected no growth model for future start date, but got one: %+v", detailed[0].GrowthModel)
+	}
+}
+
 // ---- Transfer Template Auto-Grouping ----
 
 func TestGetTransferTemplatesPageData_GroupAmountsComputed(t *testing.T) {

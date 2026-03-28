@@ -287,11 +287,8 @@ func (u Value) Exp() Value {
 
 func (u Value) Pow(cfg *Config, v Value) Value {
 	return u.operate(cfg, v, func(a, b float64) float64 {
-		// Simple error handling: avoid complex numbers or invalid inputs
 		if a < 0 && b != math.Trunc(b) {
-			fmt.Printf("Warning: Attempting to raise negative base %f to non-integer exponent %f\n", a, b)
-			//panic("bla")
-			return 0 // Or NaN or panic
+			panic(fmt.Sprintf("negative base %f with non-integer exponent %f", a, b))
 		}
 		return math.Pow(a, b)
 	})

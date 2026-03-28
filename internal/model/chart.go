@@ -77,7 +77,7 @@ type PredictionEventHandler interface {
 }
 
 func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEventHandler, params PredictionParams) error {
-	q := pdb.New(s.db)
+	q := s.q
 	q1, q2 := (1-params.Quantile)/2, (1+params.Quantile)/2
 
 	transfers := make([]finance2.TransferTemplate, 0)

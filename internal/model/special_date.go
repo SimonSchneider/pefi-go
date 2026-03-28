@@ -38,7 +38,7 @@ func specialDateFromDB(sd pdb.SpecialDate) SpecialDate {
 }
 
 func (s *Service) GetSpecialDate(ctx context.Context, id string) (SpecialDate, error) {
-	sd, err := pdb.New(s.db).GetSpecialDate(ctx, id)
+	sd, err := s.q.GetSpecialDate(ctx, id)
 	if err != nil {
 		return SpecialDate{}, fmt.Errorf("failed to get special date: %w", err)
 	}
@@ -50,7 +50,7 @@ func (s *Service) UpsertSpecialDate(ctx context.Context, inp SpecialDateInput) (
 	if id == "" {
 		id = sid.MustNewString(15)
 	}
-	sd, err := pdb.New(s.db).UpsertSpecialDate(ctx, pdb.UpsertSpecialDateParams{
+	sd, err := s.q.UpsertSpecialDate(ctx, pdb.UpsertSpecialDateParams{
 		ID:    id,
 		Name:  inp.Name,
 		Date:  inp.Date.String(),
@@ -63,7 +63,7 @@ func (s *Service) UpsertSpecialDate(ctx context.Context, inp SpecialDateInput) (
 }
 
 func (s *Service) DeleteSpecialDate(ctx context.Context, id string) error {
-	err := pdb.New(s.db).DeleteSpecialDate(ctx, id)
+	err := s.q.DeleteSpecialDate(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete special date: %w", err)
 	}
@@ -71,7 +71,7 @@ func (s *Service) DeleteSpecialDate(ctx context.Context, id string) error {
 }
 
 func (s *Service) ListSpecialDates(ctx context.Context) ([]SpecialDate, error) {
-	sds, err := pdb.New(s.db).GetSpecialDates(ctx)
+	sds, err := s.q.GetSpecialDates(ctx)
 	if err != nil {
 		return nil, err
 	}

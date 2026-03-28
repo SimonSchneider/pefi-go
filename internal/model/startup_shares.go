@@ -215,7 +215,7 @@ func startupShareOptionFromDB(o pdb.StartupShareOption) StartupShareOption {
 }
 
 func (s *Service) UpsertStartupShareAccount(ctx context.Context, inp StartupShareAccountInput) (StartupShareAccount, error) {
-	ssa, err := pdb.New(s.db).UpsertStartupShareAccount(ctx, pdb.UpsertStartupShareAccountParams{
+	ssa, err := s.q.UpsertStartupShareAccount(ctx, pdb.UpsertStartupShareAccountParams{
 		AccountID:               inp.AccountID,
 		TaxRate:                 inp.TaxRate,
 		ValuationDiscountFactor: inp.ValuationDiscountFactor,
@@ -227,7 +227,7 @@ func (s *Service) UpsertStartupShareAccount(ctx context.Context, inp StartupShar
 }
 
 func (s *Service) GetStartupShareAccount(ctx context.Context, accountID string) (StartupShareAccount, error) {
-	ssa, err := pdb.New(s.db).GetStartupShareAccount(ctx, accountID)
+	ssa, err := s.q.GetStartupShareAccount(ctx, accountID)
 	if err != nil {
 		return StartupShareAccount{}, err
 	}
@@ -235,7 +235,7 @@ func (s *Service) GetStartupShareAccount(ctx context.Context, accountID string) 
 }
 
 func (s *Service) DeleteStartupShareAccount(ctx context.Context, accountID string) error {
-	if err := pdb.New(s.db).DeleteStartupShareAccount(ctx, accountID); err != nil {
+	if err := s.q.DeleteStartupShareAccount(ctx, accountID); err != nil {
 		return fmt.Errorf("failed to delete startup share account: %w", err)
 	}
 	return nil
@@ -245,7 +245,7 @@ func (s *Service) UpsertInvestmentRound(ctx context.Context, inp InvestmentRound
 	if inp.ID == "" {
 		inp.ID = sid.MustNewString(32)
 	}
-	ir, err := pdb.New(s.db).UpsertInvestmentRound(ctx, pdb.UpsertInvestmentRoundParams{
+	ir, err := s.q.UpsertInvestmentRound(ctx, pdb.UpsertInvestmentRoundParams{
 		ID:             inp.ID,
 		AccountID:      inp.AccountID,
 		Date:           int64(inp.Date),
@@ -262,7 +262,7 @@ func (s *Service) UpsertInvestmentRound(ctx context.Context, inp InvestmentRound
 }
 
 func (s *Service) GetInvestmentRound(ctx context.Context, id string) (InvestmentRound, error) {
-	ir, err := pdb.New(s.db).GetInvestmentRound(ctx, id)
+	ir, err := s.q.GetInvestmentRound(ctx, id)
 	if err != nil {
 		return InvestmentRound{}, fmt.Errorf("failed to get investment round: %w", err)
 	}
@@ -270,7 +270,7 @@ func (s *Service) GetInvestmentRound(ctx context.Context, id string) (Investment
 }
 
 func (s *Service) ListInvestmentRounds(ctx context.Context, accountID string) ([]InvestmentRound, error) {
-	rounds, err := pdb.New(s.db).ListInvestmentRounds(ctx, accountID)
+	rounds, err := s.q.ListInvestmentRounds(ctx, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list investment rounds: %w", err)
 	}
@@ -282,7 +282,7 @@ func (s *Service) ListInvestmentRounds(ctx context.Context, accountID string) ([
 }
 
 func (s *Service) GetLatestInvestmentRound(ctx context.Context, accountID string, d date.Date) (InvestmentRound, error) {
-	ir, err := pdb.New(s.db).GetLatestInvestmentRound(ctx, pdb.GetLatestInvestmentRoundParams{
+	ir, err := s.q.GetLatestInvestmentRound(ctx, pdb.GetLatestInvestmentRoundParams{
 		AccountID: accountID,
 		Date:      int64(d),
 	})
@@ -296,7 +296,7 @@ func (s *Service) GetLatestInvestmentRound(ctx context.Context, accountID string
 }
 
 func (s *Service) DeleteInvestmentRound(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteInvestmentRound(ctx, id); err != nil {
+	if err := s.q.DeleteInvestmentRound(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete investment round: %w", err)
 	}
 	return nil
@@ -306,7 +306,7 @@ func (s *Service) UpsertShareChange(ctx context.Context, inp ShareChangeInput) (
 	if inp.ID == "" {
 		inp.ID = sid.MustNewString(32)
 	}
-	sc, err := pdb.New(s.db).UpsertShareChange(ctx, pdb.UpsertShareChangeParams{
+	sc, err := s.q.UpsertShareChange(ctx, pdb.UpsertShareChangeParams{
 		ID:          inp.ID,
 		AccountID:   inp.AccountID,
 		Date:        int64(inp.Date),
@@ -322,7 +322,7 @@ func (s *Service) UpsertShareChange(ctx context.Context, inp ShareChangeInput) (
 }
 
 func (s *Service) GetShareChange(ctx context.Context, id string) (ShareChange, error) {
-	sc, err := pdb.New(s.db).GetShareChange(ctx, id)
+	sc, err := s.q.GetShareChange(ctx, id)
 	if err != nil {
 		return ShareChange{}, fmt.Errorf("failed to get share change: %w", err)
 	}
@@ -330,7 +330,7 @@ func (s *Service) GetShareChange(ctx context.Context, id string) (ShareChange, e
 }
 
 func (s *Service) ListShareChanges(ctx context.Context, accountID string) ([]ShareChange, error) {
-	changes, err := pdb.New(s.db).ListShareChanges(ctx, accountID)
+	changes, err := s.q.ListShareChanges(ctx, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list share changes: %w", err)
 	}
@@ -342,7 +342,7 @@ func (s *Service) ListShareChanges(ctx context.Context, accountID string) ([]Sha
 }
 
 func (s *Service) DeleteShareChange(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteShareChange(ctx, id); err != nil {
+	if err := s.q.DeleteShareChange(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete share change: %w", err)
 	}
 	return nil
@@ -383,7 +383,7 @@ func (s *Service) UpsertStartupShareOption(ctx context.Context, inp StartupShare
 	if inp.ID == "" {
 		inp.ID = sid.MustNewString(32)
 	}
-	opt, err := pdb.New(s.db).UpsertStartupShareOption(ctx, pdb.UpsertStartupShareOptionParams{
+	opt, err := s.q.UpsertStartupShareOption(ctx, pdb.UpsertStartupShareOptionParams{
 		ID:                  inp.ID,
 		AccountID:           inp.AccountID,
 		SourceAccountID:     inp.SourceAccountID,
@@ -401,7 +401,7 @@ func (s *Service) UpsertStartupShareOption(ctx context.Context, inp StartupShare
 }
 
 func (s *Service) GetStartupShareOption(ctx context.Context, id string) (StartupShareOption, error) {
-	opt, err := pdb.New(s.db).GetStartupShareOption(ctx, id)
+	opt, err := s.q.GetStartupShareOption(ctx, id)
 	if err != nil {
 		return StartupShareOption{}, fmt.Errorf("failed to get startup share option: %w", err)
 	}
@@ -409,7 +409,7 @@ func (s *Service) GetStartupShareOption(ctx context.Context, id string) (Startup
 }
 
 func (s *Service) ListStartupShareOptions(ctx context.Context, accountID string) ([]StartupShareOption, error) {
-	opts, err := pdb.New(s.db).ListStartupShareOptions(ctx, accountID)
+	opts, err := s.q.ListStartupShareOptions(ctx, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list startup share options: %w", err)
 	}
@@ -421,7 +421,7 @@ func (s *Service) ListStartupShareOptions(ctx context.Context, accountID string)
 }
 
 func (s *Service) DeleteStartupShareOption(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteStartupShareOption(ctx, id); err != nil {
+	if err := s.q.DeleteStartupShareOption(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete startup share option: %w", err)
 	}
 	return nil

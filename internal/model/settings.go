@@ -12,7 +12,7 @@ import (
 const settingDefaultCurrency = "default_currency"
 
 func (s *Service) GetDefaultCurrency(ctx context.Context) (string, error) {
-	val, err := pdb.New(s.db).GetSetting(ctx, settingDefaultCurrency)
+	val, err := s.q.GetSetting(ctx, settingDefaultCurrency)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "SEK", nil
 	}
@@ -23,7 +23,7 @@ func (s *Service) GetDefaultCurrency(ctx context.Context) (string, error) {
 }
 
 func (s *Service) SetDefaultCurrency(ctx context.Context, code string) error {
-	if err := pdb.New(s.db).UpsertSetting(ctx, pdb.UpsertSettingParams{
+	if err := s.q.UpsertSetting(ctx, pdb.UpsertSettingParams{
 		Key:   settingDefaultCurrency,
 		Value: code,
 	}); err != nil {

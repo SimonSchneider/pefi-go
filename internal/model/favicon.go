@@ -42,7 +42,7 @@ func ExtractCompanyName(rawURL string) string {
 }
 
 func (s *Service) GetCachedFavicon(ctx context.Context, domain string) ([]byte, string, error) {
-	row, err := pdb.New(s.db).GetFavicon(ctx, domain)
+	row, err := s.q.GetFavicon(ctx, domain)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", fmt.Errorf("favicon not cached for %s: %w", domain, err)
@@ -53,7 +53,7 @@ func (s *Service) GetCachedFavicon(ctx context.Context, domain string) ([]byte, 
 }
 
 func (s *Service) UpsertFavicon(ctx context.Context, domain string, iconData []byte, contentType string) error {
-	return pdb.New(s.db).UpsertFavicon(ctx, pdb.UpsertFaviconParams{
+	return s.q.UpsertFavicon(ctx, pdb.UpsertFaviconParams{
 		Domain:      domain,
 		IconData:    iconData,
 		ContentType: contentType,

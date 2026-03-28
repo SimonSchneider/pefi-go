@@ -34,7 +34,7 @@ func categoryFromDB(c pdb.TransferTemplateCategory) TransferTemplateCategory {
 }
 
 func (s *Service) ListCategories(ctx context.Context) ([]TransferTemplateCategory, error) {
-	categories, err := pdb.New(s.db).ListTransferTemplateCategories(ctx)
+	categories, err := s.q.ListTransferTemplateCategories(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list categories: %w", err)
 	}
@@ -46,7 +46,7 @@ func (s *Service) ListCategories(ctx context.Context) ([]TransferTemplateCategor
 }
 
 func (s *Service) GetCategory(ctx context.Context, id string) (TransferTemplateCategory, error) {
-	c, err := pdb.New(s.db).GetTransferTemplateCategory(ctx, id)
+	c, err := s.q.GetTransferTemplateCategory(ctx, id)
 	if err != nil {
 		return TransferTemplateCategory{}, fmt.Errorf("failed to get category: %w", err)
 	}
@@ -61,7 +61,7 @@ func (s *Service) UpsertCategory(ctx context.Context, inp TransferTemplateCatego
 		id = sid.MustNewString(32)
 	}
 
-	c, err := pdb.New(s.db).UpsertTransferTemplateCategory(ctx, pdb.UpsertTransferTemplateCategoryParams{
+	c, err := s.q.UpsertTransferTemplateCategory(ctx, pdb.UpsertTransferTemplateCategoryParams{
 		ID:        id,
 		Name:      inp.Name,
 		Color:     inp.Color,
@@ -75,7 +75,7 @@ func (s *Service) UpsertCategory(ctx context.Context, inp TransferTemplateCatego
 }
 
 func (s *Service) DeleteCategory(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteTransferTemplateCategory(ctx, id); err != nil {
+	if err := s.q.DeleteTransferTemplateCategory(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete category: %w", err)
 	}
 	return nil

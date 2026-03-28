@@ -8,12 +8,14 @@ import (
 
 	"github.com/SimonSchneider/goslu/config"
 	"github.com/SimonSchneider/goslu/migrate"
+	"github.com/SimonSchneider/pefigo/internal/pdb"
 	"github.com/SimonSchneider/pefigo/pkg/currency"
 	"github.com/SimonSchneider/pefigo/pkg/swe"
 )
 
 type Service struct {
 	db             *sql.DB
+	q              *pdb.Queries
 	sweClient      *swe.Client
 	currencyClient *currency.Client
 }
@@ -32,6 +34,7 @@ func New(db *sql.DB, opts ...ServiceOption) *Service {
 	ttlCache := NewTTLSQLiteCache(db)
 	s := &Service{
 		db:             db,
+		q:              pdb.New(db),
 		sweClient:      swe.NewClient(cache),
 		currencyClient: currency.NewClient(ttlCache),
 	}

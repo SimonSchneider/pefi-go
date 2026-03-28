@@ -58,7 +58,7 @@ func accountFromDB(a pdb.Account) Account {
 }
 
 func (s *Service) GetAccount(ctx context.Context, id string) (Account, error) {
-	acc, err := pdb.New(s.db).GetAccount(ctx, id)
+	acc, err := s.q.GetAccount(ctx, id)
 	if err != nil {
 		return Account{}, fmt.Errorf("failed to get account: %w", err)
 	}
@@ -67,7 +67,7 @@ func (s *Service) GetAccount(ctx context.Context, id string) (Account, error) {
 
 func (s *Service) UpsertAccount(ctx context.Context, inp AccountInput) (Account, error) {
 	var (
-		q   = pdb.New(s.db)
+		q   = s.q
 		acc pdb.Account
 		err error
 	)
@@ -123,7 +123,7 @@ func (s *Service) UpsertAccountWithStartupShares(ctx context.Context, inp Accoun
 }
 
 func (s *Service) DeleteAccount(ctx context.Context, id string) error {
-	_, err := pdb.New(s.db).DeleteAccount(ctx, id)
+	_, err := s.q.DeleteAccount(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete account: %w", err)
 	}
@@ -162,7 +162,7 @@ func accountsListFromDBDetailed(dbAccs []pdb.Account, snapshots map[string]pdb.A
 }
 
 func (s *Service) ListAccounts(ctx context.Context) ([]Account, error) {
-	accs, err := pdb.New(s.db).ListAccounts(ctx)
+	accs, err := s.q.ListAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -170,14 +170,14 @@ func (s *Service) ListAccounts(ctx context.Context) ([]Account, error) {
 }
 
 func (s *Service) ListBudgetAccounts(ctx context.Context, today date.Date) ([]AccountDetailed, error) {
-	budgetAccs, err := pdb.New(s.db).GetBudgetAccounts(ctx)
+	budgetAccs, err := s.q.GetBudgetAccounts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list budget accounts: %w", err)
 	}
 	if len(budgetAccs) == 0 {
 		return nil, nil
 	}
-	snapshots, err := pdb.New(s.db).ListLatestSnapshotPerAccount(ctx)
+	snapshots, err := s.q.ListLatestSnapshotPerAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (s *Service) ListBudgetAccounts(ctx context.Context, today date.Date) ([]Ac
 	for _, snapshot := range snapshots {
 		snapshotsMap[snapshot.AccountID] = snapshot
 	}
-	growthModels, err := pdb.New(s.db).ListActiveGrowthModels(ctx, ptr(int64(today)))
+	growthModels, err := s.q.ListActiveGrowthModels(ctx, ptr(int64(today)))
 	if err != nil {
 		return nil, err
 	}
@@ -197,11 +197,11 @@ func (s *Service) ListBudgetAccounts(ctx context.Context, today date.Date) ([]Ac
 }
 
 func (s *Service) ListAccountsDetailed(ctx context.Context, today date.Date) ([]AccountDetailed, error) {
-	accs, err := pdb.New(s.db).ListAccounts(ctx)
+	accs, err := s.q.ListAccounts(ctx)
 	if err != nil {
 		return nil, err
 	}
-	snapshots, err := pdb.New(s.db).ListLatestSnapshotPerAccount(ctx)
+	snapshots, err := s.q.ListLatestSnapshotPerAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (s *Service) ListAccountsDetailed(ctx context.Context, today date.Date) ([]
 	for _, snapshot := range snapshots {
 		snapshotsMap[snapshot.AccountID] = snapshot
 	}
-	growthModels, err := pdb.New(s.db).ListActiveGrowthModels(ctx, ptr(int64(today)))
+	growthModels, err := s.q.ListActiveGrowthModels(ctx, ptr(int64(today)))
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (s *Service) ListAccountsDetailed(ctx context.Context, today date.Date) ([]
 	startupShareAccountsMap := make(map[string]pdb.StartupShareAccount)
 	ucfg := uncertain.NewConfig(time.Now().UnixMilli(), 1)
 	for _, acc := range accs {
-		ssa, err := pdb.New(s.db).GetStartupShareAccount(ctx, acc.ID)
+		ssa, err := s.q.GetStartupShareAccount(ctx, acc.ID)
 		if err != nil {
 			if err != sql.ErrNoRows {
 				return nil, fmt.Errorf("failed to get startup share account: %w", err)

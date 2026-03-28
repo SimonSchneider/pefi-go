@@ -20,6 +20,32 @@ type Handler struct {
 	svc *model.Service
 }
 
+func deleteHandler(deleteFn func(ctx context.Context, id string) error, redirectURL string) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := deleteFn(ctx, r.PathValue("id")); err != nil {
+			return err
+		}
+		shttp.RedirectToNext(w, r, redirectURL)
+		return nil
+	})
+}
+
+func deleteWithLookupHandler[T any](getFn func(ctx context.Context, id string) (T, error), deleteFn func(ctx context.Context, id string) error, redirectFn func(T) string) http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		id := r.PathValue("id")
+		entity, err := getFn(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := deleteFn(ctx, id); err != nil {
+			return err
+		}
+		shttp.RedirectToNext(w, r, redirectFn(entity))
+		return nil
+	})
+}
+
+
 func NewHandler(svc *model.Service, public fs.FS) http.Handler {
 	h := &Handler{svc: svc}
 	mux := http.NewServeMux()
@@ -191,9 +217,10 @@ func (h *Handler) accountUpsert() http.Handler {
 		var startupShares *model.StartupShareAccountInput
 		if r.FormValue("account_form_mode") == "startup" {
 			var ssaInp startupShareAccountInputForm
-			if err := srvu.Decode(r, &ssaInp, false); err == nil {
-				startupShares = &ssaInp.StartupShareAccountInput
+			if err := srvu.Decode(r, &ssaInp, false); err != nil {
+				return fmt.Errorf("decoding startup share account input: %w", err)
 			}
+			startupShares = &ssaInp.StartupShareAccountInput
 		}
 		acc, err := h.svc.UpsertAccountWithStartupShares(ctx, inp.AccountInput, startupShares)
 		if err != nil {
@@ -205,13 +232,7 @@ func (h *Handler) accountUpsert() http.Handler {
 }
 
 func (h *Handler) accountDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteAccount(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting account: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/accounts/")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteAccount, "/accounts/")
 }
 
 // ---- Account Growth Models ----
@@ -233,10 +254,11 @@ func (h *Handler) accountGrowthModelUpsert() http.Handler {
 
 func (h *Handler) accountGrowthModelDelete() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteAccountGrowthModel(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting account growth model: %w", err)
+		id := r.PathValue("id")
+		if err := h.svc.DeleteAccountGrowthModel(ctx, id); err != nil {
+			return err
 		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", r.PathValue("id")))
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s", id))
 		return nil
 	})
 }
@@ -274,17 +296,8 @@ func (h *Handler) investmentRoundUpsert() http.Handler {
 }
 
 func (h *Handler) investmentRoundDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		roundID := r.PathValue("id")
-		round, err := h.svc.GetInvestmentRound(ctx, roundID)
-		if err != nil {
-			return fmt.Errorf("getting investment round: %w", err)
-		}
-		if err := h.svc.DeleteInvestmentRound(ctx, roundID); err != nil {
-			return fmt.Errorf("deleting investment round: %w", err)
-		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", round.AccountID))
-		return nil
+	return deleteWithLookupHandler(h.svc.GetInvestmentRound, h.svc.DeleteInvestmentRound, func(r model.InvestmentRound) string {
+		return fmt.Sprintf("/accounts/%s/edit", r.AccountID)
 	})
 }
 
@@ -304,17 +317,8 @@ func (h *Handler) shareChangeUpsert() http.Handler {
 }
 
 func (h *Handler) shareChangeDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		changeID := r.PathValue("id")
-		sc, err := h.svc.GetShareChange(ctx, changeID)
-		if err != nil {
-			return fmt.Errorf("getting share change: %w", err)
-		}
-		if err := h.svc.DeleteShareChange(ctx, changeID); err != nil {
-			return fmt.Errorf("deleting share change: %w", err)
-		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", sc.AccountID))
-		return nil
+	return deleteWithLookupHandler(h.svc.GetShareChange, h.svc.DeleteShareChange, func(sc model.ShareChange) string {
+		return fmt.Sprintf("/accounts/%s/edit", sc.AccountID)
 	})
 }
 
@@ -334,17 +338,8 @@ func (h *Handler) startupShareOptionUpsert() http.Handler {
 }
 
 func (h *Handler) startupShareOptionDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		optionID := r.PathValue("id")
-		option, err := h.svc.GetStartupShareOption(ctx, optionID)
-		if err != nil {
-			return fmt.Errorf("getting startup share option: %w", err)
-		}
-		if err := h.svc.DeleteStartupShareOption(ctx, optionID); err != nil {
-			return fmt.Errorf("deleting startup share option: %w", err)
-		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/accounts/%s/edit", option.AccountID))
-		return nil
+	return deleteWithLookupHandler(h.svc.GetStartupShareOption, h.svc.DeleteStartupShareOption, func(o model.StartupShareOption) string {
+		return fmt.Sprintf("/accounts/%s/edit", o.AccountID)
 	})
 }
 
@@ -402,13 +397,7 @@ func (h *Handler) salaryUpsert() http.Handler {
 }
 
 func (h *Handler) salaryDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteSalary(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting salary: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/salaries")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteSalary, "/salaries")
 }
 
 func (h *Handler) salaryAmountUpsert() http.Handler {
@@ -427,14 +416,7 @@ func (h *Handler) salaryAmountUpsert() http.Handler {
 }
 
 func (h *Handler) salaryAmountDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		amountID := r.PathValue("id")
-		if err := h.svc.DeleteSalaryAmount(ctx, amountID); err != nil {
-			return fmt.Errorf("deleting salary amount: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/salaries")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteSalaryAmount, "/salaries")
 }
 
 func (h *Handler) salaryAdjustmentUpsert() http.Handler {
@@ -453,14 +435,7 @@ func (h *Handler) salaryAdjustmentUpsert() http.Handler {
 }
 
 func (h *Handler) salaryAdjustmentDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		adjustmentID := r.PathValue("id")
-		if err := h.svc.DeleteSalaryAdjustment(ctx, adjustmentID); err != nil {
-			return fmt.Errorf("deleting salary adjustment: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/salaries")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteSalaryAdjustment, "/salaries")
 }
 
 func (h *Handler) partialParentalLeaveUpsert() http.Handler {
@@ -479,13 +454,7 @@ func (h *Handler) partialParentalLeaveUpsert() http.Handler {
 }
 
 func (h *Handler) partialParentalLeaveDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeletePartialParentalLeave(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting partial parental leave: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/salaries")
-		return nil
-	})
+	return deleteHandler(h.svc.DeletePartialParentalLeave, "/salaries")
 }
 
 func (h *Handler) fullParentalLeaveUpsert() http.Handler {
@@ -504,13 +473,7 @@ func (h *Handler) fullParentalLeaveUpsert() http.Handler {
 }
 
 func (h *Handler) fullParentalLeaveDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteFullParentalLeave(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting full parental leave: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/salaries")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteFullParentalLeave, "/salaries")
 }
 
 // ---- Bills ----
@@ -561,13 +524,7 @@ func (h *Handler) billAccountUpsert() http.Handler {
 }
 
 func (h *Handler) billAccountDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteBillAccount(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting bill account: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/bills")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteBillAccount, "/bills")
 }
 
 func (h *Handler) billEditPage() http.Handler {
@@ -596,16 +553,8 @@ func (h *Handler) billUpsert() http.Handler {
 }
 
 func (h *Handler) billDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		bill, err := h.svc.GetBill(ctx, r.PathValue("id"))
-		if err != nil {
-			return fmt.Errorf("getting bill: %w", err)
-		}
-		if err := h.svc.DeleteBill(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting bill: %w", err)
-		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/bills/%s/edit", bill.BillAccountID))
-		return nil
+	return deleteWithLookupHandler(h.svc.GetBill, h.svc.DeleteBill, func(b model.Bill) string {
+		return fmt.Sprintf("/bills/%s/edit", b.BillAccountID)
 	})
 }
 
@@ -625,13 +574,7 @@ func (h *Handler) billAmountUpsert() http.Handler {
 }
 
 func (h *Handler) billAmountDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteBillAmount(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting bill amount: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/bills")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteBillAmount, "/bills")
 }
 
 func (h *Handler) faviconHandler() http.Handler {
@@ -744,13 +687,7 @@ func (h *Handler) transferTemplateDuplicate() http.Handler {
 }
 
 func (h *Handler) transferTemplateDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteTransferTemplate(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting transfer template: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteTransferTemplate, "/")
 }
 
 // ---- Settings (unified) ----
@@ -811,13 +748,7 @@ func (h *Handler) transferTemplateCategoryUpsert() http.Handler {
 }
 
 func (h *Handler) transferTemplateCategoryDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteCategory(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting category: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/settings?tab=categories")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteCategory, "/settings?tab=categories")
 }
 
 // ---- Account Types ----
@@ -854,13 +785,7 @@ func (h *Handler) accountTypeUpsert() http.Handler {
 }
 
 func (h *Handler) accountTypeDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteAccountType(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting account type: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/settings?tab=categories")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteAccountType, "/settings?tab=categories")
 }
 
 // ---- Special Dates ----
@@ -897,13 +822,7 @@ func (h *Handler) specialDateUpsert() http.Handler {
 }
 
 func (h *Handler) specialDateDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteSpecialDate(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting special date: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/settings?tab=special-dates")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteSpecialDate, "/settings?tab=special-dates")
 }
 
 // ---- Snapshots Table ----
@@ -1086,13 +1005,7 @@ func (h *Handler) inkomstbasbeloppUpsert() http.Handler {
 }
 
 func (h *Handler) inkomstbasbeloppDelete() http.Handler {
-	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		if err := h.svc.DeleteInkomstbasbelopp(ctx, r.PathValue("id")); err != nil {
-			return fmt.Errorf("deleting inkomstbasbelopp: %w", err)
-		}
-		shttp.RedirectToNext(w, r, "/settings?tab=inkomstbasbelopp")
-		return nil
-	})
+	return deleteHandler(h.svc.DeleteInkomstbasbelopp, "/settings?tab=inkomstbasbelopp")
 }
 
 func (h *Handler) currencySettingsSave() http.Handler {

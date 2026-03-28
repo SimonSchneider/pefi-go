@@ -107,7 +107,7 @@ func (s *Service) UpsertAccountGrowthModel(ctx context.Context, inp AccountGrowt
 	if err != nil {
 		return GrowthModel{}, fmt.Errorf("encoding annual volatility: %w", err)
 	}
-	gm, err := pdb.New(s.db).UpsertGrowthModel(ctx, pdb.UpsertGrowthModelParams{
+	gm, err := s.q.UpsertGrowthModel(ctx, pdb.UpsertGrowthModelParams{
 		ID:               inp.ID,
 		AccountID:        inp.AccountID,
 		ModelType:        inp.Type,
@@ -125,7 +125,7 @@ func (s *Service) UpsertAccountGrowthModel(ctx context.Context, inp AccountGrowt
 }
 
 func (s *Service) ListAccountGrowthModels(ctx context.Context, accountID string) ([]GrowthModel, error) {
-	gms, err := pdb.New(s.db).GetGrowthModelsByAccount(ctx, accountID)
+	gms, err := s.q.GetGrowthModelsByAccount(ctx, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list account growth models: %w", err)
 	}
@@ -141,14 +141,14 @@ func (s *Service) ListAccountGrowthModels(ctx context.Context, accountID string)
 }
 
 func (s *Service) DeleteAccountGrowthModel(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteGrowthModel(ctx, id); err != nil {
+	if err := s.q.DeleteGrowthModel(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete account growth model: %w", err)
 	}
 	return nil
 }
 
 func (s *Service) GetGrowthModel(ctx context.Context, id string) (GrowthModel, error) {
-	g, err := pdb.New(s.db).GetGrowthModel(ctx, id)
+	g, err := s.q.GetGrowthModel(ctx, id)
 	if err != nil {
 		return GrowthModel{}, fmt.Errorf("failed to get account growth model: %w", err)
 	}

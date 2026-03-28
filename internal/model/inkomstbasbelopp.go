@@ -27,7 +27,7 @@ func inkomstbasbeloppFromDB(row pdb.Inkomstbasbelopp) Inkomstbasbelopp {
 }
 
 func (s *Service) ListInkomstbasbelopp(ctx context.Context) ([]Inkomstbasbelopp, error) {
-	rows, err := pdb.New(s.db).ListInkomstbasbelopp(ctx)
+	rows, err := s.q.ListInkomstbasbelopp(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
 	}
@@ -39,7 +39,7 @@ func (s *Service) ListInkomstbasbelopp(ctx context.Context) ([]Inkomstbasbelopp,
 }
 
 func (s *Service) GetInkomstbasbelopp(ctx context.Context, id string) (Inkomstbasbelopp, error) {
-	row, err := pdb.New(s.db).GetInkomstbasbelopp(ctx, id)
+	row, err := s.q.GetInkomstbasbelopp(ctx, id)
 	if err != nil {
 		return Inkomstbasbelopp{}, fmt.Errorf("getting inkomstbasbelopp: %w", err)
 	}
@@ -51,7 +51,7 @@ func (s *Service) UpsertInkomstbasbelopp(ctx context.Context, inp Inkomstbasbelo
 		inp.ID = sid.MustNewString(32)
 	}
 	now := time.Now().Unix()
-	row, err := pdb.New(s.db).UpsertInkomstbasbelopp(ctx, pdb.UpsertInkomstbasbeloppParams{
+	row, err := s.q.UpsertInkomstbasbelopp(ctx, pdb.UpsertInkomstbasbeloppParams{
 		ID:            inp.ID,
 		Amount:        inp.Amount,
 		Prisbasbelopp: inp.Prisbasbelopp,
@@ -66,7 +66,7 @@ func (s *Service) UpsertInkomstbasbelopp(ctx context.Context, inp Inkomstbasbelo
 }
 
 func (s *Service) DeleteInkomstbasbelopp(ctx context.Context, id string) error {
-	if err := pdb.New(s.db).DeleteInkomstbasbelopp(ctx, id); err != nil {
+	if err := s.q.DeleteInkomstbasbelopp(ctx, id); err != nil {
 		return fmt.Errorf("deleting inkomstbasbelopp: %w", err)
 	}
 	return nil

@@ -761,8 +761,7 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 const listActiveGrowthModels = `-- name: ListActiveGrowthModels :many
 SELECT id, account_id, model_type, annual_growth_rate, annual_volatility, start_date, end_date, created_at, updated_at
 FROM growth_model
-WHERE end_date IS NULL
-  OR end_date > ?1
+WHERE (end_date IS NULL OR end_date > ?1)
   AND start_date <= ?1
 `
 
