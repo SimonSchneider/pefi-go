@@ -6,7 +6,7 @@ import (
 
 	"github.com/SimonSchneider/goslu/sid"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
-	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
 
 type AccountType struct {

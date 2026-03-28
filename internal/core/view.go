@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	"github.com/SimonSchneider/pefigo/internal/service"
-	"github.com/SimonSchneider/pefigo/internal/swe"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
 	"github.com/a-h/templ"
 )
 

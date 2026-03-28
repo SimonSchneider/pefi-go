@@ -8,10 +8,10 @@ import (
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo"
-	"github.com/SimonSchneider/pefigo/internal/currency"
 	"github.com/SimonSchneider/pefigo/internal/service"
-	"github.com/SimonSchneider/pefigo/internal/swe"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
+	"github.com/SimonSchneider/pefigo/pkg/currency"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"

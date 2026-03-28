@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SimonSchneider/pefigo/internal/currency"
+	"github.com/SimonSchneider/pefigo/pkg/currency"
 )
 
 func TestSupportedCurrencies(t *testing.T) {

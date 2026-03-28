@@ -9,8 +9,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/SimonSchneider/pefigo/internal/currency"
-	"github.com/SimonSchneider/pefigo/internal/ui"
+	"github.com/SimonSchneider/pefigo/pkg/currency"
+	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
 
 func PageSettings(view *SettingsPageView, activeTab string) templ.Component {

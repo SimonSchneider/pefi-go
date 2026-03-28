@@ -7,7 +7,7 @@ import (
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/goslu/static/shttp"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
 
 type UncertainValue struct {

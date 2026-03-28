@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
 
 func TestNewTransferTemplatesView2_OneTimeTransfersExcludedFromMonthlyTotals(t *testing.T) {

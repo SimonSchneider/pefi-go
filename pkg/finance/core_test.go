@@ -3,12 +3,13 @@ package finance_test
 import (
 	"context"
 	"fmt"
-	"github.com/SimonSchneider/goslu/date"
-	"github.com/SimonSchneider/goslu/sid"
-	"github.com/SimonSchneider/pefigo/internal/finance"
-	"github.com/SimonSchneider/pefigo/internal/uncertain"
 	"testing"
 	"time"
+
+	"github.com/SimonSchneider/goslu/date"
+	"github.com/SimonSchneider/goslu/sid"
+	finance2 "github.com/SimonSchneider/pefigo/pkg/finance"
+	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
 
 func Must[T any](v T, err error) T {
@@ -18,8 +19,8 @@ func Must[T any](v T, err error) T {
 	return v
 }
 
-func newAccount(name string, withFeatures ...func(*finance.Entity)) *finance.Entity {
-	acc := &finance.Entity{
+func newAccount(name string, withFeatures ...func(*finance2.Entity)) *finance2.Entity {
+	acc := &finance2.Entity{
 		ID:   fmt.Sprintf("'%s'(%s)", name, sid.MustNewString(2)),
 		Name: name,
 	}
@@ -29,46 +30,46 @@ func newAccount(name string, withFeatures ...func(*finance.Entity)) *finance.Ent
 	return acc
 }
 
-func withInterest(annualRate uncertain.Value, paymentDate date.Cron, payoutAccountID string) func(*finance.Entity) {
-	return func(acc *finance.Entity) {
-		acc.GrowthModel = &finance.FixedGrowth{
+func withInterest(annualRate uncertain.Value, paymentDate date.Cron, payoutAccountID string) func(*finance2.Entity) {
+	return func(acc *finance2.Entity) {
+		acc.GrowthModel = &finance2.FixedGrowth{
 			AnnualRate: annualRate,
 		}
-		acc.CashFlow = &finance.CashFlowModel{
+		acc.CashFlow = &finance2.CashFlowModel{
 			Frequency:     paymentDate,
 			DestinationID: payoutAccountID,
 		}
 	}
 }
 
-func withLogNormGrowth(annualRate, annualVolatility uncertain.Value) func(*finance.Entity) {
-	return func(acc *finance.Entity) {
-		acc.GrowthModel = &finance.LogNormalGrowth{
+func withLogNormGrowth(annualRate, annualVolatility uncertain.Value) func(*finance2.Entity) {
+	return func(acc *finance2.Entity) {
+		acc.GrowthModel = &finance2.LogNormalGrowth{
 			AnnualRate:       annualRate,
 			AnnualVolatility: annualVolatility,
 		}
 	}
 }
 
-func withGrowthModel(annualRate uncertain.Value) func(*finance.Entity) {
-	return func(acc *finance.Entity) {
-		acc.GrowthModel = &finance.LogNormalGrowth{
+func withGrowthModel(annualRate uncertain.Value) func(*finance2.Entity) {
+	return func(acc *finance2.Entity) {
+		acc.GrowthModel = &finance2.LogNormalGrowth{
 			AnnualRate: annualRate,
 		}
 	}
 }
 
-func withBalance(d date.Date, v uncertain.Value) func(*finance.Entity) {
-	return func(acc *finance.Entity) {
-		acc.Snapshots = append(acc.Snapshots, finance.BalanceSnapshot{
+func withBalance(d date.Date, v uncertain.Value) func(*finance2.Entity) {
+	return func(acc *finance2.Entity) {
+		acc.Snapshots = append(acc.Snapshots, finance2.BalanceSnapshot{
 			Date:    d,
 			Balance: v,
 		})
 	}
 }
 
-func newTransfer(from, to string, prio int64, cron date.Cron, transferFeatures ...func(template *finance.TransferTemplate)) finance.TransferTemplate {
-	tt := finance.TransferTemplate{
+func newTransfer(from, to string, prio int64, cron date.Cron, transferFeatures ...func(template *finance2.TransferTemplate)) finance2.TransferTemplate {
+	tt := finance2.TransferTemplate{
 		ID:            sid.MustNewString(32),
 		FromAccountID: from,
 		ToAccountID:   to,
@@ -82,19 +83,19 @@ func newTransfer(from, to string, prio int64, cron date.Cron, transferFeatures .
 	return tt
 }
 
-func withFixed(amount uncertain.Value) func(*finance.TransferTemplate) {
-	return func(tt *finance.TransferTemplate) {
-		tt.AmountType = finance.AmountFixed
-		tt.AmountFixed = finance.TransferFixed{
+func withFixed(amount uncertain.Value) func(*finance2.TransferTemplate) {
+	return func(tt *finance2.TransferTemplate) {
+		tt.AmountType = finance2.AmountFixed
+		tt.AmountFixed = finance2.TransferFixed{
 			Amount: amount,
 		}
 	}
 }
 
-func withPercent(percent float64) func(*finance.TransferTemplate) {
-	return func(tt *finance.TransferTemplate) {
-		tt.AmountType = finance.AmountPercent
-		tt.AmountPercent = finance.TransferPercent{
+func withPercent(percent float64) func(*finance2.TransferTemplate) {
+	return func(tt *finance2.TransferTemplate) {
+		tt.AmountType = finance2.AmountPercent
+		tt.AmountPercent = finance2.TransferPercent{
 			Percent: percent,
 		}
 	}
@@ -104,18 +105,18 @@ func mks[T any](accounts ...T) []T {
 	return accounts
 }
 
-func runPredict(ctx context.Context, accounts []finance.Entity, transfers []finance.TransferTemplate) (map[string]uncertain.Value, error) {
-	m := make(map[string]finance.BalanceSnapshot)
-	snapshotRecorder := finance.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
+func runPredict(ctx context.Context, accounts []finance2.Entity, transfers []finance2.TransferTemplate) (map[string]uncertain.Value, error) {
+	m := make(map[string]finance2.BalanceSnapshot)
+	snapshotRecorder := finance2.SnapshotRecorderFunc(func(accountID string, day date.Date, balance uncertain.Value) error {
 		if s, ok := m[accountID]; !ok || s.Date < day {
-			m[accountID] = finance.BalanceSnapshot{
+			m[accountID] = finance2.BalanceSnapshot{
 				Date:    day,
 				Balance: balance,
 			}
 		}
 		return nil
 	})
-	err := finance.RunPrediction(
+	err := finance2.RunPrediction(
 		ctx,
 		uncertain.NewConfig(time.Now().UnixMilli(), 2_000),
 		startDate,
@@ -123,7 +124,7 @@ func runPredict(ctx context.Context, accounts []finance.Entity, transfers []fina
 		"*-*-01",
 		accounts,
 		transfers,
-		finance.CompositeRecorder{SnapshotRecorder: snapshotRecorder},
+		finance2.CompositeRecorder{SnapshotRecorder: snapshotRecorder},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run prediction: %w", err)
@@ -272,11 +273,11 @@ func TestSimulation(t *testing.T) {
 	savings := newTransfer("salAcc", "savingsAcc", 3, "*-*-25", withFixed(uncertain.NewFixed(1000)))
 	shortSavings := newTransfer("salAcc", "shortSavingsAcc", 3, "*-*-25", withFixed(uncertain.NewFixed(1000)))
 	extraSavings := newTransfer("salAcc", "savingsAcc", 4, "*-*-25", withPercent(1))
-	finance.RunSimulation(
-		[]finance.ConcreteTransfers{{ID: salary.ID, Amount: 45000}},
-		[]finance.TransferTemplate{salary, shared, checking, bills, savings, shortSavings, extraSavings},
+	finance2.RunSimulation(
+		[]finance2.ConcreteTransfers{{ID: salary.ID, Amount: 45000}},
+		[]finance2.TransferTemplate{salary, shared, checking, bills, savings, shortSavings, extraSavings},
 		date.Today(),
-		finance.TransferRecorderFunc(func(sourceAccountID, destinationAccountID string, day date.Date, amount uncertain.Value) error {
+		finance2.TransferRecorderFunc(func(sourceAccountID, destinationAccountID string, day date.Date, amount uncertain.Value) error {
 			transfers = append(transfers, RecordedTransfer{
 				From:   sourceAccountID,
 				To:     destinationAccountID,

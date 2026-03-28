@@ -3,7 +3,7 @@ package swe_test
 import (
 	"testing"
 
-	"github.com/SimonSchneider/pefigo/internal/swe"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
 )
 
 func TestCalculatePartialParentalLeaveDeduction(t *testing.T) {

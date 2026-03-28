@@ -8,7 +8,7 @@ package core
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/SimonSchneider/pefigo/internal/ui"
+import "github.com/SimonSchneider/pefigo/pkg/ui"
 
 // ---- Account Type components ----
 func AccountTypeBadge(at AccountType) templ.Component {
