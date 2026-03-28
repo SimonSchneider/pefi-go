@@ -1,0 +1,132 @@
+package view
+
+import "github.com/SimonSchneider/pefigo/pkg/ui"
+
+// ---- Account Type components ----
+
+templ AccountTypeBadge(at AccountType) {
+	<span class="badge badge-sm font-medium" style={ ui.BadgeStyle(at.Color) }>{ at.Name }</span>
+}
+
+templ PageEditAccountType(child templ.Component) {
+	@Layout("/settings", child)
+}
+
+templ AccountTypeEditView(accountType AccountType) {
+	<main class="flex-1 flex flex-col min-h-0">
+		if accountType.ID != "" {
+			@Header("Edit Account Type", DeleteAccountTypeButton(accountType.ID))
+		} else {
+			@Header("New Account Type", BackButton("/settings?tab=categories"))
+		}
+		@AccountTypeForm(accountType)
+	</main>
+}
+
+templ DeleteAccountTypeButton(id string) {
+	<form method="post" action={ templ.SafeURL("/account-types/" + id + "/delete?next=" + nextEncoded("/settings?tab=categories")) }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ AccountTypeForm(accountType AccountType) {
+	<div class="flex-1 p-6 overflow-auto bg-base-100">
+		<div class="max-w-lg mx-auto">
+			<form action={ templ.SafeURL("/account-types/?next=" + nextEncoded("/settings?tab=categories")) } method="post">
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Account Type Details</h3>
+						<input type="hidden" name="id" value={ accountType.ID }/>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Name</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="Asset, Pension, Checking, etc." name="name" value={ accountType.Name }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Color</span></label>
+							<input type="color" class="input input-bordered w-full" name="color" value={ accountType.Color }/>
+						</div>
+						@SaveButton(accountType.ID != "")
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+// ---- Budget Category components ----
+
+templ CategoryBadge(cat TransferTemplateCategory) {
+	if cat.Color != nil && *cat.Color != "" {
+		<span class="badge badge-sm font-medium" style={ ui.BadgeStyle(*cat.Color) }>{ cat.Name }</span>
+	} else {
+		<span class="badge badge-neutral badge-sm font-medium">{ cat.Name }</span>
+	}
+}
+
+templ PageEditTransferTemplateCategory(view *TransferTemplateCategoryEditView) {
+	@Layout("/settings", EditTransferTemplateCategoryContent(view))
+}
+
+templ EditTransferTemplateCategoryContent(view *TransferTemplateCategoryEditView) {
+	<main class="flex-1 flex flex-col min-h-0">
+		if view.IsEdit() {
+			@Header("Edit Category", DeleteCategoryButton(view.Category.ID))
+		} else {
+			@Header("New Category", BackButton("/settings?tab=categories"))
+		}
+		@CategoryForm(view)
+	</main>
+}
+
+templ DeleteCategoryButton(id string) {
+	<form method="post" action={ templ.SafeURL("/transfer-template-categories/" + id + "/delete?next=" + nextEncoded("/settings?tab=categories")) }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ CategoryForm(view *TransferTemplateCategoryEditView) {
+	<div class="flex-1 p-6 overflow-auto bg-base-100">
+		<div class="max-w-lg mx-auto">
+			<form action={ templ.SafeURL("/transfer-template-categories/?next=" + nextEncoded("/settings?tab=categories")) } method="post">
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Category Details</h3>
+						<input type="hidden" name="id" value={ view.Category.ID }/>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Name</span></label>
+							<input type="text" class="input input-bordered w-full" placeholder="Bills, Entertainment, etc." name="name" value={ view.Category.Name }/>
+						</div>
+						<div class="form-control">
+							<label class="label"><span class="label-text font-medium">Color</span></label>
+							{{ colorValue := "" }}
+							if view.Category.Color != nil {
+								{{ colorValue = *view.Category.Color }}
+							}
+							<input type="color" class="input input-bordered w-full" name="color" value={ colorValue }/>
+						</div>
+						@SaveButton(view.IsEdit())
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+// ---- Shared components ----
+
+templ NewButton(href string, icon templ.Component, text string) {
+	<a class="btn btn-primary" href={ href } title={ text }>
+		{ text }
+		@icon
+	</a>
+}
+
+templ BackButton(href string) {
+	<a class="btn btn-ghost" href={ href } title="Back">
+		Back
+	</a>
+}

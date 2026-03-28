@@ -1,0 +1,592 @@
+package view;
+
+import (
+	"strconv"
+
+	"github.com/SimonSchneider/pefigo/pkg/ui"
+)
+
+templ PageAccounts(view *AccountsView) {
+	@Layout("/accounts", AccountsContent(view))
+}
+
+templ PageEditAccount(view *AccountEditView2) {
+	@Layout("/accounts", EditAccountContent(view))
+}
+
+templ EditAccountContent(view *AccountEditView2) {
+	<main class="flex-1 flex flex-col min-h-0">
+		if view.IsEdit() {
+			@Header("Edit Account", DeleteAccountButton(view.Account.ID))
+		} else {
+			@Header("New Account", NewAccountButton())
+		}
+		@AccountForm(view)
+	</main>
+}
+
+templ DeleteAccountButton(id string) {
+	<form method="post" action={ "/accounts/" + id + "/delete?next=" + templ.EscapeString("/accounts") }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
+
+templ AccountForm(view *AccountEditView2) {
+	{{ balanceUpperLimit := "" }}
+	if view.Account.BalanceUpperLimit != nil {
+		{{ balanceUpperLimit = strconv.FormatFloat(*view.Account.BalanceUpperLimit, 'f', -1, 64) }}
+	}
+	{{ formMode := view.AccountFormMode() }}
+	<div class="flex-1 p-4 overflow-auto bg-base-100">
+		<div>
+			<form action={ "/accounts/?next=" + templ.EscapeString("/accounts") } method="post">
+				<input type="hidden" name="id" value={ view.Account.ID }/>
+				<input type="hidden" name="account_form_mode" id="account_form_mode" value={ formMode }/>
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body p-3">
+						<!-- Mode Selector -->
+						<div class="flex justify-center">
+							<div class="join">
+								<input
+									class="join-item btn btn-sm"
+									type="radio"
+									name="mode_selector"
+									aria-label="Standard"
+									onchange="switchAccountMode('standard')"
+									if formMode == "standard" {
+										checked
+									}
+								/>
+								<input
+									class="join-item btn btn-sm"
+									type="radio"
+									name="mode_selector"
+									aria-label="Startup Shares"
+									onchange="switchAccountMode('startup')"
+									if formMode == "startup" {
+										checked
+									}
+								/>
+							</div>
+						</div>
+						<div class="grid grid-cols-2 gap-2 mt-2">
+							<div class="form-control">
+								<label class="label label-text text-xs pb-1">Name</label>
+								<input type="text" class="input input-sm w-full" placeholder="Checking" name="name" value={ view.Account.Name }/>
+							</div>
+							<div class="form-control">
+								<label class="label label-text text-xs pb-1">Account Type</label>
+								<select class="select select-sm w-full" name="type_id">
+									<option
+										value=""
+										if view.Account.TypeID == "" {
+											selected
+										}
+									>Select type</option>
+									for _, accountType := range view.AccountTypes {
+										<option
+											value={ accountType.ID }
+											if accountType.ID == view.Account.TypeID {
+												selected
+											}
+										>{ accountType.Name }</option>
+									}
+								</select>
+							</div>
+						</div>
+						<!-- Standard mode fields -->
+						<div id="standard_fields"
+							if formMode != "standard" {
+								class="hidden mt-2"
+							} else {
+								class="mt-2"
+							}
+						>
+							<div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+								<div class="form-control">
+									<label class="label label-text text-xs pb-1">Balance Upper Limit</label>
+									<input type="number" class="input input-sm w-full" placeholder="1000" name="balance_upper_limit" value={ balanceUpperLimit }/>
+								</div>
+								<div class="form-control">
+									<label class="label label-text text-xs pb-1">Cash Flow Frequency</label>
+									<input type="text" class="input input-sm w-full" placeholder="Frequency" name="cash_flow_frequency" value={ view.Account.CashFlowFrequency }/>
+								</div>
+								<div class="form-control">
+									<label class="label label-text text-xs pb-1">Cash Flow Destination</label>
+									<select class="select select-sm w-full" name="cash_flow_destination_id">
+										<option
+											value=""
+											if view.Account.CashFlowDestinationID == "" {
+												selected
+											}
+										>Select destination</option>
+										for _, acc := range view.Accounts {
+											<option
+												value={ acc.ID }
+												if acc.ID == view.Account.CashFlowDestinationID {
+													selected
+												}
+											>{ acc.Name }</option>
+										}
+									</select>
+								</div>
+								<div class="form-control">
+									<label class="label label-text text-xs pb-1">Budget Category</label>
+									<select class="select select-sm w-full" name="budget_category_id">
+										<option value="">None</option>
+										for _, cat := range view.Categories {
+											{{ accBudgetSelected := false }}
+											if view.Account.BudgetCategoryID != nil && *view.Account.BudgetCategoryID == cat.ID {
+												{{ accBudgetSelected = true }}
+											}
+											<option
+												value={ cat.ID }
+												if accBudgetSelected {
+													selected
+												}
+											>{ cat.Name }</option>
+										}
+									</select>
+								</div>
+							</div>
+						</div>
+						<!-- Startup mode fields -->
+						<div id="startup_fields"
+							if formMode != "startup" {
+								class="hidden mt-2"
+							} else {
+								class="mt-2"
+							}
+						>
+							<div class="grid grid-cols-2 gap-2">
+								<div class="form-control">
+									<label class="label label-text text-xs pb-1">Tax Rate (%)</label>
+									<input type="number" step="any" class="input input-sm w-full" placeholder="15" name="tax_rate" value={ view.GetStartupShareTaxRate() }/>
+								</div>
+								<div class="form-control">
+									<label class="label label-text text-xs pb-1">Valuation Discount (%)</label>
+									<input type="number" step="any" class="input input-sm w-full" placeholder="50" name="valuation_discount_factor" value={ view.GetStartupShareDiscountFactor() }/>
+								</div>
+							</div>
+							if view.DerivedStartupShareSummary != nil {
+								<table class="table table-xs w-full mt-2">
+									<tbody>
+										<tr>
+											<td class="text-base-content/70">Shares owned</td>
+											<td class="text-right font-mono">{ view.GetStartupShareSharesOwned() }</td>
+										</tr>
+										<tr>
+											<td class="text-base-content/70">Total shares</td>
+											<td class="text-right font-mono">{ view.GetStartupShareTotalShares() }</td>
+										</tr>
+										<tr class="border-t border-base-300">
+											<td class="text-base-content/70">Avg price/share</td>
+											<td class="text-right font-mono">{ view.GetStartupSharePurchasePrice() }</td>
+										</tr>
+									</tbody>
+								</table>
+							}
+						</div>
+						<div class="flex items-center mt-2">
+							<button class="btn btn-primary btn-sm ml-auto" type="submit">
+								if view.IsEdit() {
+									Save Changes
+								} else {
+									Create
+								}
+							</button>
+						</div>
+					</div>
+				</div>
+			</form>
+			if view.IsEdit() {
+				if view.StartupShareAccount == nil {
+					<!-- Growth Models (standard accounts only) -->
+					for _, growthModel := range view.GrowthModels {
+						<form id={ "delete-form-" + growthModel.ID } action={ "/growth-models/" + growthModel.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+					}
+					<div class="mt-3 card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body p-3">
+							<h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Growth Models</h3>
+							<div class="grid items-center gap-x-2 gap-y-1 mt-1" style="grid-template-columns: auto 1fr 1fr 1fr 1fr auto auto">
+								<div class="text-xs text-base-content/50">Type</div>
+								<div class="text-xs text-base-content/50">Annual Rate</div>
+								<div class="text-xs text-base-content/50">Volatility</div>
+								<div class="text-xs text-base-content/50">Start Date</div>
+								<div class="text-xs text-base-content/50">End Date</div>
+								<div></div>
+								<div></div>
+								for _, growthModel := range view.GrowthModels {
+									@GrowthModelRow(view.Account.ID, growthModel)
+								}
+								@GrowthModelRow(view.Account.ID, GrowthModel{})
+							</div>
+						</div>
+					</div>
+				}
+				if view.StartupShareAccount != nil {
+					<!-- Startup share sub-forms (startup accounts only) -->
+					@StartupEventTimeline(view)
+				}
+			}
+			<script>
+				function switchAccountMode(mode) {
+					document.getElementById("account_form_mode").value = mode;
+					document.getElementById("standard_fields").className = mode === "standard" ? "mt-2" : "hidden mt-2";
+					document.getElementById("startup_fields").className = mode === "startup" ? "mt-2" : "hidden mt-2";
+				}
+			</script>
+		</div>
+	</div>
+}
+
+templ StartupEventTimeline(view *AccountEditView2) {
+	<!-- Delete forms -->
+	for _, round := range view.InvestmentRounds {
+		<form id={ "delete-round-form-" + round.ID } action={ "/investment-rounds/" + round.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+	}
+	for _, sc := range view.ShareChanges {
+		<form id={ "delete-share-change-form-" + sc.ID } action={ "/share-changes/" + sc.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+	}
+	for _, option := range view.Options {
+		<form id={ "delete-option-form-" + option.ID } action={ "/startup-share-options/" + option.ID + "/delete?next=" + templ.EscapeString("/accounts/"+view.Account.ID+"/edit") } method="post"></form>
+	}
+	<!-- Investment Rounds -->
+	<div class="mt-3 card bg-base-100 shadow-sm border border-base-300">
+		<div class="card-body p-3">
+			<h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Investment Rounds</h3>
+			<div class="grid items-center gap-x-2 gap-y-1 mt-1" style="grid-template-columns: 1fr 1fr 1fr 1fr auto auto">
+				<div class="text-xs text-base-content/50">Date</div>
+				<div class="text-xs text-base-content/50">Pre-Money Valuation</div>
+				<div class="text-xs text-base-content/50">Pre-Money Shares</div>
+				<div class="text-xs text-base-content/50">Investment</div>
+				<div></div>
+				<div></div>
+				for _, round := range view.InvestmentRounds {
+					@InvestmentRoundRow(view.Account.ID, round)
+				}
+				@InvestmentRoundRow(view.Account.ID, InvestmentRound{})
+			</div>
+		</div>
+	</div>
+	<!-- Share Changes -->
+	<div class="mt-3 card bg-base-100 shadow-sm border border-base-300">
+		<div class="card-body p-3">
+			<h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Share Changes</h3>
+			<div class="grid items-center gap-x-2 gap-y-1 mt-1" style="grid-template-columns: 1fr 1fr 1fr auto auto">
+				<div class="text-xs text-base-content/50">Date</div>
+				<div class="text-xs text-base-content/50">Shares (+/-)</div>
+				<div class="text-xs text-base-content/50">Total Price</div>
+				<div></div>
+				<div></div>
+				for _, sc := range view.ShareChanges {
+					@ShareChangeRow(view.Account.ID, sc)
+				}
+				@ShareChangeRow(view.Account.ID, ShareChange{})
+			</div>
+		</div>
+	</div>
+	<!-- Options -->
+	<div class="mt-3 card bg-base-100 shadow-sm border border-base-300">
+		<div class="card-body p-3">
+			<h3 class="text-xs font-semibold uppercase tracking-wide text-base-content/60">Options</h3>
+			<div class="grid items-center gap-x-2 gap-y-1 mt-1" style="grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto auto">
+				<div class="text-xs text-base-content/50">Shares</div>
+				<div class="text-xs text-base-content/50">Strike Price</div>
+				<div class="text-xs text-base-content/50">Source Account</div>
+				<div class="text-xs text-base-content/50">Grant Date</div>
+				<div class="text-xs text-base-content/50">End Date</div>
+				<div></div>
+				<div></div>
+				for _, option := range view.Options {
+					@StartupShareOptionRow(view.Account.ID, view.Accounts, option)
+				}
+				@StartupShareOptionRow(view.Account.ID, view.Accounts, StartupShareOption{})
+			</div>
+		</div>
+	</div>
+}
+
+templ InvestmentRoundRow(accountID string, round InvestmentRound) {
+	<form method="post" action={ "/investment-rounds/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") } style="display:contents">
+		<div>
+			<input type="hidden" name="id" value={ round.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
+			<input type="text" class="input input-xs w-full" placeholder="2024-01-01" name="date" value={ round.GetDateString() }/>
+		</div>
+		<div><input type="number" step="any" class="input input-xs w-full" placeholder="1000000" name="valuation" value={ round.GetValuationString() }/></div>
+		<div><input type="number" step="any" class="input input-xs w-full" placeholder="10000" name="pre_money_shares" value={ round.GetPreMoneySharesString() }/></div>
+		<div><input type="number" step="any" class="input input-xs w-full" placeholder="0" name="investment" value={ round.GetInvestmentString() }/></div>
+		<button type="submit" class="btn btn-xs btn-square btn-primary btn-ghost" title={ rowActionTitle(round.ID != "") }>
+			if round.ID != "" {
+				@IconCheck("w-3.5 h-3.5")
+			} else {
+				@IconPlus("w-3.5 h-3.5")
+			}
+		</button>
+		if round.ID != "" {
+			<button type="submit" form={ "delete-round-form-" + round.ID } class="btn btn-xs btn-square btn-ghost text-error" title="Delete">
+				@IconX("w-3.5 h-3.5")
+			</button>
+		} else {
+			<div></div>
+		}
+	</form>
+}
+
+templ ShareChangeRow(accountID string, sc ShareChange) {
+	<form method="post" action={ "/share-changes/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") } style="display:contents">
+		<div>
+			<input type="hidden" name="id" value={ sc.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
+			<input type="text" class="input input-xs w-full" placeholder="2024-01-01" name="date" value={ sc.GetDateString() }/>
+		</div>
+		<div><input type="number" step="any" class="input input-xs w-full" placeholder="100" name="delta_shares" value={ sc.GetDeltaSharesString() }/></div>
+		<div><input type="number" step="any" class="input input-xs w-full" placeholder="5000" name="total_price" value={ sc.GetTotalPriceString() }/></div>
+		<button type="submit" class="btn btn-xs btn-square btn-primary btn-ghost" title={ rowActionTitle(sc.ID != "") }>
+			if sc.ID != "" {
+				@IconCheck("w-3.5 h-3.5")
+			} else {
+				@IconPlus("w-3.5 h-3.5")
+			}
+		</button>
+		if sc.ID != "" {
+			<button type="submit" form={ "delete-share-change-form-" + sc.ID } class="btn btn-xs btn-square btn-ghost text-error" title="Delete">
+				@IconX("w-3.5 h-3.5")
+			</button>
+		} else {
+			<div></div>
+		}
+	</form>
+}
+
+templ StartupShareOptionRow(accountID string, accounts []Account, option StartupShareOption) {
+	<form method="post" action={ "/startup-share-options/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") } style="display:contents">
+		<div>
+			<input type="hidden" name="id" value={ option.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
+			<input type="number" step="any" class="input input-xs w-full" placeholder="1000" name="shares" value={ option.GetSharesString() }/>
+		</div>
+		<div><input type="number" step="any" class="input input-xs w-full" placeholder="0.50" name="strike_price_per_share" value={ option.GetStrikePriceString() }/></div>
+		<div>
+			<select class="select select-xs w-full" name="source_account_id">
+				<option value="">Source...</option>
+				for _, acc := range accounts {
+					<option
+						value={ acc.ID }
+						if acc.ID == option.SourceAccountID {
+							selected
+						}
+					>{ acc.Name }</option>
+				}
+			</select>
+		</div>
+		<div><input type="text" class="input input-xs w-full" placeholder="2024-01-01" name="grant_date" value={ option.GetGrantDateString() }/></div>
+		<div><input type="text" class="input input-xs w-full" placeholder="2028-01-01" name="end_date" value={ option.GetEndDateString() }/></div>
+		<button type="submit" class="btn btn-xs btn-square btn-primary btn-ghost" title={ rowActionTitle(option.ID != "") }>
+			if option.ID != "" {
+				@IconCheck("w-3.5 h-3.5")
+			} else {
+				@IconPlus("w-3.5 h-3.5")
+			}
+		</button>
+		if option.ID != "" {
+			<button type="submit" form={ "delete-option-form-" + option.ID } class="btn btn-xs btn-square btn-ghost text-error" title="Delete">
+				@IconX("w-3.5 h-3.5")
+			</button>
+		} else {
+			<div></div>
+		}
+	</form>
+}
+
+templ GrowthModelRow(accountID string, growthModel GrowthModel) {
+	<form method="post" action={ "/growth-models/?next=" + templ.EscapeString("/accounts/"+accountID+"/edit") } style="display:contents">
+		<div>
+			<input type="hidden" name="id" value={ growthModel.ID }/>
+			<input type="hidden" name="account_id" value={ accountID }/>
+			<select class="select select-xs w-full" name="type">
+				<option
+					value="fixed"
+					if growthModel.Type == "fixed" || growthModel.ID == "" {
+						selected
+					}
+				>Fixed</option>
+				<option
+					value="lognormal"
+					if growthModel.Type == "lognormal" {
+						selected
+					}
+				>Lognormal</option>
+			</select>
+		</div>
+		<div><input type="text" class="input input-xs w-full" placeholder="0.05" name="annual_rate" value={ growthModel.AnnualRate.SimpleEncode() }/></div>
+		<div><input type="text" class="input input-xs w-full" placeholder="0.10" name="annual_volatility" value={ growthModel.AnnualVolatility.SimpleEncode() }/></div>
+		<div><input type="text" class="input input-xs w-full" placeholder="2024-01-01" name="start_date" value={ growthModel.StartDate.String() }/></div>
+		<div><input type="text" class="input input-xs w-full" placeholder="End" name="end_date" value={ growthModel.GetEndDateString() }/></div>
+		<button type="submit" class="btn btn-xs btn-square btn-primary btn-ghost" title={ rowActionTitle(growthModel.ID != "") }>
+			if growthModel.ID != "" {
+				@IconCheck("w-3.5 h-3.5")
+			} else {
+				@IconPlus("w-3.5 h-3.5")
+			}
+		</button>
+		if growthModel.ID != "" {
+			<button type="submit" form={ "delete-form-" + growthModel.ID } class="btn btn-xs btn-square btn-ghost text-error" title="Delete">
+				@IconX("w-3.5 h-3.5")
+			</button>
+		} else {
+			<div></div>
+		}
+	</form>
+}
+
+templ AccountsStatCardRow(view *AccountsView) {
+	<div class="flex flex-row flex-wrap gap-4">
+		@StatCard("Total Balance", ui.FormatWithThousands(view.TotalBalance), "Total balance of all accounts", IconTrendingUp("w-10 h-10 text-green-600"))
+		@StatCard("Total Accounts", strconv.Itoa(len(view.Accounts)), "number of accounts", IconCashBanknote("w-10 h-10"))
+		@StatCard("Assets", ui.FormatWithThousands(view.TotalAssets), "Total assets", IconTrendingUp("w-10 h-10 text-green-600"))
+		@StatCard("Liabilities", ui.FormatWithThousands(-view.TotalLiabilities), "Total liabilities", IconTrendingDown("w-10 h-10 text-red-600"))
+	</div>
+}
+
+templ AccountTableRow(view *AccountsView, account *AccountDetailed) {
+	<tr class="hover:bg-base-200/50 transition-colors">
+		<td class="font-medium">{ account.Name }</td>
+		<td>
+			if account.TypeID != "" {
+				@AccountTypeBadge(view.GetAccountType(account.TypeID).AccountType)
+			}
+		</td>
+		<td class="text-right">
+			if account.LastSnapshot != nil {
+				@BalanceBadge(account.LastSnapshot.Balance.Mean(), true, "")
+			} else {
+				<span>-</span>
+			}
+		</td>
+		<td>
+			if account.LastSnapshot != nil {
+				<span>{ account.LastSnapshot.Date.String() }</span>
+			} else {
+				<span>-</span>
+			}
+		</td>
+		<td>
+			if account.GrowthModel != nil {
+				<span
+					class={ "badge",
+					templ.KV("badge-primary", account.GrowthModel.Type == "fixed"),
+					templ.KV("badge-secondary", account.GrowthModel.Type == "lognormal") }
+				>{ account.GrowthModel.Type }</span>
+			} else {
+				<span class="text-base-content/50"></span>
+			}
+		</td>
+		<td>
+			if account.GrowthModel != nil {
+				if account.GrowthModel.AnnualRate.IsFixed() {
+					<span>{ account.GrowthModel.AnnualRate.Mean() }</span>
+				} else {
+					<span>~ { account.GrowthModel.AnnualRate.Mean() }</span>
+				}
+			} else {
+				<span class="text-base-content/50"></span>
+			}
+		</td>
+		<td>
+			{{ budgetCat := view.GetBudgetCategory(account.BudgetCategoryID) }}
+			if budgetCat != nil {
+				@CategoryBadge(*budgetCat)
+			} else {
+				<span class="text-base-content/50 text-sm">-</span>
+			}
+		</td>
+		<td class="text-right">
+			<div class="flex items-center justify-end gap-2 row-actions">
+				<a class="btn btn-ghost btn-sm" title="Edit" href={ "/accounts/" + account.ID + "/edit" }>
+					@IconPencil("w-4 h-4")
+				</a>
+			</div>
+		</td>
+	</tr>
+}
+
+templ NewAccountButton() {
+	{{ label := "New Account" }}
+	<a class="btn btn-primary" href="/accounts/new" title={ label }>
+		{ label }
+		@IconPlus("w-4 h-4")
+	</a>
+}
+
+templ AccountsFilter(at []AccountTypeWithFilter) {
+	<form method="get">
+		<div class="join">
+			for _, accountType := range at {
+				<input
+					if accountType.Exclude {
+						checked
+					}
+					class="btn join-item checked:bg-error checked:border-error"
+					type="checkbox"
+					name={ "exclude_at_" + accountType.ID }
+					aria-label={ accountType.Name }
+				/>
+			}
+			<button class="btn btn-primary join-item" type="submit">Apply</button>
+		</div>
+	</form>
+}
+
+templ AccountsContent(view *AccountsView) {
+	<main class="flex-1 flex flex-col min-h-0">
+		@Header("Accounts", AccountsFilter(view.AccountTypes), NewAccountButton())
+		<div class="flex-1 p-6 overflow-auto bg-base-100">
+			<div class="flex flex-col gap-4">
+				@AccountsStatCardRow(view)
+				<div class="card bg-base-100 shadow-sm border border-base-300">
+					<div class="card-body">
+						<div class="overflow-x-auto">
+							<table class="table w-full">
+								<thead class="bg-base-200/60">
+									<tr>
+										<th class="font-semibold sticky">Name</th>
+										<th class="font-semibold">Account Type</th>
+										<th class="font-semibold text-right">Balance</th>
+										<th class="font-semibold">Last Snapshot</th>
+										<th class="font-semibold">Growth Model</th>
+										<th class="font-semibold">Growth Rate</th>
+										<th class="font-semibold">Budget</th>
+										<th class="font-semibold text-right sticky">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									if len(view.Accounts) == 0 {
+										<tr>
+											<td colspan="8" class="text-center py-8 text-base-content/70">
+												<div class="flex flex-col items-center gap-2">
+													@NoDataImg()
+													<p class="text-lg font-medium">No accounts yet</p>
+													<p>Create your first account to get started</p>
+												</div>
+											</td>
+										</tr>
+									} else {
+										for _, account := range view.Accounts {
+											if !view.GetAccountType(account.TypeID).Exclude {
+												@AccountTableRow(view, &account)
+											}
+										}
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+}

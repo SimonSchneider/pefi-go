@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/SimonSchneider/pefigo/internal/core"
+	"github.com/SimonSchneider/pefigo/internal/controller"
 	"os"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	if err := core.Run(context.Background(), os.Args, os.Stdin, os.Stdout, os.Stderr, os.Getenv, os.Getwd); err != nil {
+	if err := controller.Run(context.Background(), os.Args, os.Stdin, os.Stdout, os.Stderr, os.Getenv, os.Getwd); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
