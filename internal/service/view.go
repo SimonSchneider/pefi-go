@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/currency"
@@ -141,8 +142,10 @@ func newTransferTemplatesView2(flatTemplates []TransferTemplate, groupedTemplate
 	}
 
 	// Monthly totals computed from flat amounts — grouping is purely visual.
+	// One-time transfers (no wildcard in recurrence) are excluded since they
+	// are not part of the monthly recurring transfers.
 	for _, twa := range flatAmounts {
-		if twa.Amount == 0 {
+		if twa.Amount == 0 || !strings.Contains(string(twa.Recurrence), "*") {
 			continue
 		}
 		if twa.FromAccountID == "" {
