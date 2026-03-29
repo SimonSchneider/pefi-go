@@ -102,6 +102,7 @@ func applyDailyTransfers(ucfg *uncertain.Config, accounts map[string]*ModeledEnt
 		}
 		if okTo {
 			toAccount.balance = toAccount.balance.Add(ucfg, amount)
+			toAccount.dayDeposits = toAccount.dayDeposits.Add(ucfg, amount)
 		}
 	}
 	return nil

@@ -1622,12 +1622,12 @@ func TestNetSegments_SplitsAtAdjustmentChange(t *testing.T) {
 		t.Fatalf("creating salary amount: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
-		t.Fatalf("creating inkomstbasbelopp: %v", err)
+		t.Fatalf("creating swe yearly params: %v", err)
 	}
 
 	if _, err := svc.UpsertSalaryAdjustment(ctx, model.SalaryAdjustment{
@@ -1687,14 +1687,14 @@ func TestNetSegments_SplitsAtPBBChange(t *testing.T) {
 		t.Fatalf("creating salary amount: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 52500,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
 		t.Fatalf("creating ibb 1: %v", err)
 	}
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-07-01"),
@@ -1752,14 +1752,14 @@ func TestNetSegments_SplitsAtAllBoundaries(t *testing.T) {
 		t.Fatalf("creating amount 2: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 52500,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
 		t.Fatalf("creating ibb 1: %v", err)
 	}
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-04-01"),
@@ -1912,12 +1912,12 @@ func TestNetSegments_SplitsAtPartialParentalLeaveChange(t *testing.T) {
 		t.Fatalf("creating salary amount: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
-		t.Fatalf("creating inkomstbasbelopp: %v", err)
+		t.Fatalf("creating swe yearly params: %v", err)
 	}
 
 	// No parental leave initially — just 1 segment
@@ -2038,12 +2038,12 @@ func TestNetSegments_FullParentalLeaveOverridesNetSalary(t *testing.T) {
 		t.Fatalf("creating salary amount: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
-		t.Fatalf("creating inkomstbasbelopp: %v", err)
+		t.Fatalf("creating swe yearly params: %v", err)
 	}
 
 	// Add full parental leave from June 2025 to Jan 2026
@@ -2362,13 +2362,13 @@ func TestSQLiteCacheGetSetRoundtrip(t *testing.T) {
 	}
 }
 
-// ---- Inkomstbasbelopp CRUD ----
+// ---- SweYearlyParams CRUD ----
 
-func TestInkomstbasbeloppCRUD(t *testing.T) {
+func TestSweYearlyParamsCRUD(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()
 
-	ibb, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	ibb, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:    76200,
 		ValidFrom: mustParseDate("2025-01-01"),
 	})
@@ -2379,7 +2379,7 @@ func TestInkomstbasbeloppCRUD(t *testing.T) {
 		t.Fatalf("unexpected: %+v", ibb)
 	}
 
-	got, err := svc.GetInkomstbasbelopp(ctx, ibb.ID)
+	got, err := svc.GetSweYearlyParams(ctx, ibb.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -2387,7 +2387,7 @@ func TestInkomstbasbeloppCRUD(t *testing.T) {
 		t.Fatalf("unexpected get: %+v", got)
 	}
 
-	ibb2, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	ibb2, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		ID:        ibb.ID,
 		Amount:    80000,
 		ValidFrom: mustParseDate("2025-01-01"),
@@ -2399,7 +2399,7 @@ func TestInkomstbasbeloppCRUD(t *testing.T) {
 		t.Fatalf("unexpected update: %+v", ibb2)
 	}
 
-	list, err := svc.ListInkomstbasbelopp(ctx)
+	list, err := svc.ListSweYearlyParams(ctx)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -2407,10 +2407,10 @@ func TestInkomstbasbeloppCRUD(t *testing.T) {
 		t.Fatalf("expected 1, got %d", len(list))
 	}
 
-	if err := svc.DeleteInkomstbasbelopp(ctx, ibb.ID); err != nil {
+	if err := svc.DeleteSweYearlyParams(ctx, ibb.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
-	list, _ = svc.ListInkomstbasbelopp(ctx)
+	list, _ = svc.ListSweYearlyParams(ctx)
 	if len(list) != 0 {
 		t.Fatalf("expected 0 after delete, got %d", len(list))
 	}
@@ -2431,12 +2431,12 @@ func TestComputeSalaryBreakdowns_StandardSalary(t *testing.T) {
 		t.Fatalf("creating salary amount: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
-		t.Fatalf("creating inkomstbasbelopp: %v", err)
+		t.Fatalf("creating swe yearly params: %v", err)
 	}
 
 	if _, err := svc.UpsertSalaryAdjustment(ctx, model.SalaryAdjustment{
@@ -2499,12 +2499,12 @@ func TestComputeSalaryBreakdowns_SplitsAtAdjustmentChange(t *testing.T) {
 		t.Fatalf("creating salary amount: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
-		t.Fatalf("creating inkomstbasbelopp: %v", err)
+		t.Fatalf("creating swe yearly params: %v", err)
 	}
 
 	if _, err := svc.UpsertSalaryAdjustment(ctx, model.SalaryAdjustment{
@@ -2559,12 +2559,12 @@ func TestComputeSalaryBreakdowns_FullParentalLeave(t *testing.T) {
 		t.Fatalf("creating salary amount: %v", err)
 	}
 
-	if _, err := svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{
+	if _, err := svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{
 		Amount:        76200,
 		Prisbasbelopp: 57300,
 		ValidFrom:     mustParseDate("2025-01-01"),
 	}); err != nil {
-		t.Fatalf("creating inkomstbasbelopp: %v", err)
+		t.Fatalf("creating swe yearly params: %v", err)
 	}
 
 	if _, err := svc.UpsertFullParentalLeave(ctx, model.FullParentalLeave{
@@ -2625,15 +2625,15 @@ func TestComputeSalaryBreakdowns_NonGrossSalaryReturnsNil(t *testing.T) {
 	}
 }
 
-func TestInkomstbasbeloppOrdering(t *testing.T) {
+func TestSweYearlyParamsOrdering(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()
 
-	svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{Amount: 80000, ValidFrom: mustParseDate("2026-01-01")})
-	svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{Amount: 76200, ValidFrom: mustParseDate("2025-01-01")})
-	svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{Amount: 84000, ValidFrom: mustParseDate("2027-01-01")})
+	svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{Amount: 80000, ValidFrom: mustParseDate("2026-01-01")})
+	svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{Amount: 76200, ValidFrom: mustParseDate("2025-01-01")})
+	svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{Amount: 84000, ValidFrom: mustParseDate("2027-01-01")})
 
-	list, err := svc.ListInkomstbasbelopp(ctx)
+	list, err := svc.ListSweYearlyParams(ctx)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -3630,9 +3630,9 @@ func TestGetSettingsPageData(t *testing.T) {
 		t.Fatalf("create special date: %v", err)
 	}
 
-	_, err = svc.UpsertInkomstbasbelopp(ctx, model.Inkomstbasbelopp{Amount: 76200, Prisbasbelopp: 57300, ValidFrom: mustParseDate("2025-01-01")})
+	_, err = svc.UpsertSweYearlyParams(ctx, model.SweYearlyParams{Amount: 76200, Prisbasbelopp: 57300, ValidFrom: mustParseDate("2025-01-01")})
 	if err != nil {
-		t.Fatalf("create inkomstbasbelopp: %v", err)
+		t.Fatalf("create swe yearly params: %v", err)
 	}
 
 	// Call GetSettingsPageData
@@ -3650,8 +3650,8 @@ func TestGetSettingsPageData(t *testing.T) {
 	if len(view.SpecialDates) != 1 {
 		t.Errorf("expected 1 special date, got %d", len(view.SpecialDates))
 	}
-	if len(view.Inkomstbasbelopp) != 1 {
-		t.Errorf("expected 1 inkomstbasbelopp, got %d", len(view.Inkomstbasbelopp))
+	if len(view.SweYearlyParams) != 1 {
+		t.Errorf("expected 1 swe yearly params, got %d", len(view.SweYearlyParams))
 	}
 	if view.CurrentCurrency != "SEK" {
 		t.Errorf("expected default currency SEK, got %s", view.CurrentCurrency)

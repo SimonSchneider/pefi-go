@@ -104,6 +104,19 @@ templ AccountForm(view *AccountEditView2) {
 								class="mt-2"
 							}
 						>
+							<div class="form-control mt-1 mb-1">
+								<label class="label cursor-pointer justify-start gap-2">
+									<input
+										type="checkbox"
+										name="is_isk"
+										class="checkbox checkbox-sm"
+										if view.Account.IsISK {
+											checked
+										}
+									/>
+									<span class="label-text text-xs">ISK Account (Swedish investment savings account tax)</span>
+								</label>
+							</div>
 							<div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
 								<div class="form-control">
 									<label class="label label-text text-xs pb-1">Balance Upper Limit</label>

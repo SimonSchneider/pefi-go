@@ -1,6 +1,8 @@
 package view
 
 import (
+	"fmt"
+
 	"github.com/SimonSchneider/pefigo/pkg/currency"
 	"github.com/SimonSchneider/pefigo/pkg/ui"
 )
@@ -34,13 +36,13 @@ templ settingsContent(view *SettingsPageView, activeTab string) {
 				>Currency</a>
 				<a
 					role="tab"
-					href="/settings?tab=inkomstbasbelopp"
-					if activeTab == "inkomstbasbelopp" {
+					href="/settings?tab=swe-yearly-params"
+					if activeTab == "swe-yearly-params" {
 						class="tab tab-active"
 					} else {
 						class="tab"
 					}
-				>Inkomstbasbelopp</a>
+				>SWE Yearly Params</a>
 				<a
 					role="tab"
 					href="/settings?tab=special-dates"
@@ -56,8 +58,8 @@ templ settingsContent(view *SettingsPageView, activeTab string) {
 					@settingsTabCategories(view)
 				case "currency":
 					@settingsTabCurrency(view.CurrentCurrency, view.Currencies)
-				case "inkomstbasbelopp":
-					@settingsTabInkomstbasbelopp(view.Inkomstbasbelopp)
+				case "swe-yearly-params":
+					@settingsTabSweYearlyParams(view.SweYearlyParams)
 				case "special-dates":
 					@settingsTabSpecialDates(view.SpecialDates)
 			}
@@ -198,10 +200,10 @@ templ settingsTabCurrency(currentCurrency string, currencies []currency.Currency
 	</div>
 }
 
-templ settingsTabInkomstbasbelopp(ibbs []Inkomstbasbelopp) {
+templ settingsTabSweYearlyParams(params []SweYearlyParams) {
 	<div class="flex flex-col gap-4">
 		<div class="flex justify-end">
-			@NewButton("/settings/inkomstbasbelopp/new", IconPlus("w-4 h-4"), "New")
+			@NewButton("/settings/swe-yearly-params/new", IconPlus("w-4 h-4"), "New")
 		</div>
 		<div class="card bg-base-100 shadow-sm border border-base-300">
 			<div class="card-body">
@@ -212,29 +214,33 @@ templ settingsTabInkomstbasbelopp(ibbs []Inkomstbasbelopp) {
 								<th class="font-semibold">Valid From</th>
 								<th class="font-semibold text-right">IBB</th>
 								<th class="font-semibold text-right">PBB</th>
+								<th class="font-semibold text-right">Schablonränta</th>
+								<th class="font-semibold text-right">ISK Fribelopp</th>
 								<th class="font-semibold text-right sticky">Actions</th>
 							</tr>
 						</thead>
 						<tbody>
-							if len(ibbs) == 0 {
+							if len(params) == 0 {
 								<tr>
-									<td colspan="4" class="text-center py-8 text-base-content/70">
+									<td colspan="6" class="text-center py-8 text-base-content/70">
 										<div class="flex flex-col items-center gap-2">
 											@NoDataImg()
-											<p class="text-lg font-medium">No inkomstbasbelopp configured</p>
-											<p>Add an entry to enable Swedish gross salary pension calculations</p>
+											<p class="text-lg font-medium">No SWE yearly params configured</p>
+											<p>Add an entry to enable Swedish gross salary and ISK tax calculations</p>
 										</div>
 									</td>
 								</tr>
 							} else {
-								for _, ibb := range ibbs {
+								for _, p := range params {
 									<tr class="hover:bg-base-200/50 transition-colors">
-										<td class="font-medium">{ ibb.ValidFrom.String() }</td>
-										<td class="text-right">{ ui.FormatWithThousands(ibb.Amount) }</td>
-										<td class="text-right">{ ui.FormatWithThousands(ibb.Prisbasbelopp) }</td>
+										<td class="font-medium">{ p.ValidFrom.String() }</td>
+										<td class="text-right">{ ui.FormatWithThousands(p.Amount) }</td>
+										<td class="text-right">{ ui.FormatWithThousands(p.Prisbasbelopp) }</td>
+										<td class="text-right">{ fmt.Sprintf("%g", p.SchablonRanta) }</td>
+										<td class="text-right">{ ui.FormatWithThousands(p.IskFribelopp) }</td>
 										<td class="text-right">
 											<div class="row-actions">
-												<a href={ templ.SafeURL("/settings/inkomstbasbelopp/" + ibb.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
+												<a href={ templ.SafeURL("/settings/swe-yearly-params/" + p.ID + "/edit") } class="btn btn-ghost btn-sm" title="Edit">
 													@IconPencil("w-4 h-4")
 												</a>
 											</div>

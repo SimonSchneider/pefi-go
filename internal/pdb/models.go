@@ -15,6 +15,7 @@ type Account struct {
 	CashFlowDestinationID *string
 	TypeID                *string
 	BudgetCategoryID      *string
+	IsIsk                 int64
 }
 
 type AccountSnapshot struct {
@@ -102,15 +103,6 @@ type GrowthModel struct {
 	EndDate          *int64
 	CreatedAt        int64
 	UpdatedAt        int64
-}
-
-type Inkomstbasbelopp struct {
-	ID            string
-	Amount        float64
-	ValidFrom     int64
-	CreatedAt     int64
-	UpdatedAt     int64
-	Prisbasbelopp float64
 }
 
 type InvestmentRound struct {
@@ -207,6 +199,17 @@ type StartupShareOption struct {
 	EndDate             int64
 	CreatedAt           int64
 	UpdatedAt           int64
+}
+
+type SweYearlyParam struct {
+	ID            string
+	Amount        float64
+	ValidFrom     int64
+	CreatedAt     int64
+	UpdatedAt     int64
+	Prisbasbelopp float64
+	SchablonRanta float64
+	IskFribelopp  float64
 }
 
 type TransferTemplate struct {

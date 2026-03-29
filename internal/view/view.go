@@ -129,7 +129,7 @@ type (
 	SalaryEditView                   = model.SalaryEditView
 	PartialParentalLeave             = model.PartialParentalLeave
 	FullParentalLeave                = model.FullParentalLeave
-	Inkomstbasbelopp                 = model.Inkomstbasbelopp
+	SweYearlyParams                  = model.SweYearlyParams
 	TransferTemplateSource           = model.TransferTemplateSource
 	NetSalarySegmentBreakdown        = model.NetSalarySegmentBreakdown
 	SalaryBreakdown                  = swe.SalaryBreakdown

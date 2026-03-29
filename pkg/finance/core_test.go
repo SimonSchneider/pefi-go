@@ -259,6 +259,54 @@ func TestInterestForwardingUntilFromDate(t *testing.T) {
 	}
 }
 
+type fixedAnnualTax struct {
+	rate float64
+}
+
+func (f *fixedAnnualTax) Apply(ucfg *uncertain.Config, day date.Date, balance uncertain.Value, dayDeposits uncertain.Value) uncertain.Value {
+	if day.Month() == 1 && day.Day() == 1 {
+		return uncertain.NewFixed(balance.Mean() * f.rate)
+	}
+	return uncertain.Value{}
+}
+
+func withTaxModel(tm finance2.TaxModel) func(*finance2.Entity) {
+	return func(acc *finance2.Entity) {
+		acc.TaxModel = tm
+	}
+}
+
+func TestTaxModelDeductsAnnually(t *testing.T) {
+	acc := newAccount("ISK Account",
+		withBalance(firstDate, uncertain.NewFixed(100_000)),
+		withTaxModel(&fixedAnnualTax{rate: 0.01}),
+	)
+	bals, err := runPredict(t.Context(), mks(*acc), nil)
+	if err != nil {
+		t.Fatalf("failed to run prediction: %s", err)
+	}
+	if bal := bals[acc.ID].Mean(); !isAround(bals[acc.ID], 99_000) {
+		t.Errorf("balance after tax is %f, expected around 99000", bal)
+	}
+}
+
+func TestTaxModelWithDeposits(t *testing.T) {
+	acc := newAccount("ISK Account",
+		withBalance(firstDate, uncertain.NewFixed(100_000)),
+		withTaxModel(&fixedAnnualTax{rate: 0.01}),
+	)
+	deposit := newTransfer("", acc.ID, 1, "*-*-25", withFixed(uncertain.NewFixed(1000)))
+	bals, err := runPredict(t.Context(), mks(*acc), mks(deposit))
+	if err != nil {
+		t.Fatalf("failed to run prediction: %s", err)
+	}
+	// 100k initial + 12k deposits over the year, 1% tax on Jan 1 balance (~111k)
+	bal := bals[acc.ID].Mean()
+	if bal < 109_000 || bal > 111_000 {
+		t.Errorf("balance after tax and deposits is %f, expected around 109890", bal)
+	}
+}
+
 func TestSimulation(t *testing.T) {
 	type RecordedTransfer struct {
 		From   string

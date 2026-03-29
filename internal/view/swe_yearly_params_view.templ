@@ -1,0 +1,58 @@
+package view
+
+import "fmt"
+
+templ SweYearlyParamsEditPage(p SweYearlyParams, isEdit bool) {
+	@Layout("/settings", sweYearlyParamsEditContent(p, isEdit))
+}
+
+templ sweYearlyParamsEditContent(p SweYearlyParams, isEdit bool) {
+	<main class="flex-1 flex flex-col min-h-0">
+		if isEdit {
+			@Header("Edit SWE Yearly Params", sweYearlyParamsDeleteButton(p.ID))
+		} else {
+			@Header("New SWE Yearly Params", BackButton("/settings?tab=swe-yearly-params"))
+		}
+		<div class="flex-1 p-6 overflow-auto bg-base-100">
+			<div class="max-w-lg mx-auto">
+				<form action={ templ.SafeURL("/settings/swe-yearly-params/?next=" + nextEncoded("/settings?tab=swe-yearly-params")) } method="post">
+					<div class="card bg-base-100 shadow-sm border border-base-300">
+						<div class="card-body">
+							<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">SWE Yearly Params</h3>
+							<input type="hidden" name="id" value={ p.ID }/>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Valid From</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="2025-01-01" name="valid_from" value={ p.ValidFrom.String() }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Inkomstbasbelopp (IBB)</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="76200" name="amount" value={ fmt.Sprintf("%.0f", p.Amount) }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Prisbasbelopp (PBB)</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="57300" name="prisbasbelopp" value={ fmt.Sprintf("%.0f", p.Prisbasbelopp) }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">Schablonränta</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="0.0125" name="schablon_ranta" value={ fmt.Sprintf("%g", p.SchablonRanta) }/>
+							</div>
+							<div class="form-control">
+								<label class="label"><span class="label-text font-medium">ISK Fribelopp</span></label>
+								<input type="text" class="input input-bordered w-full" placeholder="0" name="isk_fribelopp" value={ fmt.Sprintf("%.0f", p.IskFribelopp) }/>
+							</div>
+							@SaveButton(isEdit)
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+	</main>
+}
+
+templ sweYearlyParamsDeleteButton(id string) {
+	<form method="post" action={ templ.SafeURL("/settings/swe-yearly-params/" + id + "/delete?next=" + nextEncoded("/settings?tab=swe-yearly-params")) }>
+		<button class="btn btn-error" type="submit">
+			Delete
+		</button>
+	</form>
+}
