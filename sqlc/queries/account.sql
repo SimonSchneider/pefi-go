@@ -10,7 +10,8 @@ SET name = ?,
   cash_flow_frequency = ?,
   cash_flow_destination_id = ?,
   type_id = ?,
-  budget_category_id = ?
+  budget_category_id = ?,
+  is_isk = ?
 WHERE id = ?
 RETURNING *;
 -- name: DeleteAccount :one
@@ -31,10 +32,11 @@ INSERT INTO account (
     cash_flow_destination_id,
     type_id,
     budget_category_id,
+    is_isk,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 -- name: GetSnapshotsByAccount :many
 SELECT *

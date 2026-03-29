@@ -28,6 +28,7 @@ func (a *accountInputForm) FromForm(r *http.Request) error {
 	if budgetCategoryID != "" {
 		a.BudgetCategoryID = &budgetCategoryID
 	}
+	a.IsISK = r.FormValue("is_isk") == "on"
 	return nil
 }
 
@@ -407,17 +408,23 @@ func (d *dateInputForm) FromForm(r *http.Request) error {
 	return nil
 }
 
-type inkomstbasbeloppInputForm struct {
-	model.Inkomstbasbelopp
+type sweYearlyParamsInputForm struct {
+	model.SweYearlyParams
 }
 
-func (f *inkomstbasbeloppInputForm) FromForm(r *http.Request) error {
+func (f *sweYearlyParamsInputForm) FromForm(r *http.Request) error {
 	f.ID = r.FormValue("id")
 	if err := shttp.Parse(&f.Amount, ui.ParseAmount, r.FormValue("amount"), float64(0)); err != nil {
 		return fmt.Errorf("parsing amount: %w", err)
 	}
 	if err := shttp.Parse(&f.Prisbasbelopp, ui.ParseAmount, r.FormValue("prisbasbelopp"), float64(0)); err != nil {
 		return fmt.Errorf("parsing prisbasbelopp: %w", err)
+	}
+	if err := shttp.Parse(&f.SchablonRanta, ui.ParseAmount, r.FormValue("schablon_ranta"), float64(0)); err != nil {
+		return fmt.Errorf("parsing schablon_ranta: %w", err)
+	}
+	if err := shttp.Parse(&f.IskFribelopp, ui.ParseAmount, r.FormValue("isk_fribelopp"), float64(0)); err != nil {
+		return fmt.Errorf("parsing isk_fribelopp: %w", err)
 	}
 	if err := shttp.Parse(&f.ValidFrom, date.ParseDate, r.FormValue("valid_from"), date.Date(0)); err != nil {
 		return fmt.Errorf("parsing valid_from: %w", err)

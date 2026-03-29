@@ -22,6 +22,7 @@ type Account struct {
 	CashFlowDestinationID string
 	TypeID                string
 	BudgetCategoryID      *string
+	IsISK                 bool
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
@@ -41,6 +42,7 @@ type AccountInput struct {
 	CashFlowDestinationID string
 	TypeID                string
 	BudgetCategoryID      *string
+	IsISK                 bool
 }
 
 func accountFromDB(a pdb.Account) Account {
@@ -52,6 +54,7 @@ func accountFromDB(a pdb.Account) Account {
 		CashFlowDestinationID: ui.OrDefault(a.CashFlowDestinationID),
 		TypeID:                ui.OrDefault(a.TypeID),
 		BudgetCategoryID:      a.BudgetCategoryID,
+		IsISK:                 a.IsIsk != 0,
 		CreatedAt:             time.UnixMilli(a.CreatedAt),
 		UpdatedAt:             time.UnixMilli(a.UpdatedAt),
 	}
@@ -71,6 +74,10 @@ func (s *Service) UpsertAccount(ctx context.Context, inp AccountInput) (Account,
 		acc pdb.Account
 		err error
 	)
+	var isIsk int64
+	if inp.IsISK {
+		isIsk = 1
+	}
 	if inp.ID != "" {
 		acc, err = q.UpdateAccount(ctx, pdb.UpdateAccountParams{
 			ID:                    inp.ID,
@@ -80,6 +87,7 @@ func (s *Service) UpsertAccount(ctx context.Context, inp AccountInput) (Account,
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			BudgetCategoryID:      inp.BudgetCategoryID,
+			IsIsk:                 isIsk,
 			UpdatedAt:             time.Now().UnixMilli(),
 		})
 	} else {
@@ -91,6 +99,7 @@ func (s *Service) UpsertAccount(ctx context.Context, inp AccountInput) (Account,
 			CashFlowDestinationID: ui.WithDefaultNull(inp.CashFlowDestinationID),
 			TypeID:                ui.WithDefaultNull(inp.TypeID),
 			BudgetCategoryID:      inp.BudgetCategoryID,
+			IsIsk:                 isIsk,
 			CreatedAt:             time.Now().UnixMilli(),
 			UpdatedAt:             time.Now().UnixMilli(),
 		})

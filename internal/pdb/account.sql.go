@@ -19,11 +19,12 @@ INSERT INTO account (
     cash_flow_destination_id,
     type_id,
     budget_category_id,
+    is_isk,
     created_at,
     updated_at
   )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id, is_isk
 `
 
 type CreateAccountParams struct {
@@ -34,6 +35,7 @@ type CreateAccountParams struct {
 	CashFlowDestinationID *string
 	TypeID                *string
 	BudgetCategoryID      *string
+	IsIsk                 int64
 	CreatedAt             int64
 	UpdatedAt             int64
 }
@@ -47,6 +49,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		arg.CashFlowDestinationID,
 		arg.TypeID,
 		arg.BudgetCategoryID,
+		arg.IsIsk,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -62,6 +65,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.CashFlowDestinationID,
 		&i.TypeID,
 		&i.BudgetCategoryID,
+		&i.IsIsk,
 	)
 	return i, err
 }
@@ -69,7 +73,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 const deleteAccount = `-- name: DeleteAccount :one
 DELETE FROM account
 WHERE id = ?
-RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id, is_isk
 `
 
 func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error) {
@@ -86,6 +90,7 @@ func (q *Queries) DeleteAccount(ctx context.Context, id string) (Account, error)
 		&i.CashFlowDestinationID,
 		&i.TypeID,
 		&i.BudgetCategoryID,
+		&i.IsIsk,
 	)
 	return i, err
 }
@@ -197,7 +202,7 @@ func (q *Queries) DeleteTransferTemplateCategory(ctx context.Context, id string)
 }
 
 const getAccount = `-- name: GetAccount :one
-SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id
+SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id, is_isk
 FROM account
 WHERE id = ?
 `
@@ -216,6 +221,7 @@ func (q *Queries) GetAccount(ctx context.Context, id string) (Account, error) {
 		&i.CashFlowDestinationID,
 		&i.TypeID,
 		&i.BudgetCategoryID,
+		&i.IsIsk,
 	)
 	return i, err
 }
@@ -234,7 +240,7 @@ func (q *Queries) GetAccountType(ctx context.Context, id string) (AccountType, e
 }
 
 const getBudgetAccounts = `-- name: GetBudgetAccounts :many
-SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id
+SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id, is_isk
 FROM account
 WHERE budget_category_id IS NOT NULL
 ORDER BY name,
@@ -261,6 +267,7 @@ func (q *Queries) GetBudgetAccounts(ctx context.Context) ([]Account, error) {
 			&i.CashFlowDestinationID,
 			&i.TypeID,
 			&i.BudgetCategoryID,
+			&i.IsIsk,
 		); err != nil {
 			return nil, err
 		}
@@ -718,7 +725,7 @@ func (q *Queries) ListAccountTypes(ctx context.Context) ([]AccountType, error) {
 }
 
 const listAccounts = `-- name: ListAccounts :many
-SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id
+SELECT id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id, is_isk
 FROM account
 ORDER BY name,
   id
@@ -744,6 +751,7 @@ func (q *Queries) ListAccounts(ctx context.Context) ([]Account, error) {
 			&i.CashFlowDestinationID,
 			&i.TypeID,
 			&i.BudgetCategoryID,
+			&i.IsIsk,
 		); err != nil {
 			return nil, err
 		}
@@ -1107,9 +1115,10 @@ SET name = ?,
   cash_flow_frequency = ?,
   cash_flow_destination_id = ?,
   type_id = ?,
-  budget_category_id = ?
+  budget_category_id = ?,
+  is_isk = ?
 WHERE id = ?
-RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id
+RETURNING id, name, owner_id, created_at, updated_at, balance_upper_limit, cash_flow_frequency, cash_flow_destination_id, type_id, budget_category_id, is_isk
 `
 
 type UpdateAccountParams struct {
@@ -1120,6 +1129,7 @@ type UpdateAccountParams struct {
 	CashFlowDestinationID *string
 	TypeID                *string
 	BudgetCategoryID      *string
+	IsIsk                 int64
 	ID                    string
 }
 
@@ -1132,6 +1142,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		arg.CashFlowDestinationID,
 		arg.TypeID,
 		arg.BudgetCategoryID,
+		arg.IsIsk,
 		arg.ID,
 	)
 	var i Account
@@ -1146,6 +1157,7 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (A
 		&i.CashFlowDestinationID,
 		&i.TypeID,
 		&i.BudgetCategoryID,
+		&i.IsIsk,
 	)
 	return i, err
 }

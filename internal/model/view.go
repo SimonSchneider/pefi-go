@@ -315,12 +315,12 @@ func (s *Service) GetCategoriesPageData(ctx context.Context) (*CategoriesPageVie
 }
 
 type SettingsPageView struct {
-	AccountTypes     []AccountType
-	Categories       []TransferTemplateCategory
-	SpecialDates     []SpecialDate
-	Inkomstbasbelopp []Inkomstbasbelopp
-	CurrentCurrency  string
-	Currencies       []currency.Currency
+	AccountTypes    []AccountType
+	Categories      []TransferTemplateCategory
+	SpecialDates    []SpecialDate
+	SweYearlyParams []SweYearlyParams
+	CurrentCurrency string
+	Currencies      []currency.Currency
 }
 
 func (s *Service) GetSettingsPageData(ctx context.Context) (*SettingsPageView, error) {
@@ -336,21 +336,21 @@ func (s *Service) GetSettingsPageData(ctx context.Context) (*SettingsPageView, e
 	if err != nil {
 		return nil, fmt.Errorf("listing special dates: %w", err)
 	}
-	ibbs, err := s.ListInkomstbasbelopp(ctx)
+	ibbs, err := s.ListSweYearlyParams(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
+		return nil, fmt.Errorf("listing swe yearly params: %w", err)
 	}
 	cur, err := s.GetDefaultCurrency(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting default currency: %w", err)
 	}
 	return &SettingsPageView{
-		AccountTypes:     accountTypes,
-		Categories:       categories,
-		SpecialDates:     specialDates,
-		Inkomstbasbelopp: ibbs,
-		CurrentCurrency:  cur,
-		Currencies:       currency.SupportedCurrencies(),
+		AccountTypes:    accountTypes,
+		Categories:      categories,
+		SpecialDates:    specialDates,
+		SweYearlyParams: ibbs,
+		CurrentCurrency: cur,
+		Currencies:      currency.SupportedCurrencies(),
 	}, nil
 }
 

@@ -128,10 +128,10 @@ func NewHandler(svc *model.Service, public fs.FS) http.Handler {
 
 	mux.Handle("POST /settings/currency", h.currencySettingsSave())
 
-	mux.Handle("GET /settings/inkomstbasbelopp/new", h.inkomstbasbeloppNewPage())
-	mux.Handle("GET /settings/inkomstbasbelopp/{id}/edit", h.inkomstbasbeloppEditPage())
-	mux.Handle("POST /settings/inkomstbasbelopp/{$}", h.inkomstbasbeloppUpsert())
-	mux.Handle("POST /settings/inkomstbasbelopp/{id}/delete", h.inkomstbasbeloppDelete())
+	mux.Handle("GET /settings/swe-yearly-params/new", h.sweYearlyParamsNewPage())
+	mux.Handle("GET /settings/swe-yearly-params/{id}/edit", h.sweYearlyParamsEditPage())
+	mux.Handle("POST /settings/swe-yearly-params/{$}", h.sweYearlyParamsUpsert())
+	mux.Handle("POST /settings/swe-yearly-params/{id}/delete", h.sweYearlyParamsDelete())
 
 	mux.Handle("POST /transfers/{$}", h.transferTemplateUpsert())
 	mux.Handle("POST /transfers/{id}/duplicate", h.transferTemplateDuplicate())
@@ -692,10 +692,10 @@ func (h *Handler) transferTemplateDelete() http.Handler {
 // ---- Settings (unified) ----
 
 var validTabs = map[string]bool{
-	"categories":       true,
-	"currency":         true,
-	"inkomstbasbelopp": true,
-	"special-dates":    true,
+	"categories":        true,
+	"currency":          true,
+	"swe-yearly-params": true,
+	"special-dates":     true,
 }
 
 func (h *Handler) settingsPage() http.Handler {
@@ -972,39 +972,39 @@ func (h *Handler) chartsDataStream() http.Handler {
 	})
 }
 
-func (h *Handler) inkomstbasbeloppNewPage() http.Handler {
+func (h *Handler) sweYearlyParamsNewPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		return view.NewView(ctx, w, r).Render(view.Page("New Inkomstbasbelopp", view.InkomstbasbeloppEditPage(view.Inkomstbasbelopp{}, false)))
+		return view.NewView(ctx, w, r).Render(view.Page("New SWE Yearly Params", view.SweYearlyParamsEditPage(view.SweYearlyParams{}, false)))
 	})
 }
 
-func (h *Handler) inkomstbasbeloppEditPage() http.Handler {
+func (h *Handler) sweYearlyParamsEditPage() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		ibb, err := h.svc.GetInkomstbasbelopp(ctx, r.PathValue("id"))
+		p, err := h.svc.GetSweYearlyParams(ctx, r.PathValue("id"))
 		if err != nil {
-			return fmt.Errorf("getting inkomstbasbelopp: %w", err)
+			return fmt.Errorf("getting swe yearly params: %w", err)
 		}
-		return view.NewView(ctx, w, r).Render(view.Page("Edit Inkomstbasbelopp", view.InkomstbasbeloppEditPage(ibb, true)))
+		return view.NewView(ctx, w, r).Render(view.Page("Edit SWE Yearly Params", view.SweYearlyParamsEditPage(p, true)))
 	})
 }
 
-func (h *Handler) inkomstbasbeloppUpsert() http.Handler {
+func (h *Handler) sweYearlyParamsUpsert() http.Handler {
 	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-		var inp inkomstbasbeloppInputForm
+		var inp sweYearlyParamsInputForm
 		if err := srvu.Decode(r, &inp, false); err != nil {
 			return fmt.Errorf("decoding input: %w", err)
 		}
-		ibb, err := h.svc.UpsertInkomstbasbelopp(ctx, inp.Inkomstbasbelopp)
+		p, err := h.svc.UpsertSweYearlyParams(ctx, inp.SweYearlyParams)
 		if err != nil {
-			return fmt.Errorf("upserting inkomstbasbelopp: %w", err)
+			return fmt.Errorf("upserting swe yearly params: %w", err)
 		}
-		shttp.RedirectToNext(w, r, fmt.Sprintf("/settings/inkomstbasbelopp/%s/edit", ibb.ID))
+		shttp.RedirectToNext(w, r, fmt.Sprintf("/settings/swe-yearly-params/%s/edit", p.ID))
 		return nil
 	})
 }
 
-func (h *Handler) inkomstbasbeloppDelete() http.Handler {
-	return deleteHandler(h.svc.DeleteInkomstbasbelopp, "/settings?tab=inkomstbasbelopp")
+func (h *Handler) sweYearlyParamsDelete() http.Handler {
+	return deleteHandler(h.svc.DeleteSweYearlyParams, "/settings?tab=swe-yearly-params")
 }
 
 func (h *Handler) currencySettingsSave() http.Handler {

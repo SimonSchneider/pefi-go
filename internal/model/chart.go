@@ -10,6 +10,7 @@ import (
 	"github.com/SimonSchneider/goslu/date"
 	"github.com/SimonSchneider/pefigo/internal/pdb"
 	finance2 "github.com/SimonSchneider/pefigo/pkg/finance"
+	"github.com/SimonSchneider/pefigo/pkg/swe"
 	"github.com/SimonSchneider/pefigo/pkg/ui"
 	"github.com/SimonSchneider/pefigo/pkg/uncertain"
 )
@@ -98,6 +99,10 @@ func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEven
 	if err != nil {
 		return fmt.Errorf("listing special dates for Prediction: %w", err)
 	}
+	sweParams, err := s.ListSweYearlyParams(ctx)
+	if err != nil {
+		return fmt.Errorf("listing swe yearly params for Prediction: %w", err)
+	}
 	specialDates = append(specialDates, SpecialDate{
 		ID:   "today",
 		Name: "Today",
@@ -166,6 +171,16 @@ func (s *Service) RunPrediction(ctx context.Context, eventHandler PredictionEven
 				}
 			}
 			entity.GrowthModel = GrowthModels(gms).ToFinance()
+		}
+		if acc.IsIsk != 0 {
+			entity.TaxModel = &swe.ISKTax{
+				ParamsFunc: func(d date.Date) swe.ISKParams {
+					return swe.ISKParams{
+						SchablonRanta: activeSchablonRantaAt(sweParams, d),
+						Fribelopp:     activeISKFribeloppAt(sweParams, d),
+					}
+				},
+			}
 		}
 		if len(entity.Snapshots) > 0 {
 			entities = append(entities, entity)

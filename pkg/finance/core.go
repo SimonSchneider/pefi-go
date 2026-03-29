@@ -23,6 +23,10 @@ type BalanceLimit struct {
 	Upper uncertain.Value // Optional upper limit, if not set, no limit is applied
 }
 
+type TaxModel interface {
+	Apply(ucfg *uncertain.Config, day date.Date, balance uncertain.Value, dayDeposits uncertain.Value) uncertain.Value
+}
+
 type Entity struct {
 	ID   string
 	Name string
@@ -34,6 +38,7 @@ type Entity struct {
 
 	GrowthModel GrowthModel
 	CashFlow    *CashFlowModel // Optional cash flow model, if not set, no cash flow is applied
+	TaxModel    TaxModel       // Optional tax model, if not set, no tax is applied
 }
 
 func (fe *Entity) GetLatestSnapshot(day date.Date) BalanceSnapshot {
@@ -53,6 +58,7 @@ type ModeledEntity struct {
 	lastSnapshotDate    date.Date // Last date when the balance was updated
 	balance             uncertain.Value
 	accruedAppreciation uncertain.Value
+	dayDeposits         uncertain.Value // deposits received today, reset each day
 }
 
 func (fe *ModeledEntity) Init(day date.Date) {
@@ -108,6 +114,9 @@ func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Da
 		fes[fe.ID] = mfe
 	}
 	for day := range date.Iter(earliestDate, to, date.Day) {
+		for _, fe := range fes {
+			fe.dayDeposits = uncertain.NewFixed(0.0)
+		}
 		if from <= day {
 			for _, transfer := range transfers {
 				if transfer.EffectiveFrom.After(day) || (transfer.EffectiveTo != nil && transfer.EffectiveTo.Before(day)) || !transfer.Enabled || !transfer.Recurrence.Matches(day) {
@@ -130,6 +139,14 @@ func RunPrediction(ctx context.Context, ucfg *uncertain.Config, from, to date.Da
 		for _, fe := range fes {
 			if fe.lastSnapshotDate.Before(day) {
 				fe.ApplyAppreciation(ucfg, fes, day)
+			}
+		}
+		for _, fe := range fes {
+			if fe.TaxModel != nil && fe.lastSnapshotDate.Before(day) {
+				tax := fe.TaxModel.Apply(ucfg, day, fe.balance, fe.dayDeposits)
+				if !tax.Zero() {
+					fe.balance = fe.balance.Sub(ucfg, tax)
+				}
 			}
 		}
 		if snapshotCron.Matches(day) {

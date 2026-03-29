@@ -683,9 +683,9 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 		fullPLsBySalary[a.SalaryID] = append(fullPLsBySalary[a.SalaryID], fullParentalLeaveFromDB(a))
 	}
 
-	ibbs, err := s.ListInkomstbasbelopp(ctx)
+	ibbs, err := s.ListSweYearlyParams(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
+		return nil, fmt.Errorf("listing swe yearly params: %w", err)
 	}
 
 	var templates []TransferTemplate
@@ -714,7 +714,7 @@ func (s *Service) generateSalaryTransferTemplates(ctx context.Context) ([]Transf
 // salary-amount, adjustment, and PBB change-point dates. Each segment's Net
 // is a mapped uncertain.Value that derives net salary from the gross amount
 // via salary adjustments and tax computation.
-func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []Inkomstbasbelopp) ([]NetSalarySegment, error) {
+func (s *Service) computeNetSegments(ctx context.Context, sal Salary, ibbs []SweYearlyParams) ([]NetSalarySegment, error) {
 	if len(sal.Amounts) == 0 {
 		return nil, nil
 	}
@@ -854,15 +854,15 @@ func (s *Service) ComputeSalaryBreakdowns(ctx context.Context, salaryID string) 
 		return nil, nil
 	}
 
-	ibbs, err := s.ListInkomstbasbelopp(ctx)
+	ibbs, err := s.ListSweYearlyParams(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("listing inkomstbasbelopp: %w", err)
+		return nil, fmt.Errorf("listing swe yearly params: %w", err)
 	}
 
 	return s.computeBreakdownSegments(ctx, sal, ibbs)
 }
 
-func (s *Service) computeBreakdownSegments(ctx context.Context, sal Salary, ibbs []Inkomstbasbelopp) ([]NetSalarySegmentBreakdown, error) {
+func (s *Service) computeBreakdownSegments(ctx context.Context, sal Salary, ibbs []SweYearlyParams) ([]NetSalarySegmentBreakdown, error) {
 	sorted := make([]SalaryAmount, len(sal.Amounts))
 	copy(sorted, sal.Amounts)
 	sort.Slice(sorted, func(i, j int) bool {
@@ -976,7 +976,7 @@ func (s *Service) computeBreakdownSegments(ctx context.Context, sal Salary, ibbs
 // computePensionSegments builds pension segments split at the union of
 // salary-amount and IBB change-point dates. Each segment's Pension is a
 // mapped uncertain.Value that derives pension from the gross amount.
-func (s *Service) computePensionSegments(_ context.Context, sal Salary, ibbs []Inkomstbasbelopp) []PensionSegment {
+func (s *Service) computePensionSegments(_ context.Context, sal Salary, ibbs []SweYearlyParams) []PensionSegment {
 	if len(sal.Amounts) == 0 {
 		return nil
 	}
