@@ -47,8 +47,23 @@
     var chart = echarts.init(dom);
     var series = {};
     var legendData = [];
-    var marklineSeries = [];
+    var allMarklines = [];
     var statusEl = document.getElementById('forecast-status');
+    var durationSelect = document.getElementById('forecast-duration');
+
+    function getMaxDate() {
+        var years = parseInt(durationSelect ? durationSelect.value : '10', 10);
+        if (years === 0) return null; // max = no limit
+        var d = new Date();
+        d.setFullYear(d.getFullYear() + years);
+        return d.getTime();
+    }
+
+    function filterData(data) {
+        var maxDate = getMaxDate();
+        if (!maxDate) return data;
+        return data.filter(function(point) { return point[0] <= maxDate; });
+    }
 
     function showLoading() {
         if (statusEl) statusEl.classList.remove('hidden');
@@ -117,6 +132,26 @@
         series[id + '_max'].data.push([s.Date, s.UpperBound - s.LowerBound]);
     }
 
+    function buildFilteredSeries() {
+        var maxDate = getMaxDate();
+        var filtered = Object.keys(series).map(function(key) {
+            var s = series[key];
+            var copy = {};
+            for (var k in s) { copy[k] = s[k]; }
+            copy.data = maxDate ? s.data.filter(function(p) { return p[0] <= maxDate; }) : s.data;
+            return copy;
+        });
+        var filteredMarklines = allMarklines.filter(function(m) {
+            if (!maxDate) return true;
+            return m._date <= maxDate;
+        }).map(function(m) {
+            var copy = {};
+            for (var k in m) { if (k !== '_date') copy[k] = m[k]; }
+            return copy;
+        });
+        return filtered.concat(filteredMarklines);
+    }
+
     function updateChart() {
         var theme = getThemeOpts();
         chart.setOption({
@@ -160,13 +195,14 @@
             },
             xAxis: {
                 type: 'time',
+                max: getMaxDate() || undefined,
                 axisLabel: theme.axisLabel
             },
             yAxis: {
                 type: 'value',
                 axisLabel: theme.axisLabel
             },
-            series: Object.values(series).concat(marklineSeries)
+            series: buildFilteredSeries()
         });
     }
 
@@ -182,8 +218,9 @@
         });
 
         var themeText = getThemeColor('--color-base-content', '#333');
-        marklineSeries = (data.marklines || []).map(function(m, idx) {
+        allMarklines = (data.marklines || []).map(function(m, idx) {
             return {
+                _date: m.date,
                 name: m.name,
                 type: 'line',
                 markLine: {
@@ -233,6 +270,10 @@
             });
         });
     });
+
+    if (durationSelect) {
+        durationSelect.addEventListener('change', function() { updateChart(); });
+    }
 
     window.addEventListener('resize', function() { chart.resize(); });
     window.addEventListener('themechange', function() { updateChart(); chart.resize(); });
