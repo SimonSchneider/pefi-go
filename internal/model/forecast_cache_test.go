@@ -148,6 +148,64 @@ func TestServiceForecastRunnerInvalidation(t *testing.T) {
 	}
 }
 
+func TestGetForecastCacheForDashboard(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	at, err := svc.UpsertAccountType(ctx, model.AccountTypeInput{Name: "Savings", Color: "#00ff00"})
+	if err != nil {
+		t.Fatalf("create account type: %v", err)
+	}
+
+	acc, err := svc.UpsertAccount(ctx, model.AccountInput{Name: "Test", TypeID: at.ID})
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	_, err = svc.UpsertAccountSnapshot(ctx, acc.ID, model.AccountSnapshotInput{
+		Date:    mustParseDate("2026-01-01"),
+		Balance: newFixedValue(10000),
+	})
+	if err != nil {
+		t.Fatalf("create snapshot: %v", err)
+	}
+	_, err = svc.UpsertAccountGrowthModel(ctx, model.AccountGrowthModelInput{
+		AccountID:        acc.ID,
+		Type:             "fixed",
+		AnnualRate:       newFixedValue(0.05),
+		AnnualVolatility: newFixedValue(0),
+		StartDate:        mustParseDate("2026-01-01"),
+	})
+	if err != nil {
+		t.Fatalf("create growth model: %v", err)
+	}
+	_, err = svc.UpsertSpecialDate(ctx, model.SpecialDateInput{
+		Name:  "Retirement",
+		Date:  mustParseDate("2028-01-01"),
+		Color: "#ff0000",
+	})
+	if err != nil {
+		t.Fatalf("create special date: %v", err)
+	}
+
+	if err := svc.RunForecastCache(ctx); err != nil {
+		t.Fatalf("run forecast cache: %v", err)
+	}
+
+	data, err := svc.GetForecastCacheForDashboard(ctx)
+	if err != nil {
+		t.Fatalf("get forecast data: %v", err)
+	}
+	if data == nil {
+		t.Fatal("expected forecast data, got nil")
+	}
+	if len(data.Entities) == 0 {
+		t.Fatal("expected entities in forecast data")
+	}
+	if len(data.Marklines) == 0 {
+		t.Fatal("expected marklines in forecast data")
+	}
+}
+
 func TestRunForecastCacheNoSpecialDates(t *testing.T) {
 	svc := newTestService(t)
 	ctx := t.Context()

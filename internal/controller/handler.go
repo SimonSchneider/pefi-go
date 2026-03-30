@@ -84,6 +84,8 @@ func NewHandler(svc *model.Service, public fs.FS) http.Handler {
 	mux.Handle("GET /chart", h.chartPage())
 	mux.Handle("GET /chart/stream", h.chartsDataStream())
 
+	mux.Handle("GET /dashboard/forecast/stream", h.dashboardForecastStream())
+
 	mux.Handle("POST /accounts/{$}", h.accountUpsert())
 	mux.Handle("POST /accounts/{id}/delete", h.accountDelete())
 
@@ -1021,5 +1023,62 @@ func (h *Handler) currencySettingsSave() http.Handler {
 		}
 		shttp.RedirectToNext(w, r, "/settings?tab=currency")
 		return nil
+	})
+}
+
+func (h *Handler) dashboardForecastStream() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		sse := srvu.SSEResponse(w)
+		runner := h.svc.ForecastRunner()
+
+		// Subscribe to live updates
+		var ch chan model.ForecastEvent
+		if runner != nil {
+			ch = runner.Subscribe()
+			defer runner.Unsubscribe(ch)
+		}
+
+		// Send cached data
+		data, err := h.svc.GetForecastCacheForDashboard(ctx)
+		if err != nil {
+			return fmt.Errorf("getting forecast cache: %w", err)
+		}
+		if data != nil {
+			if err := sse.SendNamedJson("setup", data); err != nil {
+				return err
+			}
+		}
+
+		// Send current status
+		if runner != nil && runner.IsRunning() {
+			if err := sse.SendNamedJson("status", map[string]string{"status": "running"}); err != nil {
+				return err
+			}
+		}
+
+		// Stream live updates
+		if ch == nil {
+			return sse.SendEventWithoutData("close")
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case evt, ok := <-ch:
+				if !ok {
+					return nil
+				}
+				switch evt.Type {
+				case model.ForecastEventSnapshot:
+					if err := sse.SendNamedJson("snapshot", evt.Snapshot); err != nil {
+						return err
+					}
+				case model.ForecastEventDone:
+					if err := sse.SendNamedJson("status", map[string]string{"status": "idle"}); err != nil {
+						return err
+					}
+				}
+			}
+		}
 	})
 }

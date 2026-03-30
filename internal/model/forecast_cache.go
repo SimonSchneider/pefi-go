@@ -100,6 +100,76 @@ func (s *Service) RunForecastCache(ctx context.Context) error {
 	return nil
 }
 
+type ForecastDashboardData struct {
+	Entities  []PredictionFinancialEntity `json:"entities"`
+	Marklines []Markline                  `json:"marklines"`
+}
+
+func (s *Service) GetForecastCacheForDashboard(ctx context.Context) (*ForecastDashboardData, error) {
+	rows, err := s.ListForecastCache(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	accountTypes, err := s.ListAccountTypes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing account types: %w", err)
+	}
+	typesByID := make(map[string]AccountType)
+	for _, at := range accountTypes {
+		typesByID[at.ID] = at
+	}
+
+	// Group rows by account type
+	entitiesByID := make(map[string]*PredictionFinancialEntity)
+	for _, row := range rows {
+		entity, ok := entitiesByID[row.AccountTypeID]
+		if !ok {
+			at := typesByID[row.AccountTypeID]
+			entity = &PredictionFinancialEntity{
+				ID:    row.AccountTypeID,
+				Name:  at.Name,
+				Color: at.Color,
+			}
+			entitiesByID[row.AccountTypeID] = entity
+		}
+		entity.Snapshots = append(entity.Snapshots, PredictionBalanceSnapshot{
+			ID:         row.AccountTypeID,
+			Day:        row.Date,
+			Balance:    row.Median,
+			LowerBound: row.LowerBound,
+			UpperBound: row.UpperBound,
+		})
+	}
+
+	entities := make([]PredictionFinancialEntity, 0, len(entitiesByID))
+	for _, e := range entitiesByID {
+		entities = append(entities, *e)
+	}
+
+	// Build marklines from special dates
+	specialDates, err := s.ListSpecialDates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing special dates: %w", err)
+	}
+	marklines := make([]Markline, 0, len(specialDates))
+	for _, sd := range specialDates {
+		marklines = append(marklines, Markline{
+			Date:  sd.Date.ToStdTime().UnixMilli(),
+			Color: sd.Color,
+			Name:  sd.Name,
+		})
+	}
+
+	return &ForecastDashboardData{
+		Entities:  entities,
+		Marklines: marklines,
+	}, nil
+}
+
 // forecastCacheEventHandler collects prediction snapshots into ForecastCacheRow slices.
 type forecastCacheEventHandler struct {
 	rows []ForecastCacheRow
