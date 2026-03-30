@@ -47,6 +47,7 @@ type DashboardView struct {
 	AccountTypeGroups    []AccountTypeGroup
 	AccountChartData     []AccountTypeChartEntry
 	SnapshotHistoryChart SnapshotHistoryChartData
+	HasSpecialDates      bool
 }
 
 func (s *Service) GetDashboardData(ctx context.Context) (*DashboardView, error) {
@@ -88,6 +89,11 @@ func (s *Service) GetDashboardData(ctx context.Context) (*DashboardView, error) 
 		return nil, fmt.Errorf("building snapshot history chart: %w", err)
 	}
 
+	specialDates, err := s.ListSpecialDates(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing special dates: %w", err)
+	}
+
 	return &DashboardView{
 		TotalBalance:         totalBalance,
 		TotalAssets:          totalAssets,
@@ -96,6 +102,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (*DashboardView, error) 
 		AccountTypeGroups:    groups,
 		AccountChartData:     chartData,
 		SnapshotHistoryChart: snapshotHistory,
+		HasSpecialDates:      len(specialDates) > 0,
 	}, nil
 }
 
