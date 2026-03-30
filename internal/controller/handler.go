@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"io/fs"
 	"net/http"
 	"time"
@@ -129,6 +130,7 @@ func NewHandler(svc *model.Service, public fs.FS) http.Handler {
 	mux.Handle("GET /favicons/{domain}", h.faviconHandler())
 
 	mux.Handle("POST /settings/currency", h.currencySettingsSave())
+	mux.Handle("POST /settings/forecast", h.forecastSettingsSave())
 
 	mux.Handle("GET /settings/swe-yearly-params/new", h.sweYearlyParamsNewPage())
 	mux.Handle("GET /settings/swe-yearly-params/{id}/edit", h.sweYearlyParamsEditPage())
@@ -698,6 +700,7 @@ var validTabs = map[string]bool{
 	"currency":          true,
 	"swe-yearly-params": true,
 	"special-dates":     true,
+	"forecast":          true,
 }
 
 func (h *Handler) settingsPage() http.Handler {
@@ -1022,6 +1025,36 @@ func (h *Handler) currencySettingsSave() http.Handler {
 			return fmt.Errorf("setting default currency: %w", err)
 		}
 		shttp.RedirectToNext(w, r, "/settings?tab=currency")
+		return nil
+	})
+}
+
+func (h *Handler) forecastSettingsSave() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := r.ParseForm(); err != nil {
+			return fmt.Errorf("parsing form: %w", err)
+		}
+		confidenceStr := r.FormValue("confidence")
+		if confidenceStr != "" {
+			confidence, err := strconv.ParseFloat(confidenceStr, 64)
+			if err != nil {
+				return fmt.Errorf("parsing confidence: %w", err)
+			}
+			if err := h.svc.SetForecastConfidence(ctx, confidence); err != nil {
+				return fmt.Errorf("setting forecast confidence: %w", err)
+			}
+		}
+		samplesStr := r.FormValue("samples")
+		if samplesStr != "" {
+			samples, err := strconv.ParseInt(samplesStr, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing samples: %w", err)
+			}
+			if err := h.svc.SetForecastSamples(ctx, samples); err != nil {
+				return fmt.Errorf("setting forecast samples: %w", err)
+			}
+		}
+		shttp.RedirectToNext(w, r, "/settings?tab=forecast")
 		return nil
 	})
 }
