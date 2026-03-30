@@ -58,7 +58,15 @@ func (s *Service) RunForecastCache(ctx context.Context) error {
 
 	duration := endDate.Sub(today)
 
-	handler := &forecastCacheEventHandler{}
+	// Clear old cache before starting the prediction
+	if err := s.q.DeleteAllForecastCache(ctx); err != nil {
+		return fmt.Errorf("deleting old forecast cache: %w", err)
+	}
+
+	handler := &forecastCacheEventHandler{
+		q:      s.q,
+		runner: s.forecastRunner,
+	}
 
 	params := PredictionParams{
 		Duration:         duration,
@@ -72,27 +80,6 @@ func (s *Service) RunForecastCache(ctx context.Context) error {
 		return fmt.Errorf("running prediction for forecast cache: %w", err)
 	}
 
-	// Clear old cache and insert new rows
-	if err := s.q.DeleteAllForecastCache(ctx); err != nil {
-		return fmt.Errorf("deleting old forecast cache: %w", err)
-	}
-	for _, row := range handler.rows {
-		if err := s.q.InsertForecastCache(ctx, pdb.InsertForecastCacheParams{
-			Date:          row.Date,
-			AccountTypeID: row.AccountTypeID,
-			Median:        row.Median,
-			LowerBound:    row.LowerBound,
-			UpperBound:    row.UpperBound,
-		}); err != nil {
-			return fmt.Errorf("inserting forecast cache row: %w", err)
-		}
-		if s.forecastRunner != nil {
-			s.forecastRunner.Broadcast(ForecastEvent{
-				Type:     ForecastEventSnapshot,
-				Snapshot: &row,
-			})
-		}
-	}
 	if s.forecastRunner != nil {
 		s.forecastRunner.Broadcast(ForecastEvent{Type: ForecastEventDone})
 	}
@@ -170,23 +157,40 @@ func (s *Service) GetForecastCacheForDashboard(ctx context.Context) (*ForecastDa
 	}, nil
 }
 
-// forecastCacheEventHandler collects prediction snapshots into ForecastCacheRow slices.
+// forecastCacheEventHandler writes each snapshot to the DB and broadcasts to subscribers as it arrives.
 type forecastCacheEventHandler struct {
-	rows []ForecastCacheRow
+	q      *pdb.Queries
+	runner *ForecastRunner
+	ctx    context.Context
 }
 
-func (h *forecastCacheEventHandler) Setup(_ PredictionSetupEvent) error {
+func (h *forecastCacheEventHandler) Setup(e PredictionSetupEvent) error {
 	return nil
 }
 
 func (h *forecastCacheEventHandler) Snapshot(snap PredictionBalanceSnapshot) error {
-	h.rows = append(h.rows, ForecastCacheRow{
+	row := ForecastCacheRow{
 		Date:          snap.Day,
 		AccountTypeID: snap.ID,
 		Median:        snap.Balance,
 		LowerBound:    snap.LowerBound,
 		UpperBound:    snap.UpperBound,
-	})
+	}
+	if err := h.q.InsertForecastCache(context.Background(), pdb.InsertForecastCacheParams{
+		Date:          row.Date,
+		AccountTypeID: row.AccountTypeID,
+		Median:        row.Median,
+		LowerBound:    row.LowerBound,
+		UpperBound:    row.UpperBound,
+	}); err != nil {
+		return fmt.Errorf("inserting forecast cache row: %w", err)
+	}
+	if h.runner != nil {
+		h.runner.Broadcast(ForecastEvent{
+			Type:     ForecastEventSnapshot,
+			Snapshot: &row,
+		})
+	}
 	return nil
 }
 

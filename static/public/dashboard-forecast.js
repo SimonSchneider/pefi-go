@@ -66,11 +66,10 @@
             type: 'line',
             data: [],
             showSymbol: false,
-            stack: 'forecast',
-            areaStyle: { color: color, opacity: 0.6 },
+            smooth: false,
+            group: e.name,
             lineStyle: { color: color },
-            itemStyle: { color: color },
-            emphasis: { focus: 'series' }
+            itemStyle: { color: color }
         };
         series[e.id + '_min'] = {
             id: e.id + '_min',
@@ -78,9 +77,11 @@
             type: 'line',
             data: [],
             lineStyle: { opacity: 0 },
-            stack: e.id + '-band',
+            stack: e.id + '-confidence-band',
             symbol: 'none',
             showSymbol: false,
+            smooth: false,
+            group: e.name,
             tooltip: { show: false },
             label: { show: false }
         };
@@ -90,8 +91,10 @@
             type: 'line',
             data: [],
             lineStyle: { opacity: 0 },
-            stack: e.id + '-band',
+            stack: e.id + '-confidence-band',
             showSymbol: false,
+            smooth: false,
+            group: e.name,
             areaStyle: { color: lightenColor(color) },
             tooltip: { show: false },
             label: { show: false }
