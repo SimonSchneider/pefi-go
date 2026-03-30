@@ -225,6 +225,15 @@
         hideLoading();
     });
 
+    chart.on('legendselectchanged', function(params) {
+        Object.values(series).forEach(function(v) {
+            chart.dispatchAction({
+                type: params.selected[v.group] ? 'legendSelect' : 'legendUnSelect',
+                name: v.name
+            });
+        });
+    });
+
     window.addEventListener('resize', function() { chart.resize(); });
     window.addEventListener('themechange', function() { updateChart(); chart.resize(); });
 })();
