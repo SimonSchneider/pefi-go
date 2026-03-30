@@ -86,6 +86,15 @@ func (s *Service) RunForecastCache(ctx context.Context) error {
 		}); err != nil {
 			return fmt.Errorf("inserting forecast cache row: %w", err)
 		}
+		if s.forecastRunner != nil {
+			s.forecastRunner.Broadcast(ForecastEvent{
+				Type:     ForecastEventSnapshot,
+				Snapshot: &row,
+			})
+		}
+	}
+	if s.forecastRunner != nil {
+		s.forecastRunner.Broadcast(ForecastEvent{Type: ForecastEventDone})
 	}
 
 	return nil

@@ -18,6 +18,21 @@ type Service struct {
 	q              *pdb.Queries
 	sweClient      *swe.Client
 	currencyClient *currency.Client
+	forecastRunner *ForecastRunner
+}
+
+func (s *Service) SetForecastRunner(runner *ForecastRunner) {
+	s.forecastRunner = runner
+}
+
+func (s *Service) ForecastRunner() *ForecastRunner {
+	return s.forecastRunner
+}
+
+func (s *Service) invalidateForecast() {
+	if s.forecastRunner != nil {
+		s.forecastRunner.Invalidate()
+	}
 }
 
 type ServiceOption func(*Service)
