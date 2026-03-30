@@ -59,6 +59,56 @@ func TestForecastRunnerCancelAndRestart(t *testing.T) {
 	}
 }
 
+func TestForecastRunnerSubscribe(t *testing.T) {
+	runner := model.NewForecastRunner(50*time.Millisecond, func(ctx context.Context) {
+		// no-op
+	})
+	defer runner.Stop()
+
+	ch := runner.Subscribe()
+	defer runner.Unsubscribe(ch)
+
+	// Broadcast an event
+	runner.Broadcast(model.ForecastEvent{
+		Type: model.ForecastEventSnapshot,
+		Snapshot: &model.ForecastCacheRow{
+			Date:          20000,
+			AccountTypeID: "savings",
+			Median:        1000,
+			LowerBound:    800,
+			UpperBound:    1200,
+		},
+	})
+
+	select {
+	case evt := <-ch:
+		if evt.Type != model.ForecastEventSnapshot {
+			t.Fatalf("expected snapshot event, got %v", evt.Type)
+		}
+		if evt.Snapshot.Median != 1000 {
+			t.Fatalf("expected median 1000, got %f", evt.Snapshot.Median)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for broadcast event")
+	}
+}
+
+func TestForecastRunnerUnsubscribe(t *testing.T) {
+	runner := model.NewForecastRunner(50*time.Millisecond, func(ctx context.Context) {
+		// no-op
+	})
+	defer runner.Stop()
+
+	ch := runner.Subscribe()
+	runner.Unsubscribe(ch)
+
+	// After unsubscribe, channel should be closed
+	_, ok := <-ch
+	if ok {
+		t.Fatal("expected channel to be closed after unsubscribe")
+	}
+}
+
 func TestForecastRunnerStop(t *testing.T) {
 	var runCount atomic.Int32
 	runner := model.NewForecastRunner(50*time.Millisecond, func(ctx context.Context) {
