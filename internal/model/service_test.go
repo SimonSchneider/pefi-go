@@ -3660,3 +3660,48 @@ func TestGetSettingsPageData(t *testing.T) {
 		t.Error("expected non-empty currencies list")
 	}
 }
+
+func TestForecastSettings(t *testing.T) {
+	svc := newTestService(t)
+	ctx := t.Context()
+
+	// Default values
+	confidence, err := svc.GetForecastConfidence(ctx)
+	if err != nil {
+		t.Fatalf("get default confidence: %v", err)
+	}
+	if confidence != 0.80 {
+		t.Fatalf("expected default confidence 0.80, got %f", confidence)
+	}
+
+	samples, err := svc.GetForecastSamples(ctx)
+	if err != nil {
+		t.Fatalf("get default samples: %v", err)
+	}
+	if samples != 10000 {
+		t.Fatalf("expected default samples 10000, got %d", samples)
+	}
+
+	// Set custom values
+	if err := svc.SetForecastConfidence(ctx, 0.90); err != nil {
+		t.Fatalf("set confidence: %v", err)
+	}
+	confidence, err = svc.GetForecastConfidence(ctx)
+	if err != nil {
+		t.Fatalf("get confidence after set: %v", err)
+	}
+	if confidence != 0.90 {
+		t.Fatalf("expected confidence 0.90, got %f", confidence)
+	}
+
+	if err := svc.SetForecastSamples(ctx, 5000); err != nil {
+		t.Fatalf("set samples: %v", err)
+	}
+	samples, err = svc.GetForecastSamples(ctx)
+	if err != nil {
+		t.Fatalf("get samples after set: %v", err)
+	}
+	if samples != 5000 {
+		t.Fatalf("expected samples 5000, got %d", samples)
+	}
+}
