@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"io/fs"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
