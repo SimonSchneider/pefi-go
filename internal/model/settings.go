@@ -53,10 +53,14 @@ func (s *Service) GetForecastConfidence(ctx context.Context) (float64, error) {
 }
 
 func (s *Service) SetForecastConfidence(ctx context.Context, confidence float64) error {
-	return s.q.UpsertSetting(ctx, pdb.UpsertSettingParams{
+	if err := s.q.UpsertSetting(ctx, pdb.UpsertSettingParams{
 		Key:   settingForecastConfidence,
 		Value: strconv.FormatFloat(confidence, 'f', -1, 64),
-	})
+	}); err != nil {
+		return err
+	}
+	s.invalidateForecast()
+	return nil
 }
 
 func (s *Service) GetForecastSamples(ctx context.Context) (int64, error) {
@@ -75,8 +79,12 @@ func (s *Service) GetForecastSamples(ctx context.Context) (int64, error) {
 }
 
 func (s *Service) SetForecastSamples(ctx context.Context, samples int64) error {
-	return s.q.UpsertSetting(ctx, pdb.UpsertSettingParams{
+	if err := s.q.UpsertSetting(ctx, pdb.UpsertSettingParams{
 		Key:   settingForecastSamples,
 		Value: strconv.FormatInt(samples, 10),
-	})
+	}); err != nil {
+		return err
+	}
+	s.invalidateForecast()
+	return nil
 }
