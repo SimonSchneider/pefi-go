@@ -827,47 +827,20 @@ func settingsTabForecast(view *SettingsPageView) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\" min=\"100\" max=\"100000\" step=\"100\"> <label class=\"label\"><span class=\"label-text-alt text-base-content/60\">Higher values give more accurate results but take longer to compute</span></label></div><div class=\"form-control mb-4\"><label class=\"label\"><span class=\"label-text font-medium\">Snapshot Frequency</span></label> <select name=\"snapshot_interval\" class=\"select select-bordered w-full\"><option value=\"*-01-01\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\" min=\"100\" max=\"100000\" step=\"100\"> <label class=\"label\"><span class=\"label-text-alt text-base-content/60\">Higher values give more accurate results but take longer to compute</span></label></div><div class=\"form-control mb-4\"><label class=\"label\"><span class=\"label-text font-medium\">Snapshot Frequency</span></label> <input type=\"text\" name=\"snapshot_interval\" class=\"input input-bordered w-full\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if view.ForecastSnapshotInterval == "*-01-01" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, " selected")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
+		var templ_7745c5c3_Var29 string
+		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(view.ForecastSnapshotInterval)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/view/settings_view.templ`, Line: 348, Col: 123}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, ">Yearly (Jan 1st)</option> <option value=\"*-*/6-01\"")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if view.ForecastSnapshotInterval == "*-*/6-01" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, " selected")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, ">Every 6 months</option> <option value=\"*-*/3-01\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if view.ForecastSnapshotInterval == "*-*/3-01" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, " selected")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, ">Quarterly</option> <option value=\"*-*-01\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if view.ForecastSnapshotInterval == "*-*-01" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, " selected")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, ">Monthly</option></select> <label class=\"label\"><span class=\"label-text-alt text-base-content/60\">How often to capture forecast data points</span></label></div><div class=\"mt-4\"><button type=\"submit\" class=\"btn btn-primary w-full\">Save</button></div></div></div></form></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "\" placeholder=\"*-01-01\"> <label class=\"label\"><span class=\"label-text-alt text-base-content/60\">Date pattern: *-01-01 (yearly), *-*/6-01 (6 months), *-*-01 (monthly)</span></label></div><div class=\"mt-4\"><button type=\"submit\" class=\"btn btn-primary w-full\">Save</button></div></div></div></form></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

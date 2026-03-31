@@ -345,13 +345,8 @@ templ settingsTabForecast(view *SettingsPageView) {
 					</div>
 					<div class="form-control mb-4">
 						<label class="label"><span class="label-text font-medium">Snapshot Frequency</span></label>
-						<select name="snapshot_interval" class="select select-bordered w-full">
-							<option value="*-01-01" if view.ForecastSnapshotInterval == "*-01-01" { selected }>Yearly (Jan 1st)</option>
-							<option value="*-*/6-01" if view.ForecastSnapshotInterval == "*-*/6-01" { selected }>Every 6 months</option>
-							<option value="*-*/3-01" if view.ForecastSnapshotInterval == "*-*/3-01" { selected }>Quarterly</option>
-							<option value="*-*-01" if view.ForecastSnapshotInterval == "*-*-01" { selected }>Monthly</option>
-						</select>
-						<label class="label"><span class="label-text-alt text-base-content/60">How often to capture forecast data points</span></label>
+						<input type="text" name="snapshot_interval" class="input input-bordered w-full" value={ view.ForecastSnapshotInterval } placeholder="*-01-01"/>
+						<label class="label"><span class="label-text-alt text-base-content/60">Date pattern: *-01-01 (yearly), *-*/6-01 (6 months), *-*-01 (monthly)</span></label>
 					</div>
 					<div class="mt-4">
 						<button type="submit" class="btn btn-primary w-full">Save</button>
