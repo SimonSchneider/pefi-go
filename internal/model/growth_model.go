@@ -121,6 +121,7 @@ func (s *Service) UpsertAccountGrowthModel(ctx context.Context, inp AccountGrowt
 	if err != nil {
 		return GrowthModel{}, fmt.Errorf("failed to upsert growth model: %w", err)
 	}
+	s.invalidateForecast()
 	return growthModelFromDB(gm)
 }
 
@@ -144,6 +145,7 @@ func (s *Service) DeleteAccountGrowthModel(ctx context.Context, id string) error
 	if err := s.q.DeleteGrowthModel(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete account growth model: %w", err)
 	}
+	s.invalidateForecast()
 	return nil
 }
 

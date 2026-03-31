@@ -67,6 +67,7 @@ func (s *Service) UpsertAccountSnapshot(ctx context.Context, accountID string, i
 	if err != nil {
 		return AccountSnapshot{}, fmt.Errorf("failed to upsert snapshot: %w", err)
 	}
+	s.invalidateForecast()
 	return accountSnapshotFromDB(snap), nil
 }
 
@@ -74,6 +75,7 @@ func (s *Service) DeleteAccountSnapshot(ctx context.Context, id string, d date.D
 	if err := s.q.DeleteSnapshot(ctx, pdb.DeleteSnapshotParams{AccountID: id, Date: int64(d)}); err != nil {
 		return fmt.Errorf("failed to delete snapshot: %w", err)
 	}
+	s.invalidateForecast()
 	return nil
 }
 

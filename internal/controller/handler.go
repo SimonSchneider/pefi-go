@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/SimonSchneider/goslu/date"
@@ -84,6 +85,8 @@ func NewHandler(svc *model.Service, public fs.FS) http.Handler {
 	mux.Handle("GET /chart", h.chartPage())
 	mux.Handle("GET /chart/stream", h.chartsDataStream())
 
+	mux.Handle("GET /dashboard/forecast/stream", h.dashboardForecastStream())
+
 	mux.Handle("POST /accounts/{$}", h.accountUpsert())
 	mux.Handle("POST /accounts/{id}/delete", h.accountDelete())
 
@@ -127,6 +130,7 @@ func NewHandler(svc *model.Service, public fs.FS) http.Handler {
 	mux.Handle("GET /favicons/{domain}", h.faviconHandler())
 
 	mux.Handle("POST /settings/currency", h.currencySettingsSave())
+	mux.Handle("POST /settings/forecast", h.forecastSettingsSave())
 
 	mux.Handle("GET /settings/swe-yearly-params/new", h.sweYearlyParamsNewPage())
 	mux.Handle("GET /settings/swe-yearly-params/{id}/edit", h.sweYearlyParamsEditPage())
@@ -696,6 +700,7 @@ var validTabs = map[string]bool{
 	"currency":          true,
 	"swe-yearly-params": true,
 	"special-dates":     true,
+	"forecast":          true,
 }
 
 func (h *Handler) settingsPage() http.Handler {
@@ -1021,5 +1026,116 @@ func (h *Handler) currencySettingsSave() http.Handler {
 		}
 		shttp.RedirectToNext(w, r, "/settings?tab=currency")
 		return nil
+	})
+}
+
+func (h *Handler) forecastSettingsSave() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		if err := r.ParseForm(); err != nil {
+			return fmt.Errorf("parsing form: %w", err)
+		}
+		confidenceStr := r.FormValue("confidence")
+		if confidenceStr != "" {
+			confidence, err := strconv.ParseFloat(confidenceStr, 64)
+			if err != nil {
+				return fmt.Errorf("parsing confidence: %w", err)
+			}
+			if err := h.svc.SetForecastConfidence(ctx, confidence); err != nil {
+				return fmt.Errorf("setting forecast confidence: %w", err)
+			}
+		}
+		samplesStr := r.FormValue("samples")
+		if samplesStr != "" {
+			samples, err := strconv.ParseInt(samplesStr, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing samples: %w", err)
+			}
+			if err := h.svc.SetForecastSamples(ctx, samples); err != nil {
+				return fmt.Errorf("setting forecast samples: %w", err)
+			}
+		}
+		snapshotInterval := r.FormValue("snapshot_interval")
+		if snapshotInterval != "" {
+			if err := h.svc.SetForecastSnapshotInterval(ctx, snapshotInterval); err != nil {
+				return fmt.Errorf("setting forecast snapshot interval: %w", err)
+			}
+		}
+		shttp.RedirectToNext(w, r, "/settings?tab=forecast")
+		return nil
+	})
+}
+
+func (h *Handler) dashboardForecastStream() http.Handler {
+	return srvu.ErrHandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+		sse := srvu.SSEResponse(w)
+		runner := h.svc.ForecastRunner()
+
+		// Subscribe to live updates
+		var ch chan model.ForecastEvent
+		if runner != nil {
+			ch = runner.Subscribe()
+			defer runner.Unsubscribe(ch)
+		}
+
+		// Stream cached data as individual events
+		data, err := h.svc.GetForecastCacheForDashboard(ctx)
+		if err != nil {
+			return fmt.Errorf("getting forecast cache: %w", err)
+		}
+		if data != nil {
+			for _, entity := range data.Entities {
+				if err := sse.SendNamedJson("entity", entity); err != nil {
+					return err
+				}
+			}
+			if len(data.Marklines) > 0 {
+				if err := sse.SendNamedJson("marklines", data.Marklines); err != nil {
+					return err
+				}
+			}
+			if err := sse.SendEventWithoutData("setup-done"); err != nil {
+				return err
+			}
+		}
+
+		// Send current status
+		if runner != nil && runner.IsRunning() {
+			if err := sse.SendNamedJson("status", map[string]string{"status": "running"}); err != nil {
+				return err
+			}
+		}
+
+		// Stream live updates
+		if ch == nil {
+			return sse.SendEventWithoutData("close")
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case evt, ok := <-ch:
+				if !ok {
+					return nil
+				}
+				switch evt.Type {
+				case model.ForecastEventSnapshot:
+					if err := sse.SendNamedJson("snapshot", evt.Snapshot); err != nil {
+						return err
+					}
+				case model.ForecastEventReset:
+					if err := sse.SendEventWithoutData("reset"); err != nil {
+						return err
+					}
+				case model.ForecastEventStatus:
+					if err := sse.SendNamedJson("status", map[string]string{"status": "running"}); err != nil {
+						return err
+					}
+				case model.ForecastEventDone:
+					if err := sse.SendNamedJson("status", map[string]string{"status": "idle"}); err != nil {
+						return err
+					}
+				}
+			}
+		}
 	})
 }

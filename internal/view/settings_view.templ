@@ -52,6 +52,15 @@ templ settingsContent(view *SettingsPageView, activeTab string) {
 						class="tab"
 					}
 				>Special Dates</a>
+				<a
+					role="tab"
+					href="/settings?tab=forecast"
+					if activeTab == "forecast" {
+						class="tab tab-active"
+					} else {
+						class="tab"
+					}
+				>Forecast</a>
 			</div>
 			switch activeTab {
 				case "categories":
@@ -62,6 +71,8 @@ templ settingsContent(view *SettingsPageView, activeTab string) {
 					@settingsTabSweYearlyParams(view.SweYearlyParams)
 				case "special-dates":
 					@settingsTabSpecialDates(view.SpecialDates)
+				case "forecast":
+					@settingsTabForecast(view)
 			}
 		</div>
 	</main>
@@ -307,5 +318,41 @@ templ settingsTabSpecialDates(specialDates []SpecialDate) {
 				</div>
 			</div>
 		</div>
+	</div>
+}
+
+templ settingsTabForecast(view *SettingsPageView) {
+	<div class="max-w-lg mx-auto">
+		<form action={ templ.SafeURL("/settings/forecast?next=" + nextEncoded("/settings?tab=forecast")) } method="post">
+			<div class="card bg-base-100 shadow-sm border border-base-300">
+				<div class="card-body">
+					<h3 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-3">Forecast Settings</h3>
+					<p class="text-sm text-base-content/70 mb-4">
+						Configure the Monte Carlo forecast that runs in the background and appears on the dashboard.
+					</p>
+					<div class="form-control mb-4">
+						<label class="label"><span class="label-text font-medium">Confidence Interval</span></label>
+						<select name="confidence" class="select select-bordered w-full">
+							<option value="0.80" if view.ForecastConfidence == 0.80 { selected }>80%</option>
+							<option value="0.90" if view.ForecastConfidence == 0.90 { selected }>90%</option>
+							<option value="0.95" if view.ForecastConfidence == 0.95 { selected }>95%</option>
+						</select>
+					</div>
+					<div class="form-control mb-4">
+						<label class="label"><span class="label-text font-medium">Sample Count</span></label>
+						<input type="number" name="samples" class="input input-bordered w-full" value={ fmt.Sprintf("%d", view.ForecastSamples) } min="100" max="100000" step="100"/>
+						<label class="label"><span class="label-text-alt text-base-content/60">Higher values give more accurate results but take longer to compute</span></label>
+					</div>
+					<div class="form-control mb-4">
+						<label class="label"><span class="label-text font-medium">Snapshot Frequency</span></label>
+						<input type="text" name="snapshot_interval" class="input input-bordered w-full" value={ view.ForecastSnapshotInterval } placeholder="*-01-01"/>
+						<label class="label"><span class="label-text-alt text-base-content/60">Date pattern: *-01-01 (yearly), *-*/6-01 (6 months), *-*-01 (monthly)</span></label>
+					</div>
+					<div class="mt-4">
+						<button type="submit" class="btn btn-primary w-full">Save</button>
+					</div>
+				</div>
+			</div>
+		</form>
 	</div>
 }
