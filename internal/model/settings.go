@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	settingDefaultCurrency    = "default_currency"
-	settingForecastConfidence = "forecast_confidence"
-	settingForecastSamples    = "forecast_samples"
+	settingDefaultCurrency          = "default_currency"
+	settingForecastConfidence       = "forecast_confidence"
+	settingForecastSamples          = "forecast_samples"
+	settingForecastSnapshotInterval = "forecast_snapshot_interval"
 )
 
 func (s *Service) GetDefaultCurrency(ctx context.Context) (string, error) {
@@ -82,6 +83,28 @@ func (s *Service) SetForecastSamples(ctx context.Context, samples int64) error {
 	if err := s.q.UpsertSetting(ctx, pdb.UpsertSettingParams{
 		Key:   settingForecastSamples,
 		Value: strconv.FormatInt(samples, 10),
+	}); err != nil {
+		return err
+	}
+	s.invalidateForecast()
+	return nil
+}
+
+func (s *Service) GetForecastSnapshotInterval(ctx context.Context) (string, error) {
+	val, err := s.q.GetSetting(ctx, settingForecastSnapshotInterval)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "*-01-01", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("getting forecast snapshot interval: %w", err)
+	}
+	return val, nil
+}
+
+func (s *Service) SetForecastSnapshotInterval(ctx context.Context, interval string) error {
+	if err := s.q.UpsertSetting(ctx, pdb.UpsertSettingParams{
+		Key:   settingForecastSnapshotInterval,
+		Value: interval,
 	}); err != nil {
 		return err
 	}

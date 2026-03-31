@@ -44,6 +44,10 @@ func (s *Service) RunForecastCache(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("getting forecast samples: %w", err)
 	}
+	snapshotInterval, err := s.GetForecastSnapshotInterval(ctx)
+	if err != nil {
+		return fmt.Errorf("getting forecast snapshot interval: %w", err)
+	}
 
 	// Find last special date as end date
 	sort.Slice(specialDates, func(i, j int) bool {
@@ -72,7 +76,7 @@ func (s *Service) RunForecastCache(ctx context.Context) error {
 		Duration:         duration,
 		Samples:          samples,
 		Quantile:         confidence,
-		SnapshotInterval: "*-01-01",
+		SnapshotInterval: date.Cron(snapshotInterval),
 		GroupBy:          GroupByType,
 	}
 
@@ -119,7 +123,7 @@ func (s *Service) GetForecastCacheForDashboard(ctx context.Context) (*ForecastDa
 				continue
 			}
 			entity.Snapshots = append(entity.Snapshots, PredictionBalanceSnapshot{
-				Day:     int64(d),
+				Day:     d.ToStdTime().UnixMilli(),
 				Balance: series.Data[i],
 			})
 		}

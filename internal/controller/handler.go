@@ -1054,6 +1054,12 @@ func (h *Handler) forecastSettingsSave() http.Handler {
 				return fmt.Errorf("setting forecast samples: %w", err)
 			}
 		}
+		snapshotInterval := r.FormValue("snapshot_interval")
+		if snapshotInterval != "" {
+			if err := h.svc.SetForecastSnapshotInterval(ctx, snapshotInterval); err != nil {
+				return fmt.Errorf("setting forecast snapshot interval: %w", err)
+			}
+		}
 		shttp.RedirectToNext(w, r, "/settings?tab=forecast")
 		return nil
 	})
@@ -1071,13 +1077,23 @@ func (h *Handler) dashboardForecastStream() http.Handler {
 			defer runner.Unsubscribe(ch)
 		}
 
-		// Send cached data
+		// Stream cached data as individual events
 		data, err := h.svc.GetForecastCacheForDashboard(ctx)
 		if err != nil {
 			return fmt.Errorf("getting forecast cache: %w", err)
 		}
 		if data != nil {
-			if err := sse.SendNamedJson("setup", data); err != nil {
+			for _, entity := range data.Entities {
+				if err := sse.SendNamedJson("entity", entity); err != nil {
+					return err
+				}
+			}
+			if len(data.Marklines) > 0 {
+				if err := sse.SendNamedJson("marklines", data.Marklines); err != nil {
+					return err
+				}
+			}
+			if err := sse.SendEventWithoutData("setup-done"); err != nil {
 				return err
 			}
 		}

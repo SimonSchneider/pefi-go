@@ -123,9 +123,7 @@
                 extraCssText: 'box-shadow: 0 2px 4px rgba(0,0,0,0.15);',
                 formatter: function(params) {
                     var items = params.filter(function(p) {
-                        return p.seriesName.indexOf(' min') === -1 &&
-                               p.seriesName.indexOf(' max') === -1 &&
-                               p.value && p.value[1] !== 0;
+                        return p.value && p.value[1] !== 0;
                     });
                     if (items.length === 0) return '';
                     var date = new Date(items[0].value[0]);
@@ -168,17 +166,18 @@
 
     var evtSource = new EventSource('/dashboard/forecast/stream');
 
-    evtSource.addEventListener('setup', function(event) {
-        var data = JSON.parse(event.data);
-        (data.entities || []).forEach(function(e) {
-            addEntity(e);
-            (e.snapshots || []).forEach(function(s) {
-                addSnapshotFromEntity(s, e.id);
-            });
+    evtSource.addEventListener('entity', function(event) {
+        var e = JSON.parse(event.data);
+        addEntity(e);
+        (e.snapshots || []).forEach(function(s) {
+            addSnapshotFromEntity(s, e.id);
         });
+    });
 
+    evtSource.addEventListener('marklines', function(event) {
+        var data = JSON.parse(event.data);
         var themeText = getThemeColor('--color-base-content', '#333');
-        allMarklines = (data.marklines || []).map(function(m, idx) {
+        allMarklines = (data || []).map(function(m, idx) {
             return {
                 _date: m.date,
                 name: m.name,
@@ -198,7 +197,9 @@
                 }
             };
         });
+    });
 
+    evtSource.addEventListener('setup-done', function() {
         updateChart();
     });
 

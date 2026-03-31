@@ -315,14 +315,15 @@ func (s *Service) GetCategoriesPageData(ctx context.Context) (*CategoriesPageVie
 }
 
 type SettingsPageView struct {
-	AccountTypes       []AccountType
-	Categories         []TransferTemplateCategory
-	SpecialDates       []SpecialDate
-	SweYearlyParams    []SweYearlyParams
-	CurrentCurrency    string
-	Currencies         []currency.Currency
-	ForecastConfidence float64
-	ForecastSamples    int64
+	AccountTypes             []AccountType
+	Categories               []TransferTemplateCategory
+	SpecialDates             []SpecialDate
+	SweYearlyParams          []SweYearlyParams
+	CurrentCurrency          string
+	Currencies               []currency.Currency
+	ForecastConfidence       float64
+	ForecastSamples          int64
+	ForecastSnapshotInterval string
 }
 
 func (s *Service) GetSettingsPageData(ctx context.Context) (*SettingsPageView, error) {
@@ -354,15 +355,20 @@ func (s *Service) GetSettingsPageData(ctx context.Context) (*SettingsPageView, e
 	if err != nil {
 		return nil, fmt.Errorf("getting forecast samples: %w", err)
 	}
+	forecastSnapshotInterval, err := s.GetForecastSnapshotInterval(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting forecast snapshot interval: %w", err)
+	}
 	return &SettingsPageView{
-		AccountTypes:       accountTypes,
-		Categories:         categories,
-		SpecialDates:       specialDates,
-		SweYearlyParams:    ibbs,
-		CurrentCurrency:    cur,
-		Currencies:         currency.SupportedCurrencies(),
-		ForecastConfidence: forecastConfidence,
-		ForecastSamples:    forecastSamples,
+		AccountTypes:             accountTypes,
+		Categories:               categories,
+		SpecialDates:             specialDates,
+		SweYearlyParams:          ibbs,
+		CurrentCurrency:          cur,
+		Currencies:               currency.SupportedCurrencies(),
+		ForecastConfidence:       forecastConfidence,
+		ForecastSamples:          forecastSamples,
+		ForecastSnapshotInterval: forecastSnapshotInterval,
 	}, nil
 }
 
