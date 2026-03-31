@@ -33,14 +33,6 @@
         return neg ? '-' + out : out;
     }
 
-    function lightenColor(hex) {
-        if (!hex || hex.length < 7) return 'rgba(100, 100, 100, 0.2)';
-        var r = parseInt(hex.slice(1, 3), 16);
-        var g = parseInt(hex.slice(3, 5), 16);
-        var b = parseInt(hex.slice(5, 7), 16);
-        return 'rgba(' + r + ', ' + g + ', ' + b + ', 0.2)';
-    }
-
     var dom = document.getElementById('dashboard-forecast-chart');
     if (!dom) return;
 
@@ -86,50 +78,18 @@
             lineStyle: { color: color },
             itemStyle: { color: color }
         };
-        series[e.id + '_min'] = {
-            id: e.id + '_min',
-            name: e.name + ' min',
-            type: 'line',
-            data: [],
-            lineStyle: { opacity: 0 },
-            stack: e.id + '-confidence-band',
-            symbol: 'none',
-            showSymbol: false,
-            smooth: false,
-            group: e.name,
-            tooltip: { show: false },
-            label: { show: false }
-        };
-        series[e.id + '_max'] = {
-            id: e.id + '_max',
-            name: e.name + ' max',
-            type: 'line',
-            data: [],
-            lineStyle: { opacity: 0 },
-            stack: e.id + '-confidence-band',
-            showSymbol: false,
-            smooth: false,
-            group: e.name,
-            areaStyle: { color: lightenColor(color) },
-            tooltip: { show: false },
-            label: { show: false }
-        };
         legendData.push({ name: e.name });
     }
 
     function addSnapshotFromEntity(s, entityId) {
         if (!series[entityId]) return;
         series[entityId].data.push([s.day, s.balance]);
-        series[entityId + '_min'].data.push([s.day, s.lowerBound]);
-        series[entityId + '_max'].data.push([s.day, s.upperBound - s.lowerBound]);
     }
 
     function addSnapshotFromSSE(s) {
         var id = s.AccountTypeID;
         if (!series[id]) return;
         series[id].data.push([s.Date, s.Median]);
-        series[id + '_min'].data.push([s.Date, s.LowerBound]);
-        series[id + '_max'].data.push([s.Date, s.UpperBound - s.LowerBound]);
     }
 
     function buildFilteredSeries() {

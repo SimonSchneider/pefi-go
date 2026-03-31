@@ -93,14 +93,6 @@ type ForecastDashboardData struct {
 }
 
 func (s *Service) GetForecastCacheForDashboard(ctx context.Context) (*ForecastDashboardData, error) {
-	rows, err := s.ListForecastCache(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if len(rows) == 0 {
-		return nil, nil
-	}
-
 	accountTypes, err := s.ListAccountTypes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing account types: %w", err)
@@ -110,30 +102,58 @@ func (s *Service) GetForecastCacheForDashboard(ctx context.Context) (*ForecastDa
 		typesByID[at.ID] = at
 	}
 
-	// Group rows by account type
-	entitiesByID := make(map[string]*PredictionFinancialEntity)
+	// Build entities from historic snapshot data
+	history, err := s.buildSnapshotHistoryChart(ctx, accountTypes)
+	if err != nil {
+		return nil, fmt.Errorf("building snapshot history: %w", err)
+	}
+	entitiesByName := make(map[string]*PredictionFinancialEntity)
+	for _, series := range history.Series {
+		entity := &PredictionFinancialEntity{
+			Name:  series.Name,
+			Color: series.Color,
+		}
+		for i, dateStr := range history.Dates {
+			d, err := date.ParseDate(dateStr)
+			if err != nil {
+				continue
+			}
+			entity.Snapshots = append(entity.Snapshots, PredictionBalanceSnapshot{
+				Day:     int64(d),
+				Balance: series.Data[i],
+			})
+		}
+		entitiesByName[series.Name] = entity
+	}
+
+	// Append forecast cache rows
+	rows, err := s.ListForecastCache(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
-		entity, ok := entitiesByID[row.AccountTypeID]
+		at := typesByID[row.AccountTypeID]
+		entity, ok := entitiesByName[at.Name]
 		if !ok {
-			at := typesByID[row.AccountTypeID]
 			entity = &PredictionFinancialEntity{
 				ID:    row.AccountTypeID,
 				Name:  at.Name,
 				Color: at.Color,
 			}
-			entitiesByID[row.AccountTypeID] = entity
+			entitiesByName[at.Name] = entity
+		}
+		if entity.ID == "" {
+			entity.ID = row.AccountTypeID
 		}
 		entity.Snapshots = append(entity.Snapshots, PredictionBalanceSnapshot{
-			ID:         row.AccountTypeID,
-			Day:        row.Date,
-			Balance:    row.Median,
-			LowerBound: row.LowerBound,
-			UpperBound: row.UpperBound,
+			ID:      row.AccountTypeID,
+			Day:     row.Date,
+			Balance: row.Median,
 		})
 	}
 
-	entities := make([]PredictionFinancialEntity, 0, len(entitiesByID))
-	for _, e := range entitiesByID {
+	entities := make([]PredictionFinancialEntity, 0, len(entitiesByName))
+	for _, e := range entitiesByName {
 		entities = append(entities, *e)
 	}
 
