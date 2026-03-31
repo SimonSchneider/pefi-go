@@ -1122,6 +1122,14 @@ func (h *Handler) dashboardForecastStream() http.Handler {
 					if err := sse.SendNamedJson("snapshot", evt.Snapshot); err != nil {
 						return err
 					}
+				case model.ForecastEventReset:
+					if err := sse.SendEventWithoutData("reset"); err != nil {
+						return err
+					}
+				case model.ForecastEventStatus:
+					if err := sse.SendNamedJson("status", map[string]string{"status": "running"}); err != nil {
+						return err
+					}
 				case model.ForecastEventDone:
 					if err := sse.SendNamedJson("status", map[string]string{"status": "idle"}); err != nil {
 						return err

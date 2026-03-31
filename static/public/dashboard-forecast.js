@@ -203,6 +203,13 @@
         updateChart();
     });
 
+    evtSource.addEventListener('reset', function() {
+        Object.keys(series).forEach(function(key) {
+            series[key].data = [];
+        });
+        updateChart();
+    });
+
     evtSource.addEventListener('snapshot', function(event) {
         var s = JSON.parse(event.data);
         addSnapshotFromSSE(s);

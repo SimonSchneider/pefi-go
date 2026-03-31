@@ -11,6 +11,7 @@ type ForecastEventType string
 const (
 	ForecastEventSnapshot ForecastEventType = "snapshot"
 	ForecastEventDone     ForecastEventType = "done"
+	ForecastEventReset    ForecastEventType = "reset"
 	ForecastEventStatus   ForecastEventType = "status"
 )
 
@@ -35,6 +36,8 @@ type ForecastRunner struct {
 	timer    *time.Timer
 	cancelFn context.CancelFunc
 	stopped  bool
+
+	runMu sync.Mutex // serializes runs so only one executes at a time
 
 	runningMu sync.RWMutex
 	running   bool
@@ -80,9 +83,21 @@ func (r *ForecastRunner) startRun() {
 	r.cancelFn = cancel
 	r.mu.Unlock()
 
+	// Serialize runs — wait for any previous run to finish
+	r.runMu.Lock()
+	defer r.runMu.Unlock()
+
+	// Check cancellation after acquiring the lock (a newer invalidation may have fired)
+	if ctx.Err() != nil {
+		return
+	}
+
 	r.runningMu.Lock()
 	r.running = true
 	r.runningMu.Unlock()
+
+	r.Broadcast(ForecastEvent{Type: ForecastEventStatus})
+	r.Broadcast(ForecastEvent{Type: ForecastEventReset})
 
 	r.runFn(ctx)
 

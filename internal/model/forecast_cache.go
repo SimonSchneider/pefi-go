@@ -68,6 +68,7 @@ func (s *Service) RunForecastCache(ctx context.Context) error {
 	}
 
 	handler := &forecastCacheEventHandler{
+		ctx:    ctx,
 		q:      s.q,
 		runner: s.forecastRunner,
 	}
@@ -136,7 +137,10 @@ func (s *Service) GetForecastCacheForDashboard(ctx context.Context) (*ForecastDa
 		return nil, err
 	}
 	for _, row := range rows {
-		at := typesByID[row.AccountTypeID]
+		at, exists := typesByID[row.AccountTypeID]
+		if !exists {
+			continue
+		}
 		entity, ok := entitiesByName[at.Name]
 		if !ok {
 			entity = &PredictionFinancialEntity{
@@ -200,7 +204,7 @@ func (h *forecastCacheEventHandler) Snapshot(snap PredictionBalanceSnapshot) err
 		LowerBound:    snap.LowerBound,
 		UpperBound:    snap.UpperBound,
 	}
-	if err := h.q.InsertForecastCache(context.Background(), pdb.InsertForecastCacheParams{
+	if err := h.q.InsertForecastCache(h.ctx, pdb.InsertForecastCacheParams{
 		Date:          row.Date,
 		AccountTypeID: row.AccountTypeID,
 		Median:        row.Median,
